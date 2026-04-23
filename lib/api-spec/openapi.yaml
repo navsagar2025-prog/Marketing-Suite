@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SEO & Marketing Hub API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: websites
+    description: Website portfolio management
+  - name: keywords
+    description: SEO keyword tracking
+  - name: social-posts
+    description: Social media posts management
+  - name: campaigns
+    description: Campaign management
+  - name: backlinks
+    description: Backlink opportunity tracking
+  - name: leads
+    description: Lead generation tracking
+  - name: analytics
+    description: Analytics and dashboard aggregates
+  - name: ai
+    description: AI-powered content generation
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,675 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── Websites ────────────────────────────────────────────────────────────────
+  /websites:
+    get:
+      operationId: listWebsites
+      tags: [websites]
+      summary: List all websites
+      responses:
+        "200":
+          description: List of websites
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Website"
+    post:
+      operationId: createWebsite
+      tags: [websites]
+      summary: Create a website
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebsiteBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Website"
+
+  /websites/{id}:
+    get:
+      operationId: getWebsite
+      tags: [websites]
+      summary: Get a website
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Website
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Website"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateWebsite
+      tags: [websites]
+      summary: Update a website
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWebsiteBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Website"
+    delete:
+      operationId: deleteWebsite
+      tags: [websites]
+      summary: Delete a website
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Keywords ─────────────────────────────────────────────────────────────────
+  /keywords:
+    get:
+      operationId: listKeywords
+      tags: [keywords]
+      summary: List keywords, optionally filtered by website
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of keywords
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Keyword"
+    post:
+      operationId: createKeyword
+      tags: [keywords]
+      summary: Add a tracked keyword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateKeywordBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Keyword"
+
+  /keywords/{id}:
+    patch:
+      operationId: updateKeyword
+      tags: [keywords]
+      summary: Update a keyword entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateKeywordBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Keyword"
+    delete:
+      operationId: deleteKeyword
+      tags: [keywords]
+      summary: Delete a keyword
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Social Posts ─────────────────────────────────────────────────────────────
+  /social-posts:
+    get:
+      operationId: listSocialPosts
+      tags: [social-posts]
+      summary: List social posts
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of social posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SocialPost"
+    post:
+      operationId: createSocialPost
+      tags: [social-posts]
+      summary: Create a social post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSocialPostBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialPost"
+
+  /social-posts/{id}:
+    patch:
+      operationId: updateSocialPost
+      tags: [social-posts]
+      summary: Update a social post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSocialPostBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialPost"
+    delete:
+      operationId: deleteSocialPost
+      tags: [social-posts]
+      summary: Delete a social post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Campaigns ────────────────────────────────────────────────────────────────
+  /campaigns:
+    get:
+      operationId: listCampaigns
+      tags: [campaigns]
+      summary: List campaigns
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of campaigns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Campaign"
+    post:
+      operationId: createCampaign
+      tags: [campaigns]
+      summary: Create a campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCampaignBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /campaigns/{id}:
+    get:
+      operationId: getCampaign
+      tags: [campaigns]
+      summary: Get a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+    patch:
+      operationId: updateCampaign
+      tags: [campaigns]
+      summary: Update a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCampaignBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+    delete:
+      operationId: deleteCampaign
+      tags: [campaigns]
+      summary: Delete a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Backlinks ────────────────────────────────────────────────────────────────
+  /backlinks:
+    get:
+      operationId: listBacklinks
+      tags: [backlinks]
+      summary: List backlink opportunities
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of backlink opportunities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Backlink"
+    post:
+      operationId: createBacklink
+      tags: [backlinks]
+      summary: Add a backlink opportunity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBacklinkBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backlink"
+
+  /backlinks/{id}:
+    patch:
+      operationId: updateBacklink
+      tags: [backlinks]
+      summary: Update a backlink opportunity
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBacklinkBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backlink"
+    delete:
+      operationId: deleteBacklink
+      tags: [backlinks]
+      summary: Delete a backlink
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Leads ────────────────────────────────────────────────────────────────────
+  /leads:
+    get:
+      operationId: listLeads
+      tags: [leads]
+      summary: List leads
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+        - name: campaignId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of leads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lead"
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Create a lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+
+  /leads/{id}:
+    patch:
+      operationId: updateLead
+      tags: [leads]
+      summary: Update a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+    delete:
+      operationId: deleteLead
+      tags: [leads]
+      summary: Delete a lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Analytics / Dashboard ────────────────────────────────────────────────────
+  /analytics/summary:
+    get:
+      operationId: getAnalyticsSummary
+      tags: [analytics]
+      summary: Overall dashboard summary counts
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSummary"
+
+  /analytics/website/{id}:
+    get:
+      operationId: getWebsiteAnalytics
+      tags: [analytics]
+      summary: Per-website analytics breakdown
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Website analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebsiteAnalytics"
+
+  /analytics/campaigns:
+    get:
+      operationId: getCampaignAnalytics
+      tags: [analytics]
+      summary: Campaign performance overview
+      responses:
+        "200":
+          description: Campaign analytics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampaignAnalytics"
+
+  /analytics/leads-funnel:
+    get:
+      operationId: getLeadsFunnel
+      tags: [analytics]
+      summary: Lead conversion funnel data
+      responses:
+        "200":
+          description: Leads funnel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadsFunnel"
+
+  # ─── AI Generation ────────────────────────────────────────────────────────────
+  /ai/suggest-keywords:
+    post:
+      operationId: suggestKeywords
+      tags: [ai]
+      summary: AI keyword suggestions for a website/niche
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestKeywordsBody"
+      responses:
+        "200":
+          description: Keyword suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeywordSuggestions"
+
+  /ai/generate-post:
+    post:
+      operationId: generateSocialPost
+      tags: [ai]
+      summary: AI social media post generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GeneratePostBody"
+      responses:
+        "200":
+          description: Generated post content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedContent"
+
+  /ai/generate-meta:
+    post:
+      operationId: generateMetaTags
+      tags: [ai]
+      summary: AI meta title and description generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateMetaBody"
+      responses:
+        "200":
+          description: Generated meta tags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedMeta"
+
+  /ai/generate-campaign-copy:
+    post:
+      operationId: generateCampaignCopy
+      tags: [ai]
+      summary: AI promotional and ad copy generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateCampaignCopyBody"
+      responses:
+        "200":
+          description: Generated campaign copy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedContent"
+
+  /ai/generate-seo-brief:
+    post:
+      operationId: generateSeoBrief
+      tags: [ai]
+      summary: AI SEO content brief for a target keyword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateSeoBriefBody"
+      responses:
+        "200":
+          description: Generated SEO brief
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeneratedContent"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +719,761 @@ components:
       required:
         - status
 
+    # ─── Website ─────────────────────────────────────────────────────────────
+    Website:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        url:
+          type: string
+        niche:
+          type: string
+        seoScore:
+          type: ["integer", "null"]
+        status:
+          type: string
+          description: active | inactive
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - url
+        - niche
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateWebsiteBody:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+        niche:
+          type: string
+        seoScore:
+          type: ["integer", "null"]
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+      required:
+        - name
+        - url
+        - niche
+        - status
+
+    UpdateWebsiteBody:
+      type: object
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+        niche:
+          type: string
+        seoScore:
+          type: ["integer", "null"]
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    # ─── Keyword ─────────────────────────────────────────────────────────────
+    Keyword:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        keyword:
+          type: string
+        currentRank:
+          type: ["integer", "null"]
+        searchVolume:
+          type: ["integer", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        status:
+          type: string
+          description: tracking | paused
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - keyword
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateKeywordBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        keyword:
+          type: string
+        currentRank:
+          type: ["integer", "null"]
+        searchVolume:
+          type: ["integer", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+      required:
+        - websiteId
+        - keyword
+        - status
+
+    UpdateKeywordBody:
+      type: object
+      properties:
+        keyword:
+          type: string
+        currentRank:
+          type: ["integer", "null"]
+        searchVolume:
+          type: ["integer", "null"]
+        difficulty:
+          type: ["integer", "null"]
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    # ─── SocialPost ───────────────────────────────────────────────────────────
+    SocialPost:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        platform:
+          type: string
+          description: facebook | instagram | twitter | linkedin | youtube
+        content:
+          type: string
+        status:
+          type: string
+          description: draft | scheduled | published
+        scheduledAt:
+          type: ["string", "null"]
+          format: date-time
+        publishedAt:
+          type: ["string", "null"]
+          format: date-time
+        mediaUrl:
+          type: ["string", "null"]
+        campaignId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - platform
+        - content
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateSocialPostBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        platform:
+          type: string
+        content:
+          type: string
+        status:
+          type: string
+        scheduledAt:
+          type: ["string", "null"]
+        mediaUrl:
+          type: ["string", "null"]
+        campaignId:
+          type: ["integer", "null"]
+      required:
+        - websiteId
+        - platform
+        - content
+        - status
+
+    UpdateSocialPostBody:
+      type: object
+      properties:
+        platform:
+          type: string
+        content:
+          type: string
+        status:
+          type: string
+        scheduledAt:
+          type: ["string", "null"]
+        publishedAt:
+          type: ["string", "null"]
+        mediaUrl:
+          type: ["string", "null"]
+        campaignId:
+          type: ["integer", "null"]
+
+    # ─── Campaign ─────────────────────────────────────────────────────────────
+    Campaign:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          description: organic | paid | email | social
+        goal:
+          type: string
+        budget:
+          type: ["number", "null"]
+        status:
+          type: string
+          description: planning | active | paused | completed
+        startDate:
+          type: ["string", "null"]
+          format: date-time
+        endDate:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+        impressions:
+          type: ["integer", "null"]
+        clicks:
+          type: ["integer", "null"]
+        conversions:
+          type: ["integer", "null"]
+        spend:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - name
+        - type
+        - goal
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateCampaignBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        goal:
+          type: string
+        budget:
+          type: ["number", "null"]
+        status:
+          type: string
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        impressions:
+          type: ["integer", "null"]
+        clicks:
+          type: ["integer", "null"]
+        conversions:
+          type: ["integer", "null"]
+        spend:
+          type: ["number", "null"]
+      required:
+        - websiteId
+        - name
+        - type
+        - goal
+        - status
+
+    UpdateCampaignBody:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        goal:
+          type: string
+        budget:
+          type: ["number", "null"]
+        status:
+          type: string
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        impressions:
+          type: ["integer", "null"]
+        clicks:
+          type: ["integer", "null"]
+        conversions:
+          type: ["integer", "null"]
+        spend:
+          type: ["number", "null"]
+
+    # ─── Backlink ─────────────────────────────────────────────────────────────
+    Backlink:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        prospectUrl:
+          type: string
+        prospectDomain:
+          type: string
+        contactEmail:
+          type: ["string", "null"]
+        status:
+          type: string
+          description: not_contacted | contacted | responded | link_secured | rejected
+        domainAuthority:
+          type: ["integer", "null"]
+        type:
+          type: string
+          description: guest_post | directory | resource | social | forum | other
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - prospectUrl
+        - prospectDomain
+        - status
+        - type
+        - createdAt
+        - updatedAt
+
+    CreateBacklinkBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        prospectUrl:
+          type: string
+        prospectDomain:
+          type: string
+        contactEmail:
+          type: ["string", "null"]
+        status:
+          type: string
+        domainAuthority:
+          type: ["integer", "null"]
+        type:
+          type: string
+        notes:
+          type: ["string", "null"]
+      required:
+        - websiteId
+        - prospectUrl
+        - prospectDomain
+        - status
+        - type
+
+    UpdateBacklinkBody:
+      type: object
+      properties:
+        prospectUrl:
+          type: string
+        prospectDomain:
+          type: string
+        contactEmail:
+          type: ["string", "null"]
+        status:
+          type: string
+        domainAuthority:
+          type: ["integer", "null"]
+        type:
+          type: string
+        notes:
+          type: ["string", "null"]
+
+    # ─── Lead ─────────────────────────────────────────────────────────────────
+    Lead:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        campaignId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        source:
+          type: string
+          description: organic | paid | social | direct | referral
+        status:
+          type: string
+          description: new | contacted | qualified | converted | lost
+        notes:
+          type: ["string", "null"]
+        value:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - name
+        - source
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateLeadBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        campaignId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        source:
+          type: string
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+        value:
+          type: ["number", "null"]
+      required:
+        - websiteId
+        - name
+        - source
+        - status
+
+    UpdateLeadBody:
+      type: object
+      properties:
+        campaignId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        source:
+          type: string
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+        value:
+          type: ["number", "null"]
+
+    # ─── Analytics ────────────────────────────────────────────────────────────
+    AnalyticsSummary:
+      type: object
+      properties:
+        totalWebsites:
+          type: integer
+        totalKeywords:
+          type: integer
+        totalLeads:
+          type: integer
+        totalCampaigns:
+          type: integer
+        activeCampaigns:
+          type: integer
+        totalBacklinks:
+          type: integer
+        securedBacklinks:
+          type: integer
+        scheduledPosts:
+          type: integer
+        convertedLeads:
+          type: integer
+        avgSeoScore:
+          type: ["number", "null"]
+      required:
+        - totalWebsites
+        - totalKeywords
+        - totalLeads
+        - totalCampaigns
+        - activeCampaigns
+        - totalBacklinks
+        - securedBacklinks
+        - scheduledPosts
+        - convertedLeads
+
+    WebsiteAnalytics:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        name:
+          type: string
+        url:
+          type: string
+        seoScore:
+          type: ["integer", "null"]
+        keywordsTracked:
+          type: integer
+        topRankKeywords:
+          type: integer
+        activeCampaigns:
+          type: integer
+        totalLeads:
+          type: integer
+        convertedLeads:
+          type: integer
+        scheduledPosts:
+          type: integer
+        backlinkOpportunities:
+          type: integer
+        securedBacklinks:
+          type: integer
+      required:
+        - websiteId
+        - name
+        - url
+        - keywordsTracked
+        - topRankKeywords
+        - activeCampaigns
+        - totalLeads
+        - convertedLeads
+        - scheduledPosts
+        - backlinkOpportunities
+        - securedBacklinks
+
+    CampaignAnalytics:
+      type: object
+      properties:
+        campaignId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        budget:
+          type: ["number", "null"]
+        spend:
+          type: ["number", "null"]
+        impressions:
+          type: ["integer", "null"]
+        clicks:
+          type: ["integer", "null"]
+        conversions:
+          type: ["integer", "null"]
+        leads:
+          type: integer
+        ctr:
+          type: ["number", "null"]
+        conversionRate:
+          type: ["number", "null"]
+      required:
+        - campaignId
+        - name
+        - type
+        - status
+        - leads
+
+    LeadsFunnel:
+      type: object
+      properties:
+        newLeads:
+          type: integer
+        contacted:
+          type: integer
+        qualified:
+          type: integer
+        converted:
+          type: integer
+        lost:
+          type: integer
+        totalValue:
+          type: ["number", "null"]
+      required:
+        - newLeads
+        - contacted
+        - qualified
+        - converted
+        - lost
+
+    # ─── AI ──────────────────────────────────────────────────────────────────
+    SuggestKeywordsBody:
+      type: object
+      properties:
+        niche:
+          type: string
+        websiteUrl:
+          type: ["string", "null"]
+        seedKeyword:
+          type: ["string", "null"]
+      required:
+        - niche
+
+    KeywordSuggestions:
+      type: object
+      properties:
+        keywords:
+          type: array
+          items:
+            type: object
+            properties:
+              keyword:
+                type: string
+              intent:
+                type: string
+              estimatedDifficulty:
+                type: string
+              notes:
+                type: string
+            required:
+              - keyword
+              - intent
+              - estimatedDifficulty
+              - notes
+      required:
+        - keywords
+
+    GeneratePostBody:
+      type: object
+      properties:
+        platform:
+          type: string
+        topic:
+          type: string
+        niche:
+          type: ["string", "null"]
+        tone:
+          type: ["string", "null"]
+      required:
+        - platform
+        - topic
+
+    GeneratedContent:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+
+    GenerateMetaBody:
+      type: object
+      properties:
+        pageUrl:
+          type: string
+        pageTitle:
+          type: ["string", "null"]
+        targetKeyword:
+          type: ["string", "null"]
+        niche:
+          type: ["string", "null"]
+      required:
+        - pageUrl
+
+    GeneratedMeta:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+      required:
+        - title
+        - description
+
+    GenerateCampaignCopyBody:
+      type: object
+      properties:
+        campaignGoal:
+          type: string
+        product:
+          type: string
+        targetAudience:
+          type: ["string", "null"]
+        tone:
+          type: ["string", "null"]
+        platform:
+          type: ["string", "null"]
+      required:
+        - campaignGoal
+        - product
+
+    GenerateSeoBriefBody:
+      type: object
+      properties:
+        keyword:
+          type: string
+        niche:
+          type: ["string", "null"]
+        websiteUrl:
+          type: ["string", "null"]
+      required:
+        - keyword

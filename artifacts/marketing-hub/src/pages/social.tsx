@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Plus, Sparkles, Trash2, Calendar, MessageSquare } from "lucide-react";
+import { Plus, Sparkles, Trash2, Calendar, MessageSquare, ImageIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Camera, Twitter, Briefcase, Youtube } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,8 @@ import {
   useListWebsites,
   getListSocialPostsQueryKey,
 } from "@workspace/api-client-react";
+import type { MediaAsset } from "@workspace/api-client-react";
+import { AiMediaDialog } from "@/components/AiMediaDialog";
 
 const PLATFORMS = [
   { value: "facebook", label: "Facebook", Icon: MessageCircle },
@@ -63,6 +65,7 @@ const statusColor = (status: string) => {
 export default function Social() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiMediaOpen, setAiMediaOpen] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [aiPlatform, setAiPlatform] = useState("instagram");
   const [aiResult, setAiResult] = useState("");
@@ -81,6 +84,8 @@ export default function Social() {
     resolver: zodResolver(createSchema),
     defaultValues: { platform: "instagram", status: "draft", content: "" },
   });
+
+  const formWebsiteId = form.watch("websiteId") ?? null;
 
   const onSubmit = (data: CreateForm) => {
     createMutation.mutate({ data: data as Parameters<typeof createMutation.mutate>[0]["data"] }, {
@@ -116,6 +121,9 @@ export default function Social() {
           <p className="text-sm text-muted-foreground mt-0.5">Manage posts across all platforms</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" data-testid="button-ai-generate-image" onClick={() => setAiMediaOpen(true)}>
+            <ImageIcon className="h-4 w-4 mr-1" /> Generate Media
+          </Button>
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" data-testid="button-ai-generate-post">
@@ -203,6 +211,29 @@ export default function Social() {
                       <FormMessage />
                     </FormItem>
                   )} />
+                  <FormField control={form.control} name="mediaUrl" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Media URL (optional)</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input {...field} data-testid="input-post-media-url" placeholder="https://... or generate above" value={field.value ?? ""} onChange={e => field.onChange(e.target.value || null)} />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => { setOpen(false); setAiMediaOpen(true); }}
+                        >
+                          <ImageIcon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {field.value && (
+                        <img src={field.value} alt="Preview" className="mt-1 rounded-md max-h-32 object-contain border" />
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <Button type="submit" data-testid="button-submit-post" className="w-full" disabled={createMutation.isPending}>
                     {createMutation.isPending ? "Creating..." : "Create Post"}
                   </Button>
@@ -264,6 +295,17 @@ export default function Social() {
           </TabsContent>
         ))}
       </Tabs>
+
+      <AiMediaDialog
+        open={aiMediaOpen}
+        websiteId={formWebsiteId ? Number(formWebsiteId) : null}
+        onOpenChange={setAiMediaOpen}
+        onSelect={(asset: MediaAsset) => {
+          form.setValue("mediaUrl", asset.url);
+          setAiMediaOpen(false);
+          setOpen(true);
+        }}
+      />
     </div>
   );
 }

@@ -26,6 +26,10 @@ tags:
     description: Analytics and dashboard aggregates
   - name: ai
     description: AI-powered content generation
+  - name: media-assets
+    description: Media asset library (AI-generated images and videos)
+  - name: settings
+    description: Application settings
 
 paths:
   /healthz:
@@ -708,6 +712,144 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GeneratedContent"
+
+  /ai/generate-image:
+    post:
+      operationId: generateAiImage
+      tags: [ai]
+      summary: Generate an AI image using Fal.ai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateImageBody"
+      responses:
+        "200":
+          description: Generated media asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+        "400":
+          description: Bad request
+        "503":
+          description: Fal.ai API key not configured
+
+  /ai/generate-video:
+    post:
+      operationId: generateAiVideo
+      tags: [ai]
+      summary: Generate an AI video using Fal.ai
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateVideoBody"
+      responses:
+        "200":
+          description: Generated media asset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+        "400":
+          description: Bad request
+        "503":
+          description: Fal.ai API key not configured
+
+  # ─── Media Assets ──────────────────────────────────────────────────────────
+  /media-assets:
+    get:
+      operationId: listMediaAssets
+      tags: [media-assets]
+      summary: List media assets
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+        - name: campaignId
+          in: query
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of media assets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MediaAsset"
+    post:
+      operationId: createMediaAsset
+      tags: [media-assets]
+      summary: Save a media asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMediaAssetBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaAsset"
+
+  /media-assets/{id}:
+    delete:
+      operationId: deleteMediaAsset
+      tags: [media-assets]
+      summary: Delete a media asset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Settings ──────────────────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get current app settings
+      responses:
+        "200":
+          description: App settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update app settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsBody"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
 
 components:
   schemas:
@@ -1477,3 +1619,102 @@ components:
           type: ["string", "null"]
       required:
         - keyword
+
+    # ─── AI Media Generation ──────────────────────────────────────────────────
+    GenerateImageBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+        aspectRatio:
+          type: string
+          description: "1:1, 16:9, 9:16, 4:3, 3:4"
+        websiteId:
+          type: ["integer", "null"]
+        campaignId:
+          type: ["integer", "null"]
+      required:
+        - prompt
+
+    GenerateVideoBody:
+      type: object
+      properties:
+        prompt:
+          type: string
+        aspectRatio:
+          type: string
+          description: "16:9, 9:16"
+        durationSeconds:
+          type: integer
+          enum: [5, 10]
+          description: "5 or 10 seconds"
+        websiteId:
+          type: ["integer", "null"]
+        campaignId:
+          type: ["integer", "null"]
+      required:
+        - prompt
+
+    # ─── Media Assets ─────────────────────────────────────────────────────────
+    MediaAsset:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        type:
+          type: string
+          description: image | video
+        prompt:
+          type: string
+        aspectRatio:
+          type: ["string", "null"]
+        websiteId:
+          type: ["integer", "null"]
+        campaignId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - type
+        - prompt
+        - createdAt
+
+    CreateMediaAssetBody:
+      type: object
+      properties:
+        url:
+          type: string
+        type:
+          type: string
+        prompt:
+          type: string
+        aspectRatio:
+          type: ["string", "null"]
+        websiteId:
+          type: ["integer", "null"]
+        campaignId:
+          type: ["integer", "null"]
+      required:
+        - url
+        - type
+        - prompt
+
+    # ─── Settings ─────────────────────────────────────────────────────────────
+    AppSettings:
+      type: object
+      properties:
+        falApiKeyConfigured:
+          type: boolean
+      required:
+        - falApiKeyConfigured
+
+    UpdateSettingsBody:
+      type: object
+      properties:
+        falApiKey:
+          type: ["string", "null"]

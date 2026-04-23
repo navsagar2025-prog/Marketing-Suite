@@ -37,15 +37,22 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET /api/analytics/website/:id` — Per-site analytics
 - `GET /api/analytics/campaigns` — Campaign performance
 - `GET /api/analytics/leads-funnel` — Leads funnel breakdown
-- `POST /api/ai/keywords` — AI keyword recommendations
-- `POST /api/ai/content-brief` — AI content brief generator
-- `POST /api/ai/meta-tags` — AI meta tag generator
-- `POST /api/ai/social-post` — AI social post generator
-- `POST /api/ai/ad-copy` — AI ad copy generator
+- `POST /api/ai/suggest-keywords` — AI keyword suggestions
+- `POST /api/ai/generate-post` — AI social post generator
+- `POST /api/ai/generate-meta` — AI meta tag generator
+- `POST /api/ai/generate-campaign-copy` — AI ad copy generator
+- `POST /api/ai/generate-seo-brief` — AI SEO content brief
+- `POST /api/ai/generate-image` — AI image generation (Fal.ai flux/schnell)
+- `POST /api/ai/generate-video` — AI video generation (Fal.ai kling-video v2.1)
+- `GET /api/media-assets` — List saved media assets (filter by websiteId/campaignId/type)
+- `POST /api/media-assets` — Save a media asset record
+- `DELETE /api/media-assets/:id` — Delete a media asset
+- `GET /api/settings` — Get app settings (falApiKeyConfigured boolean)
+- `PATCH /api/settings` — Update settings (set/remove falApiKey)
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`
+Tables: `websites`, `keywords`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`
 
 ## Important Notes
 

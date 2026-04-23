@@ -443,6 +443,75 @@ export interface GenerateSeoBriefBody {
   websiteUrl?: string | null;
 }
 
+export interface GenerateImageBody {
+  prompt: string;
+  /** 1:1, 16:9, 9:16, 4:3, 3:4 */
+  aspectRatio?: string;
+  /** @nullable */
+  websiteId?: number | null;
+  /** @nullable */
+  campaignId?: number | null;
+}
+
+/**
+ * 5 or 10 seconds
+ */
+export type GenerateVideoBodyDurationSeconds =
+  (typeof GenerateVideoBodyDurationSeconds)[keyof typeof GenerateVideoBodyDurationSeconds];
+
+export const GenerateVideoBodyDurationSeconds = {
+  NUMBER_5: 5,
+  NUMBER_10: 10,
+} as const;
+
+export interface GenerateVideoBody {
+  prompt: string;
+  /** 16:9, 9:16 */
+  aspectRatio?: string;
+  /** 5 or 10 seconds */
+  durationSeconds?: GenerateVideoBodyDurationSeconds;
+  /** @nullable */
+  websiteId?: number | null;
+  /** @nullable */
+  campaignId?: number | null;
+}
+
+export interface MediaAsset {
+  id: number;
+  url: string;
+  /** image | video */
+  type: string;
+  prompt: string;
+  /** @nullable */
+  aspectRatio?: string | null;
+  /** @nullable */
+  websiteId?: number | null;
+  /** @nullable */
+  campaignId?: number | null;
+  createdAt: string;
+}
+
+export interface CreateMediaAssetBody {
+  url: string;
+  type: string;
+  prompt: string;
+  /** @nullable */
+  aspectRatio?: string | null;
+  /** @nullable */
+  websiteId?: number | null;
+  /** @nullable */
+  campaignId?: number | null;
+}
+
+export interface AppSettings {
+  falApiKeyConfigured: boolean;
+}
+
+export interface UpdateSettingsBody {
+  /** @nullable */
+  falApiKey?: string | null;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };
@@ -467,4 +536,10 @@ export type ListLeadsParams = {
   websiteId?: number;
   campaignId?: number;
   status?: string;
+};
+
+export type ListMediaAssetsParams = {
+  websiteId?: number;
+  campaignId?: number;
+  type?: string;
 };

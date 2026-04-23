@@ -684,3 +684,107 @@ export const GenerateSeoBriefBody = zod.object({
 export const GenerateSeoBriefResponse = zod.object({
   content: zod.string(),
 });
+
+/**
+ * @summary Generate an AI image using Fal.ai
+ */
+export const GenerateAiImageBody = zod.object({
+  prompt: zod.string(),
+  aspectRatio: zod.string().optional().describe("1:1, 16:9, 9:16, 4:3, 3:4"),
+  websiteId: zod.number().nullish(),
+  campaignId: zod.number().nullish(),
+});
+
+export const GenerateAiImageResponse = zod.object({
+  id: zod.number(),
+  url: zod.string(),
+  type: zod.string().describe("image | video"),
+  prompt: zod.string(),
+  aspectRatio: zod.string().nullish(),
+  websiteId: zod.number().nullish(),
+  campaignId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Generate an AI video using Fal.ai
+ */
+export const GenerateAiVideoBody = zod.object({
+  prompt: zod.string(),
+  aspectRatio: zod.string().optional().describe("16:9, 9:16"),
+  durationSeconds: zod
+    .union([zod.literal(5), zod.literal(10)])
+    .optional()
+    .describe("5 or 10 seconds"),
+  websiteId: zod.number().nullish(),
+  campaignId: zod.number().nullish(),
+});
+
+export const GenerateAiVideoResponse = zod.object({
+  id: zod.number(),
+  url: zod.string(),
+  type: zod.string().describe("image | video"),
+  prompt: zod.string(),
+  aspectRatio: zod.string().nullish(),
+  websiteId: zod.number().nullish(),
+  campaignId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List media assets
+ */
+export const ListMediaAssetsQueryParams = zod.object({
+  websiteId: zod.coerce.number().optional(),
+  campaignId: zod.coerce.number().optional(),
+  type: zod.coerce.string().optional(),
+});
+
+export const ListMediaAssetsResponseItem = zod.object({
+  id: zod.number(),
+  url: zod.string(),
+  type: zod.string().describe("image | video"),
+  prompt: zod.string(),
+  aspectRatio: zod.string().nullish(),
+  websiteId: zod.number().nullish(),
+  campaignId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListMediaAssetsResponse = zod.array(ListMediaAssetsResponseItem);
+
+/**
+ * @summary Save a media asset
+ */
+export const CreateMediaAssetBody = zod.object({
+  url: zod.string(),
+  type: zod.string(),
+  prompt: zod.string(),
+  aspectRatio: zod.string().nullish(),
+  websiteId: zod.number().nullish(),
+  campaignId: zod.number().nullish(),
+});
+
+/**
+ * @summary Delete a media asset
+ */
+export const DeleteMediaAssetParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get current app settings
+ */
+export const GetSettingsResponse = zod.object({
+  falApiKeyConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Update app settings
+ */
+export const UpdateSettingsBody = zod.object({
+  falApiKey: zod.string().nullish(),
+});
+
+export const UpdateSettingsResponse = zod.object({
+  falApiKeyConfigured: zod.boolean(),
+});

@@ -13,6 +13,8 @@ import Backlinks from "@/pages/backlinks";
 import Leads from "@/pages/leads";
 import Analytics from "@/pages/analytics";
 import AiTools from "@/pages/ai-tools";
+import MediaAssets from "@/pages/media-assets";
+import SettingsPage from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -38,6 +40,8 @@ function Router() {
         <Route path="/leads" component={Leads} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/ai" component={AiTools} />
+        <Route path="/media" component={MediaAssets} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

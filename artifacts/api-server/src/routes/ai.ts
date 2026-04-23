@@ -11,9 +11,64 @@ import {
   GenerateCampaignCopyResponse,
   GenerateSeoBriefBody,
   GenerateSeoBriefResponse,
+  GenerateAiImageBody,
+  GenerateAiVideoBody,
 } from "@workspace/api-zod";
+import { db } from "@workspace/db";
+import { mediaAssetsTable } from "@workspace/db/schema";
+import { getSetting } from "./settings.js";
 
 const router: IRouter = Router();
+
+const FAL_IMAGE_MODEL = "fal-ai/flux/schnell";
+const FAL_VIDEO_MODEL = "fal-ai/kling-video/v2.1/standard/text-to-video";
+
+function toFalImageSize(aspectRatio?: string | null): string {
+  switch (aspectRatio) {
+    case "16:9": return "landscape_16_9";
+    case "9:16": return "portrait_16_9";
+    case "4:3": return "landscape_4_3";
+    case "3:4": return "portrait_4_3";
+    default: return "square_hd";
+  }
+}
+
+async function callFalQueue(model: string, apiKey: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const submitRes = await fetch(`https://queue.fal.run/${model}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Key ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!submitRes.ok) {
+    const text = await submitRes.text();
+    throw new Error(`Fal.ai submit failed: ${submitRes.status} ${text}`);
+  }
+
+  const { request_id } = (await submitRes.json()) as { request_id: string };
+
+  for (let i = 0; i < 60; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const statusRes = await fetch(`https://queue.fal.run/${model}/requests/${request_id}/status`, {
+      headers: { "Authorization": `Key ${apiKey}` },
+    });
+    if (!statusRes.ok) continue;
+    const status = (await statusRes.json()) as { status: string };
+    if (status.status === "COMPLETED") {
+      const resultRes = await fetch(`https://queue.fal.run/${model}/requests/${request_id}`, {
+        headers: { "Authorization": `Key ${apiKey}` },
+      });
+      return (await resultRes.json()) as Record<string, unknown>;
+    }
+    if (status.status === "FAILED") {
+      throw new Error("Fal.ai generation failed");
+    }
+  }
+  throw new Error("Fal.ai generation timed out");
+}
 
 router.post("/ai/suggest-keywords", async (req, res): Promise<void> => {
   const parsed = SuggestKeywordsBody.safeParse(req.body);
@@ -149,6 +204,95 @@ Format it clearly with sections.`;
     messages: [{ role: "user", content: prompt }],
   });
   res.json(GenerateSeoBriefResponse.parse({ content: response.choices[0]?.message?.content ?? "" }));
+});
+
+router.post("/ai/generate-image", async (req, res): Promise<void> => {
+  const parsed = GenerateAiImageBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const apiKey = await getSetting("fal_api_key");
+  if (!apiKey) {
+    res.status(503).json({ error: "Fal.ai API key not configured. Please add it in Settings." });
+    return;
+  }
+
+  const { prompt, aspectRatio, websiteId, campaignId } = parsed.data;
+  const imageSize = toFalImageSize(aspectRatio);
+
+  try {
+    const result = await callFalQueue(FAL_IMAGE_MODEL, apiKey, {
+      prompt,
+      image_size: imageSize,
+      num_inference_steps: 4,
+      num_images: 1,
+      enable_safety_checker: true,
+    });
+
+    const images = result.images as Array<{ url: string }>;
+    const url = images?.[0]?.url;
+    if (!url) throw new Error("No image URL in response");
+
+    const [asset] = await db.insert(mediaAssetsTable).values({
+      url,
+      type: "image",
+      prompt,
+      aspectRatio: aspectRatio ?? null,
+      websiteId: websiteId ?? null,
+      campaignId: campaignId ?? null,
+    }).returning();
+
+    res.json(asset);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Image generation failed";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.post("/ai/generate-video", async (req, res): Promise<void> => {
+  const parsed = GenerateAiVideoBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const apiKey = await getSetting("fal_api_key");
+  if (!apiKey) {
+    res.status(503).json({ error: "Fal.ai API key not configured. Please add it in Settings." });
+    return;
+  }
+
+  const { prompt, aspectRatio, durationSeconds, websiteId, campaignId } = parsed.data;
+  const aspect = aspectRatio === "9:16" ? "9:16" : "16:9";
+  const duration = durationSeconds && [5, 10].includes(durationSeconds) ? String(durationSeconds) : "5";
+
+  try {
+    const result = await callFalQueue(FAL_VIDEO_MODEL, apiKey, {
+      prompt,
+      aspect_ratio: aspect,
+      duration,
+    });
+
+    const video = result.video as { url: string };
+    const url = video?.url;
+    if (!url) throw new Error("No video URL in response");
+
+    const [asset] = await db.insert(mediaAssetsTable).values({
+      url,
+      type: "video",
+      prompt,
+      aspectRatio: aspect,
+      websiteId: websiteId ?? null,
+      campaignId: campaignId ?? null,
+    }).returning();
+
+    res.json(asset);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Video generation failed";
+    res.status(500).json({ error: message });
+  }
 });
 
 export default router;

@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Plus, Megaphone, Sparkles, Trash2, Search } from "lucide-react";
+import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   useListWebsites,
   getListCampaignsQueryKey,
 } from "@workspace/api-client-react";
+import { AiMediaDialog } from "@/components/AiMediaDialog";
 
 const createSchema = z.object({
   websiteId: z.coerce.number().min(1, "Website is required"),
@@ -50,9 +51,13 @@ const typeColor: Record<string, string> = {
   social: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
 };
 
+interface CampaignContext { id: number; websiteId: number | null }
+
 export default function Campaigns() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiMediaOpen, setAiMediaOpen] = useState(false);
+  const [mediaCampaignCtx, setMediaCampaignCtx] = useState<CampaignContext | null>(null);
   const [search, setSearch] = useState("");
   const [aiGoal, setAiGoal] = useState("");
   const [aiProduct, setAiProduct] = useState("");
@@ -109,6 +114,9 @@ export default function Campaigns() {
           <p className="text-sm text-muted-foreground mt-0.5">Manage and track all marketing campaigns</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" data-testid="button-ai-generate-image" onClick={() => setAiMediaOpen(true)}>
+            <ImageIcon className="h-4 w-4 mr-1" /> Generate Media
+          </Button>
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" data-testid="button-ai-campaign-copy">
@@ -257,15 +265,40 @@ export default function Campaigns() {
                       {c.conversions && <span>Conversions: <span className="font-medium text-foreground">{c.conversions.toLocaleString()}</span></span>}
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0" data-testid={`button-delete-campaign-${c.id}`} onClick={() => handleDelete(c.id, c.name)} disabled={deleteMutation.isPending}>
-                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 opacity-0 group-hover:opacity-100 text-xs"
+                      data-testid={`button-generate-media-campaign-${c.id}`}
+                      onClick={() => { setMediaCampaignCtx({ id: c.id, websiteId: c.websiteId ?? null }); setAiMediaOpen(true); }}
+                    >
+                      <ImageIcon className="h-3.5 w-3.5 mr-1" /> Media
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" data-testid={`button-delete-campaign-${c.id}`} onClick={() => handleDelete(c.id, c.name)} disabled={deleteMutation.isPending}>
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <AiMediaDialog
+        open={aiMediaOpen}
+        onOpenChange={(v) => { setAiMediaOpen(v); if (!v) setMediaCampaignCtx(null); }}
+        campaignId={mediaCampaignCtx?.id ?? null}
+        websiteId={mediaCampaignCtx?.websiteId ?? null}
+        onSelect={() => {
+          const campaign = filtered.find(c => c.id === mediaCampaignCtx?.id);
+          toast({
+            title: "Media attached to campaign",
+            description: campaign ? `Saved to "${campaign.name}" — view in Media Library.` : "Media saved to campaign.",
+          });
+        }}
+      />
     </div>
   );
 }

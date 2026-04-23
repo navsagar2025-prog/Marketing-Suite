@@ -10,6 +10,8 @@ import {
   Users,
   BarChart3,
   Sparkles,
+  ImageIcon,
+  Settings,
   Sun,
   Moon,
   Menu,
@@ -29,6 +31,8 @@ const navItems = [
   { path: "/leads", label: "Leads", icon: Users },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/ai", label: "AI Tools", icon: Sparkles },
+  { path: "/media", label: "Media Library", icon: ImageIcon },
+  { path: "/settings", label: "Settings", icon: Settings },
 ];
 
 function useTheme() {

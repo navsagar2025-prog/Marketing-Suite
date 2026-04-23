@@ -18,6 +18,7 @@ import type {
 
 import type {
   AnalyticsSummary,
+  AppSettings,
   Backlink,
   Campaign,
   CampaignAnalytics,
@@ -25,12 +26,15 @@ import type {
   CreateCampaignBody,
   CreateKeywordBody,
   CreateLeadBody,
+  CreateMediaAssetBody,
   CreateSocialPostBody,
   CreateWebsiteBody,
   GenerateCampaignCopyBody,
+  GenerateImageBody,
   GenerateMetaBody,
   GeneratePostBody,
   GenerateSeoBriefBody,
+  GenerateVideoBody,
   GeneratedContent,
   GeneratedMeta,
   HealthStatus,
@@ -42,13 +46,16 @@ import type {
   ListCampaignsParams,
   ListKeywordsParams,
   ListLeadsParams,
+  ListMediaAssetsParams,
   ListSocialPostsParams,
+  MediaAsset,
   SocialPost,
   SuggestKeywordsBody,
   UpdateBacklinkBody,
   UpdateCampaignBody,
   UpdateKeywordBody,
   UpdateLeadBody,
+  UpdateSettingsBody,
   UpdateSocialPostBody,
   UpdateWebsiteBody,
   Website,
@@ -3141,4 +3148,601 @@ export const useGenerateSeoBrief = <
   TContext
 > => {
   return useMutation(getGenerateSeoBriefMutationOptions(options));
+};
+
+/**
+ * @summary Generate an AI image using Fal.ai
+ */
+export const getGenerateAiImageUrl = () => {
+  return `/api/ai/generate-image`;
+};
+
+export const generateAiImage = async (
+  generateImageBody: GenerateImageBody,
+  options?: RequestInit,
+): Promise<MediaAsset> => {
+  return customFetch<MediaAsset>(getGenerateAiImageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateImageBody),
+  });
+};
+
+export const getGenerateAiImageMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAiImage>>,
+    TError,
+    { data: BodyType<GenerateImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateAiImage>>,
+  TError,
+  { data: BodyType<GenerateImageBody> },
+  TContext
+> => {
+  const mutationKey = ["generateAiImage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateAiImage>>,
+    { data: BodyType<GenerateImageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateAiImage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateAiImageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateAiImage>>
+>;
+export type GenerateAiImageMutationBody = BodyType<GenerateImageBody>;
+export type GenerateAiImageMutationError = ErrorType<void>;
+
+/**
+ * @summary Generate an AI image using Fal.ai
+ */
+export const useGenerateAiImage = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAiImage>>,
+    TError,
+    { data: BodyType<GenerateImageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateAiImage>>,
+  TError,
+  { data: BodyType<GenerateImageBody> },
+  TContext
+> => {
+  return useMutation(getGenerateAiImageMutationOptions(options));
+};
+
+/**
+ * @summary Generate an AI video using Fal.ai
+ */
+export const getGenerateAiVideoUrl = () => {
+  return `/api/ai/generate-video`;
+};
+
+export const generateAiVideo = async (
+  generateVideoBody: GenerateVideoBody,
+  options?: RequestInit,
+): Promise<MediaAsset> => {
+  return customFetch<MediaAsset>(getGenerateAiVideoUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateVideoBody),
+  });
+};
+
+export const getGenerateAiVideoMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAiVideo>>,
+    TError,
+    { data: BodyType<GenerateVideoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateAiVideo>>,
+  TError,
+  { data: BodyType<GenerateVideoBody> },
+  TContext
+> => {
+  const mutationKey = ["generateAiVideo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateAiVideo>>,
+    { data: BodyType<GenerateVideoBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateAiVideo(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateAiVideoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateAiVideo>>
+>;
+export type GenerateAiVideoMutationBody = BodyType<GenerateVideoBody>;
+export type GenerateAiVideoMutationError = ErrorType<void>;
+
+/**
+ * @summary Generate an AI video using Fal.ai
+ */
+export const useGenerateAiVideo = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateAiVideo>>,
+    TError,
+    { data: BodyType<GenerateVideoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateAiVideo>>,
+  TError,
+  { data: BodyType<GenerateVideoBody> },
+  TContext
+> => {
+  return useMutation(getGenerateAiVideoMutationOptions(options));
+};
+
+/**
+ * @summary List media assets
+ */
+export const getListMediaAssetsUrl = (params?: ListMediaAssetsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/media-assets?${stringifiedParams}`
+    : `/api/media-assets`;
+};
+
+export const listMediaAssets = async (
+  params?: ListMediaAssetsParams,
+  options?: RequestInit,
+): Promise<MediaAsset[]> => {
+  return customFetch<MediaAsset[]>(getListMediaAssetsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMediaAssetsQueryKey = (params?: ListMediaAssetsParams) => {
+  return [`/api/media-assets`, ...(params ? [params] : [])] as const;
+};
+
+export const getListMediaAssetsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMediaAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListMediaAssetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMediaAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMediaAssetsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listMediaAssets>>> = ({
+    signal,
+  }) => listMediaAssets(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMediaAssets>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMediaAssetsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMediaAssets>>
+>;
+export type ListMediaAssetsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List media assets
+ */
+
+export function useListMediaAssets<
+  TData = Awaited<ReturnType<typeof listMediaAssets>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListMediaAssetsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listMediaAssets>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMediaAssetsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save a media asset
+ */
+export const getCreateMediaAssetUrl = () => {
+  return `/api/media-assets`;
+};
+
+export const createMediaAsset = async (
+  createMediaAssetBody: CreateMediaAssetBody,
+  options?: RequestInit,
+): Promise<MediaAsset> => {
+  return customFetch<MediaAsset>(getCreateMediaAssetUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createMediaAssetBody),
+  });
+};
+
+export const getCreateMediaAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMediaAsset>>,
+    TError,
+    { data: BodyType<CreateMediaAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createMediaAsset>>,
+  TError,
+  { data: BodyType<CreateMediaAssetBody> },
+  TContext
+> => {
+  const mutationKey = ["createMediaAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createMediaAsset>>,
+    { data: BodyType<CreateMediaAssetBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createMediaAsset(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateMediaAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createMediaAsset>>
+>;
+export type CreateMediaAssetMutationBody = BodyType<CreateMediaAssetBody>;
+export type CreateMediaAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save a media asset
+ */
+export const useCreateMediaAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createMediaAsset>>,
+    TError,
+    { data: BodyType<CreateMediaAssetBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createMediaAsset>>,
+  TError,
+  { data: BodyType<CreateMediaAssetBody> },
+  TContext
+> => {
+  return useMutation(getCreateMediaAssetMutationOptions(options));
+};
+
+/**
+ * @summary Delete a media asset
+ */
+export const getDeleteMediaAssetUrl = (id: number) => {
+  return `/api/media-assets/${id}`;
+};
+
+export const deleteMediaAsset = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteMediaAssetUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMediaAssetMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMediaAsset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMediaAsset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMediaAsset"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMediaAsset>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMediaAsset(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMediaAssetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMediaAsset>>
+>;
+
+export type DeleteMediaAssetMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a media asset
+ */
+export const useDeleteMediaAsset = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMediaAsset>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMediaAsset>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMediaAssetMutationOptions(options));
+};
+
+/**
+ * @summary Get current app settings
+ */
+export const getGetSettingsUrl = () => {
+  return `/api/settings`;
+};
+
+export const getSettings = async (
+  options?: RequestInit,
+): Promise<AppSettings> => {
+  return customFetch<AppSettings>(getGetSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSettingsQueryKey = () => {
+  return [`/api/settings`] as const;
+};
+
+export const getGetSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettings>>> = ({
+    signal,
+  }) => getSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSettings>>
+>;
+export type GetSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current app settings
+ */
+
+export function useGetSettings<
+  TData = Awaited<ReturnType<typeof getSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update app settings
+ */
+export const getUpdateSettingsUrl = () => {
+  return `/api/settings`;
+};
+
+export const updateSettings = async (
+  updateSettingsBody: UpdateSettingsBody,
+  options?: RequestInit,
+): Promise<AppSettings> => {
+  return customFetch<AppSettings>(getUpdateSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSettingsBody),
+  });
+};
+
+export const getUpdateSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSettings>>,
+    TError,
+    { data: BodyType<UpdateSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSettings>>,
+  TError,
+  { data: BodyType<UpdateSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSettings>>,
+    { data: BodyType<UpdateSettingsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSettings>>
+>;
+export type UpdateSettingsMutationBody = BodyType<UpdateSettingsBody>;
+export type UpdateSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update app settings
+ */
+export const useUpdateSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSettings>>,
+    TError,
+    { data: BodyType<UpdateSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSettings>>,
+  TError,
+  { data: BodyType<UpdateSettingsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSettingsMutationOptions(options));
 };

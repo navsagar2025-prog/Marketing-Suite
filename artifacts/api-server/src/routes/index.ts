@@ -8,6 +8,8 @@ import backlinksRouter from "./backlinks";
 import leadsRouter from "./leads";
 import analyticsRouter from "./analytics";
 import aiRouter from "./ai";
+import mediaAssetsRouter from "./media-assets";
+import settingsRouter from "./settings";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(backlinksRouter);
 router.use(leadsRouter);
 router.use(analyticsRouter);
 router.use(aiRouter);
+router.use(mediaAssetsRouter);
+router.use(settingsRouter);
 
 export default router;

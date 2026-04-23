@@ -8,3 +8,4 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./media-assets";
 export * from "./app-settings";
+export * from "./seo-audits";

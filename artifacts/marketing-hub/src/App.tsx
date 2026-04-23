@@ -15,6 +15,7 @@ import Analytics from "@/pages/analytics";
 import AiTools from "@/pages/ai-tools";
 import MediaAssets from "@/pages/media-assets";
 import SettingsPage from "@/pages/settings";
+import CalendarPage from "@/pages/calendar";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/websites/:id" component={WebsiteDetail} />
         <Route path="/keywords" component={Keywords} />
         <Route path="/social" component={Social} />
+        <Route path="/calendar" component={CalendarPage} />
         <Route path="/campaigns" component={Campaigns} />
         <Route path="/backlinks" component={Backlinks} />
         <Route path="/leads" component={Leads} />

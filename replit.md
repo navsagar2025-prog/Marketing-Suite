@@ -49,10 +49,22 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `DELETE /api/media-assets/:id` — Delete a media asset
 - `GET /api/settings` — Get app settings (falApiKeyConfigured boolean)
 - `PATCH /api/settings` — Update settings (set/remove falApiKey)
+- `POST /api/websites/detect` — Auto-detect niche/SEO score from URL via crawl + AI
+- `POST /api/websites/:id/audit` — Run full SEO audit (crawl URL + AI analysis, store snapshot)
+- `GET /api/websites/:id/audits` — List audit history for a website
+- `POST /api/ai/fix-issue` — AI-generated fix for a specific SEO audit issue
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`
+Tables: `websites`, `keywords`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`
+
+### seo_audits table
+- `id`: serial PK
+- `websiteId`: FK → websites (cascade delete)
+- `score`: integer (0-100)
+- `issuesJson`: jsonb (array of SEO issues)
+- `crawledData`: jsonb (raw crawl data snapshot)
+- `crawledAt`: timestamp
 
 ## Important Notes
 

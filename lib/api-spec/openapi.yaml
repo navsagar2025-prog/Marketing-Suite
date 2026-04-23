@@ -617,7 +617,90 @@ paths:
               schema:
                 $ref: "#/components/schemas/LeadsFunnel"
 
+  # ─── SEO Audits ───────────────────────────────────────────────────────────────
+  /websites/{id}/audit:
+    post:
+      operationId: runSeoAudit
+      tags: [websites]
+      summary: Run a full SEO audit on a website URL
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: SEO Audit result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeoAudit"
+        "404":
+          description: Website not found
+        "500":
+          description: Crawl or AI error
+
+  /websites/{id}/audits:
+    get:
+      operationId: listSeoAudits
+      tags: [websites]
+      summary: List audit history for a website
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of SEO audits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SeoAudit"
+
+  /websites/detect:
+    post:
+      operationId: detectWebsite
+      tags: [websites]
+      summary: Auto-detect niche and SEO score from a URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DetectWebsiteBody"
+      responses:
+        "200":
+          description: Detected website info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DetectedWebsiteInfo"
+
   # ─── AI Generation ────────────────────────────────────────────────────────────
+  /ai/fix-issue:
+    post:
+      operationId: fixSeoIssue
+      tags: [ai]
+      summary: AI-generated fix for a specific SEO issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FixSeoIssueBody"
+      responses:
+        "200":
+          description: AI-generated fix
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FixSeoIssueResponse"
+
   /ai/suggest-keywords:
     post:
       operationId: suggestKeywords
@@ -899,11 +982,13 @@ components:
       type: object
       properties:
         name:
-          type: string
+          type: ["string", "null"]
+          description: Auto-inferred from URL if not provided
         url:
           type: string
         niche:
-          type: string
+          type: ["string", "null"]
+          description: Auto-inferred from URL if not provided
         seoScore:
           type: ["integer", "null"]
         status:
@@ -911,9 +996,7 @@ components:
         notes:
           type: ["string", "null"]
       required:
-        - name
         - url
-        - niche
         - status
 
     UpdateWebsiteBody:
@@ -1505,6 +1588,108 @@ components:
         - qualified
         - converted
         - lost
+
+    # ─── SEO Audits ───────────────────────────────────────────────────────────
+    SeoAuditIssue:
+      type: object
+      properties:
+        id:
+          type: string
+        severity:
+          type: string
+          description: critical | warning | info
+        category:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        recommendation:
+          type: string
+        currentValue:
+          type: ["string", "null"]
+      required:
+        - id
+        - severity
+        - category
+        - title
+        - description
+        - recommendation
+
+    SeoAudit:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        score:
+          type: integer
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeoAuditIssue"
+        crawledAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - score
+        - issues
+        - crawledAt
+
+    DetectWebsiteBody:
+      type: object
+      properties:
+        url:
+          type: string
+      required:
+        - url
+
+    DetectedWebsiteInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        niche:
+          type: string
+        seoScore:
+          type: ["integer", "null"]
+        description:
+          type: ["string", "null"]
+      required:
+        - name
+        - niche
+
+    FixSeoIssueBody:
+      type: object
+      properties:
+        issueTitle:
+          type: string
+        issueDescription:
+          type: string
+        recommendation:
+          type: string
+        websiteUrl:
+          type: string
+        websiteName:
+          type: ["string", "null"]
+        currentValue:
+          type: ["string", "null"]
+      required:
+        - issueTitle
+        - issueDescription
+        - recommendation
+        - websiteUrl
+
+    FixSeoIssueResponse:
+      type: object
+      properties:
+        fix:
+          type: string
+      required:
+        - fix
 
     # ─── AI ──────────────────────────────────────────────────────────────────
     SuggestKeywordsBody:

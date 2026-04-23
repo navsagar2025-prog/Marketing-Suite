@@ -34,9 +34,15 @@ export const ListWebsitesResponse = zod.array(ListWebsitesResponseItem);
  * @summary Create a website
  */
 export const CreateWebsiteBody = zod.object({
-  name: zod.string(),
+  name: zod
+    .string()
+    .nullish()
+    .describe("Auto-inferred from URL if not provided"),
   url: zod.string(),
-  niche: zod.string(),
+  niche: zod
+    .string()
+    .nullish()
+    .describe("Auto-inferred from URL if not provided"),
   seoScore: zod.number().nullish(),
   status: zod.string(),
   notes: zod.string().nullish(),
@@ -606,6 +612,87 @@ export const GetLeadsFunnelResponse = zod.object({
   converted: zod.number(),
   lost: zod.number(),
   totalValue: zod.number().nullish(),
+});
+
+/**
+ * @summary Run a full SEO audit on a website URL
+ */
+export const RunSeoAuditParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RunSeoAuditResponse = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  score: zod.number(),
+  issues: zod.array(
+    zod.object({
+      id: zod.string(),
+      severity: zod.string().describe("critical | warning | info"),
+      category: zod.string(),
+      title: zod.string(),
+      description: zod.string(),
+      recommendation: zod.string(),
+      currentValue: zod.string().nullish(),
+    }),
+  ),
+  crawledAt: zod.coerce.date(),
+});
+
+/**
+ * @summary List audit history for a website
+ */
+export const ListSeoAuditsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListSeoAuditsResponseItem = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  score: zod.number(),
+  issues: zod.array(
+    zod.object({
+      id: zod.string(),
+      severity: zod.string().describe("critical | warning | info"),
+      category: zod.string(),
+      title: zod.string(),
+      description: zod.string(),
+      recommendation: zod.string(),
+      currentValue: zod.string().nullish(),
+    }),
+  ),
+  crawledAt: zod.coerce.date(),
+});
+export const ListSeoAuditsResponse = zod.array(ListSeoAuditsResponseItem);
+
+/**
+ * @summary Auto-detect niche and SEO score from a URL
+ */
+export const DetectWebsiteBody = zod.object({
+  url: zod.string(),
+});
+
+export const DetectWebsiteResponse = zod.object({
+  name: zod.string(),
+  niche: zod.string(),
+  seoScore: zod.number().nullish(),
+  description: zod.string().nullish(),
+});
+
+/**
+ * @summary AI-generated fix for a specific SEO issue
+ */
+export const FixSeoIssueBody = zod.object({
+  issueTitle: zod.string(),
+  issueDescription: zod.string(),
+  recommendation: zod.string(),
+  websiteUrl: zod.string(),
+  websiteName: zod.string().nullish(),
+  currentValue: zod.string().nullish(),
+});
+
+export const FixSeoIssueResponse = zod.object({
+  fix: zod.string(),
 });
 
 /**

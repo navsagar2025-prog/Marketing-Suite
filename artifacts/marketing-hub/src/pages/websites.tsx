@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Plus, Globe, ExternalLink, Trash2, Search } from "lucide-react";
+import { Plus, Globe, ExternalLink, Trash2, Search, Loader2, Sparkles, CheckCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,40 +19,73 @@ import {
   useListWebsites,
   useCreateWebsite,
   useDeleteWebsite,
+  useDetectWebsite,
   getListWebsitesQueryKey,
 } from "@workspace/api-client-react";
 
-const createSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+const urlOnlySchema = z.object({
   url: z.string().url("Must be a valid URL"),
-  niche: z.string().min(1, "Niche is required"),
+});
+
+const createSchema = z.object({
+  name: z.string().optional().nullable(),
+  url: z.string().url("Must be a valid URL"),
+  niche: z.string().optional().nullable(),
   seoScore: z.coerce.number().min(0).max(100).optional().nullable(),
   status: z.enum(["active", "inactive"]).default("active"),
   notes: z.string().optional().nullable(),
 });
 
+type UrlOnlyForm = z.infer<typeof urlOnlySchema>;
 type CreateForm = z.infer<typeof createSchema>;
 
 export default function Websites() {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"url" | "details">("url");
   const [search, setSearch] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: websites, isLoading } = useListWebsites();
   const createMutation = useCreateWebsite();
   const deleteMutation = useDeleteWebsite();
+  const detectMutation = useDetectWebsite();
 
-  const form = useForm<CreateForm>({
+  const urlForm = useForm<UrlOnlyForm>({
+    resolver: zodResolver(urlOnlySchema),
+    defaultValues: { url: "" },
+  });
+
+  const detailForm = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
     defaultValues: { name: "", url: "", niche: "", status: "active", notes: "", seoScore: null },
   });
+
+  const onDetect = (data: UrlOnlyForm) => {
+    detectMutation.mutate({ data: { url: data.url } }, {
+      onSuccess: (info) => {
+        detailForm.setValue("url", data.url);
+        detailForm.setValue("name", info.name || "");
+        detailForm.setValue("niche", info.niche || "");
+        if (info.seoScore != null) detailForm.setValue("seoScore", info.seoScore);
+        if (info.description) detailForm.setValue("notes", info.description);
+        setStep("details");
+      },
+      onError: () => {
+        detailForm.setValue("url", data.url);
+        detailForm.setValue("name", new URL(data.url).hostname.replace("www.", ""));
+        setStep("details");
+      },
+    });
+  };
 
   const onSubmit = (data: CreateForm) => {
     createMutation.mutate({ data: data as Parameters<typeof createMutation.mutate>[0]["data"] }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListWebsitesQueryKey() });
         toast({ title: "Website added" });
-        form.reset();
+        detailForm.reset();
+        urlForm.reset();
+        setStep("url");
         setOpen(false);
       },
       onError: () => toast({ title: "Failed to add website", variant: "destructive" }),
@@ -69,6 +102,15 @@ export default function Websites() {
     });
   };
 
+  const handleOpenChange = (val: boolean) => {
+    setOpen(val);
+    if (!val) {
+      setStep("url");
+      urlForm.reset();
+      detailForm.reset();
+    }
+  };
+
   const filtered = (websites ?? []).filter(w =>
     !search || w.name.toLowerCase().includes(search.toLowerCase()) || w.url.toLowerCase().includes(search.toLowerCase())
   );
@@ -80,7 +122,7 @@ export default function Websites() {
           <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Websites</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Manage your website portfolio</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-website" size="sm">
               <Plus className="h-4 w-4 mr-1" /> Add Website
@@ -90,63 +132,141 @@ export default function Websites() {
             <DialogHeader>
               <DialogTitle>Add Website</DialogTitle>
             </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-website-name" placeholder="My Blog" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="url" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-website-url" placeholder="https://example.com" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="niche" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Niche</FormLabel>
-                    <FormControl><Input {...field} data-testid="input-website-niche" placeholder="Health & Fitness" /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField control={form.control} name="seoScore" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SEO Score (0-100)</FormLabel>
-                      <FormControl><Input {...field} type="number" data-testid="input-website-seo-score" placeholder="75" value={field.value ?? ""} onChange={e => field.onChange(e.target.value === "" ? null : Number(e.target.value))} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="status" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl><SelectTrigger data-testid="select-website-status"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                </div>
-                <FormField control={form.control} name="notes" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl><Textarea {...field} data-testid="input-website-notes" placeholder="Optional notes..." value={field.value ?? ""} rows={2} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <Button type="submit" data-testid="button-submit-website" className="w-full" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Adding..." : "Add Website"}
-                </Button>
-              </form>
-            </Form>
+
+            {step === "url" ? (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Enter your website URL and we'll automatically detect the name, niche, and SEO score.
+                </p>
+                <Form {...urlForm}>
+                  <form onSubmit={urlForm.handleSubmit(onDetect)} className="space-y-4">
+                    <FormField control={urlForm.control} name="url" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Website URL</FormLabel>
+                        <FormControl>
+                          <Input {...field} data-testid="input-website-url" placeholder="https://example.com" autoFocus />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <Button
+                      type="submit"
+                      data-testid="button-detect-website"
+                      className="w-full"
+                      disabled={detectMutation.isPending}
+                    >
+                      {detectMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analyzing URL...</>
+                      ) : (
+                        <><Sparkles className="h-4 w-4 mr-2" /> Analyze & Continue</>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full text-xs"
+                      onClick={() => {
+                        const url = urlForm.getValues("url");
+                        detailForm.setValue("url", url);
+                        setStep("details");
+                      }}
+                    >
+                      Skip auto-detect, fill manually
+                    </Button>
+                  </form>
+                </Form>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {detectMutation.isSuccess && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950/30 dark:text-green-400 px-3 py-2 rounded-md">
+                    <CheckCircle className="h-4 w-4 shrink-0" />
+                    <span>Auto-detected niche and SEO score from your URL</span>
+                  </div>
+                )}
+                <Form {...detailForm}>
+                  <form onSubmit={detailForm.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField control={detailForm.control} name="name" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name <span className="text-muted-foreground text-xs font-normal">(auto-detected if blank)</span></FormLabel>
+                        <FormControl><Input {...field} data-testid="input-website-name" placeholder="My Blog" value={field.value ?? ""} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={detailForm.control} name="url" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>URL</FormLabel>
+                        <FormControl><Input {...field} data-testid="input-website-url-detail" placeholder="https://example.com" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={detailForm.control} name="niche" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Niche <span className="text-muted-foreground text-xs font-normal">(auto-detected if blank)</span></FormLabel>
+                        <FormControl><Input {...field} data-testid="input-website-niche" placeholder="Health & Fitness" value={field.value ?? ""} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField control={detailForm.control} name="seoScore" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SEO Score (0-100)</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              type="number"
+                              data-testid="input-website-seo-score"
+                              placeholder="Auto-detected"
+                              value={field.value ?? ""}
+                              onChange={e => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={detailForm.control} name="status" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl><SelectTrigger data-testid="select-website-status"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <FormField control={detailForm.control} name="notes" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl><Textarea {...field} data-testid="input-website-notes" placeholder="Optional notes..." value={field.value ?? ""} rows={2} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setStep("url")}
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        type="submit"
+                        data-testid="button-submit-website"
+                        className="flex-1"
+                        disabled={createMutation.isPending}
+                      >
+                        {createMutation.isPending ? "Adding..." : "Add Website"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

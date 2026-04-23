@@ -25,9 +25,17 @@ export interface Website {
 }
 
 export interface CreateWebsiteBody {
-  name: string;
+  /**
+   * Auto-inferred from URL if not provided
+   * @nullable
+   */
+  name?: string | null;
   url: string;
-  niche: string;
+  /**
+   * Auto-inferred from URL if not provided
+   * @nullable
+   */
+  niche?: string | null;
   /** @nullable */
   seoScore?: number | null;
   status: string;
@@ -375,6 +383,54 @@ export interface LeadsFunnel {
   lost: number;
   /** @nullable */
   totalValue?: number | null;
+}
+
+export interface SeoAuditIssue {
+  id: string;
+  /** critical | warning | info */
+  severity: string;
+  category: string;
+  title: string;
+  description: string;
+  recommendation: string;
+  /** @nullable */
+  currentValue?: string | null;
+}
+
+export interface SeoAudit {
+  id: number;
+  websiteId: number;
+  score: number;
+  issues: SeoAuditIssue[];
+  crawledAt: string;
+}
+
+export interface DetectWebsiteBody {
+  url: string;
+}
+
+export interface DetectedWebsiteInfo {
+  name: string;
+  niche: string;
+  /** @nullable */
+  seoScore?: number | null;
+  /** @nullable */
+  description?: string | null;
+}
+
+export interface FixSeoIssueBody {
+  issueTitle: string;
+  issueDescription: string;
+  recommendation: string;
+  websiteUrl: string;
+  /** @nullable */
+  websiteName?: string | null;
+  /** @nullable */
+  currentValue?: string | null;
+}
+
+export interface FixSeoIssueResponse {
+  fix: string;
 }
 
 export interface SuggestKeywordsBody {

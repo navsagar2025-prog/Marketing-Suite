@@ -29,6 +29,10 @@ import type {
   CreateMediaAssetBody,
   CreateSocialPostBody,
   CreateWebsiteBody,
+  DetectWebsiteBody,
+  DetectedWebsiteInfo,
+  FixSeoIssueBody,
+  FixSeoIssueResponse,
   GenerateCampaignCopyBody,
   GenerateImageBody,
   GenerateMetaBody,
@@ -49,6 +53,7 @@ import type {
   ListMediaAssetsParams,
   ListSocialPostsParams,
   MediaAsset,
+  SeoAudit,
   SocialPost,
   SuggestKeywordsBody,
   UpdateBacklinkBody,
@@ -2718,6 +2723,349 @@ export function useGetLeadsFunnel<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Run a full SEO audit on a website URL
+ */
+export const getRunSeoAuditUrl = (id: number) => {
+  return `/api/websites/${id}/audit`;
+};
+
+export const runSeoAudit = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SeoAudit> => {
+  return customFetch<SeoAudit>(getRunSeoAuditUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRunSeoAuditMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runSeoAudit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runSeoAudit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["runSeoAudit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runSeoAudit>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return runSeoAudit(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunSeoAuditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runSeoAudit>>
+>;
+
+export type RunSeoAuditMutationError = ErrorType<void>;
+
+/**
+ * @summary Run a full SEO audit on a website URL
+ */
+export const useRunSeoAudit = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runSeoAudit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runSeoAudit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getRunSeoAuditMutationOptions(options));
+};
+
+/**
+ * @summary List audit history for a website
+ */
+export const getListSeoAuditsUrl = (id: number) => {
+  return `/api/websites/${id}/audits`;
+};
+
+export const listSeoAudits = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SeoAudit[]> => {
+  return customFetch<SeoAudit[]>(getListSeoAuditsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSeoAuditsQueryKey = (id: number) => {
+  return [`/api/websites/${id}/audits`] as const;
+};
+
+export const getListSeoAuditsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSeoAudits>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSeoAudits>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSeoAuditsQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSeoAudits>>> = ({
+    signal,
+  }) => listSeoAudits(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSeoAudits>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSeoAuditsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSeoAudits>>
+>;
+export type ListSeoAuditsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List audit history for a website
+ */
+
+export function useListSeoAudits<
+  TData = Awaited<ReturnType<typeof listSeoAudits>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSeoAudits>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSeoAuditsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Auto-detect niche and SEO score from a URL
+ */
+export const getDetectWebsiteUrl = () => {
+  return `/api/websites/detect`;
+};
+
+export const detectWebsite = async (
+  detectWebsiteBody: DetectWebsiteBody,
+  options?: RequestInit,
+): Promise<DetectedWebsiteInfo> => {
+  return customFetch<DetectedWebsiteInfo>(getDetectWebsiteUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(detectWebsiteBody),
+  });
+};
+
+export const getDetectWebsiteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof detectWebsite>>,
+    TError,
+    { data: BodyType<DetectWebsiteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof detectWebsite>>,
+  TError,
+  { data: BodyType<DetectWebsiteBody> },
+  TContext
+> => {
+  const mutationKey = ["detectWebsite"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof detectWebsite>>,
+    { data: BodyType<DetectWebsiteBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return detectWebsite(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DetectWebsiteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof detectWebsite>>
+>;
+export type DetectWebsiteMutationBody = BodyType<DetectWebsiteBody>;
+export type DetectWebsiteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Auto-detect niche and SEO score from a URL
+ */
+export const useDetectWebsite = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof detectWebsite>>,
+    TError,
+    { data: BodyType<DetectWebsiteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof detectWebsite>>,
+  TError,
+  { data: BodyType<DetectWebsiteBody> },
+  TContext
+> => {
+  return useMutation(getDetectWebsiteMutationOptions(options));
+};
+
+/**
+ * @summary AI-generated fix for a specific SEO issue
+ */
+export const getFixSeoIssueUrl = () => {
+  return `/api/ai/fix-issue`;
+};
+
+export const fixSeoIssue = async (
+  fixSeoIssueBody: FixSeoIssueBody,
+  options?: RequestInit,
+): Promise<FixSeoIssueResponse> => {
+  return customFetch<FixSeoIssueResponse>(getFixSeoIssueUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(fixSeoIssueBody),
+  });
+};
+
+export const getFixSeoIssueMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fixSeoIssue>>,
+    TError,
+    { data: BodyType<FixSeoIssueBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof fixSeoIssue>>,
+  TError,
+  { data: BodyType<FixSeoIssueBody> },
+  TContext
+> => {
+  const mutationKey = ["fixSeoIssue"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof fixSeoIssue>>,
+    { data: BodyType<FixSeoIssueBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return fixSeoIssue(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FixSeoIssueMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fixSeoIssue>>
+>;
+export type FixSeoIssueMutationBody = BodyType<FixSeoIssueBody>;
+export type FixSeoIssueMutationError = ErrorType<unknown>;
+
+/**
+ * @summary AI-generated fix for a specific SEO issue
+ */
+export const useFixSeoIssue = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof fixSeoIssue>>,
+    TError,
+    { data: BodyType<FixSeoIssueBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof fixSeoIssue>>,
+  TError,
+  { data: BodyType<FixSeoIssueBody> },
+  TContext
+> => {
+  return useMutation(getFixSeoIssueMutationOptions(options));
+};
 
 /**
  * @summary AI keyword suggestions for a website/niche

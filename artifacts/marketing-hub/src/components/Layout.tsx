@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ const navItems = [
   { path: "/websites", label: "Websites", icon: Globe },
   { path: "/keywords", label: "Keywords", icon: Search },
   { path: "/social", label: "Social Media", icon: Share2 },
+  { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/campaigns", label: "Campaigns", icon: Megaphone },
   { path: "/backlinks", label: "Backlinks", icon: Link2 },
   { path: "/leads", label: "Leads", icon: Users },

@@ -70,6 +70,46 @@ async function callFalQueue(model: string, apiKey: string, body: Record<string, 
   throw new Error("Fal.ai generation timed out");
 }
 
+router.post("/ai/fix-issue", async (req, res): Promise<void> => {
+  const { issueTitle, issueDescription, recommendation, websiteUrl, websiteName, currentValue } = req.body as {
+    issueTitle?: string;
+    issueDescription?: string;
+    recommendation?: string;
+    websiteUrl?: string;
+    websiteName?: string;
+    currentValue?: string;
+  };
+
+  if (!issueTitle || !issueDescription || !recommendation || !websiteUrl) {
+    res.status(400).json({ error: "issueTitle, issueDescription, recommendation, and websiteUrl are required" });
+    return;
+  }
+
+  const prompt = `You are an expert SEO specialist. Generate the exact corrected content to fix this SEO issue on a website.
+
+Website: ${websiteName ?? websiteUrl}
+URL: ${websiteUrl}
+Issue: ${issueTitle}
+Problem: ${issueDescription}
+Recommended Fix: ${recommendation}
+${currentValue ? `Current Value: ${currentValue}` : ""}
+
+Provide the EXACT text the user should use to fix this issue. Be specific and actionable. For example:
+- For a missing meta description: write the optimized meta description text
+- For a missing title tag: write the optimized title tag text
+- For missing alt text: suggest descriptive alt text for images
+- For thin content: provide a content outline or example paragraph
+
+Return ONLY the fixed content — no explanation, no labels, just the ready-to-use text.`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4.1-mini",
+    max_completion_tokens: 1024,
+    messages: [{ role: "user", content: prompt }],
+  });
+  res.json({ fix: response.choices[0]?.message?.content ?? "" });
+});
+
 router.post("/ai/suggest-keywords", async (req, res): Promise<void> => {
   const parsed = SuggestKeywordsBody.safeParse(req.body);
   if (!parsed.success) {

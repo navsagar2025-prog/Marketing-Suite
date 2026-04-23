@@ -7,9 +7,17 @@
  */
 
 export interface CreateWebsiteBody {
-  name: string;
+  /**
+   * Auto-inferred from URL if not provided
+   * @nullable
+   */
+  name?: string | null;
   url: string;
-  niche: string;
+  /**
+   * Auto-inferred from URL if not provided
+   * @nullable
+   */
+  niche?: string | null;
   /** @nullable */
   seoScore?: number | null;
   status: string;

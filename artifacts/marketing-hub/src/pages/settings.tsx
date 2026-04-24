@@ -87,17 +87,24 @@ export default function SettingsPage() {
     );
   };
 
-  const handleSaveFalModels = (imageModel: string, videoModel: string) => {
+  const handleImageModelChange = (model: string) => {
+    setSelectedImageModel(model);
     updateMutation.mutate(
-      { data: { falImageModel: imageModel, falVideoModel: videoModel } },
+      { data: { falImageModel: model } },
       {
-        onSuccess: () => {
-          toast({ title: "Media generation models saved" });
-          setSelectedImageModel(null);
-          setSelectedVideoModel(null);
-          refetch();
-        },
-        onError: () => toast({ title: "Failed to save models", variant: "destructive" }),
+        onSuccess: () => { toast({ title: "Image model updated" }); refetch(); },
+        onError: () => toast({ title: "Failed to update image model", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleVideoModelChange = (model: string) => {
+    setSelectedVideoModel(model);
+    updateMutation.mutate(
+      { data: { falVideoModel: model } },
+      {
+        onSuccess: () => { toast({ title: "Video model updated" }); refetch(); },
+        onError: () => toast({ title: "Failed to update video model", variant: "destructive" }),
       }
     );
   };
@@ -472,16 +479,16 @@ export default function SettingsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
+        <CardContent className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Image Generation Model</label>
               <div className="relative">
                 <select
                   data-testid="select-fal-image-model"
                   value={currentImageModel}
-                  onChange={e => setSelectedImageModel(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring"
+                  onChange={e => handleImageModelChange(e.target.value)}
+                  disabled={updateMutation.isPending}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                 >
                   {FAL_IMAGE_MODELS.map(m => (
                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -497,8 +504,9 @@ export default function SettingsPage() {
                 <select
                   data-testid="select-fal-video-model"
                   value={currentVideoModel}
-                  onChange={e => setSelectedVideoModel(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring"
+                  onChange={e => handleVideoModelChange(e.target.value)}
+                  disabled={updateMutation.isPending}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
                 >
                   {FAL_VIDEO_MODELS.map(m => (
                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -508,15 +516,6 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-muted-foreground font-mono">{currentVideoModel}</p>
             </div>
-          </div>
-          <Button
-            data-testid="button-save-fal-models"
-            onClick={() => handleSaveFalModels(currentImageModel, currentVideoModel)}
-            disabled={updateMutation.isPending || (selectedImageModel === null && selectedVideoModel === null)}
-          >
-            <Save className="h-4 w-4 mr-1" />
-            {updateMutation.isPending ? "Saving..." : "Save Models"}
-          </Button>
         </CardContent>
       </Card>
     </div>

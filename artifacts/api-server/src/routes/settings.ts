@@ -43,11 +43,19 @@ router.patch("/settings", async (req, res): Promise<void> => {
     }
   }
 
-  if (typeof falImageModel === "string" && FAL_IMAGE_MODELS.some(m => m.value === falImageModel)) {
+  if (falImageModel !== undefined) {
+    if (typeof falImageModel !== "string" || !FAL_IMAGE_MODELS.some(m => m.value === falImageModel)) {
+      res.status(400).json({ error: `Invalid falImageModel. Valid values: ${FAL_IMAGE_MODELS.map(m => m.value).join(", ")}` });
+      return;
+    }
     await setDbSetting("fal_image_model", falImageModel);
   }
 
-  if (typeof falVideoModel === "string" && FAL_VIDEO_MODELS.some(m => m.value === falVideoModel)) {
+  if (falVideoModel !== undefined) {
+    if (typeof falVideoModel !== "string" || !FAL_VIDEO_MODELS.some(m => m.value === falVideoModel)) {
+      res.status(400).json({ error: `Invalid falVideoModel. Valid values: ${FAL_VIDEO_MODELS.map(m => m.value).join(", ")}` });
+      return;
+    }
     await setDbSetting("fal_video_model", falVideoModel);
   }
 

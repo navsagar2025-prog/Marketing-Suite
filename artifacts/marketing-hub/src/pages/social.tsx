@@ -83,6 +83,7 @@ export default function Social() {
   const { data: settings } = useGetSettings();
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
+  const falDisabled = settings !== undefined && !settings.falApiKeyConfigured;
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -129,8 +130,8 @@ export default function Social() {
             variant="outline" size="sm"
             data-testid="button-ai-generate-image"
             onClick={() => setAiMediaOpen(true)}
-            disabled={aiDisabled}
-            title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+            disabled={falDisabled}
+            title={falDisabled ? "Fal API key not configured — add it in Settings" : undefined}
           >
             <ImageIcon className="h-4 w-4 mr-1" /> Generate Media
           </Button>

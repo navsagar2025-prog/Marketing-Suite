@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users } from "lucide-react";
+import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -349,8 +349,7 @@ export default function Campaigns() {
                         size="sm"
                         className="h-7 px-2 opacity-0 group-hover:opacity-100 text-xs"
                         data-testid={`button-send-campaign-${c.id}`}
-                        title={emailConfigured ? "Compose & send email" : "Configure email provider in Settings first"}
-                        disabled={!emailConfigured}
+                        title="Compose & send email to leads"
                         onClick={() => openCompose(c.id)}
                       >
                         <Send className="h-3.5 w-3.5 mr-1" /> Send
@@ -396,73 +395,95 @@ export default function Campaigns() {
           <DialogHeader>
             <DialogTitle>Compose Email</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Recipient filter */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Send to leads with status</label>
-                {recipientPreview !== undefined && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-recipient-count">
-                    <Users className="h-3.5 w-3.5" />
-                    {recipientPreview.count} recipient{recipientPreview.count !== 1 ? "s" : ""}
-                  </span>
-                )}
+
+          {/* No provider prompt */}
+          {!emailConfigured ? (
+            <div className="space-y-4 py-2">
+              <div className="flex items-start gap-3 p-4 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+                <Mail className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100">Email provider not configured</p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300">Connect an email service (SendGrid, Resend, Mailgun, SMTP, or Mailchimp Mandrill) before sending campaigns.</p>
+                </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {["new", "contacted", "qualified", "converted", "lost"].map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    data-testid={`button-status-filter-${s}`}
-                    onClick={() => toggleStatus(s)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      composeStatuses.includes(s)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted text-muted-foreground border-border hover:border-muted-foreground/40"
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setComposeOpen(false)}>Cancel</Button>
+                <Link href="/settings" onClick={() => setComposeOpen(false)}>
+                  <Button data-testid="button-go-to-email-settings">
+                    <Settings className="h-4 w-4 mr-1" /> Go to Settings
+                  </Button>
+                </Link>
               </div>
             </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Recipient filter */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Send to leads with status</label>
+                  {recipientPreview !== undefined && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-recipient-count">
+                      <Users className="h-3.5 w-3.5" />
+                      {recipientPreview.count} recipient{recipientPreview.count !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {["new", "contacted", "qualified", "converted", "lost"].map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      data-testid={`button-status-filter-${s}`}
+                      onClick={() => toggleStatus(s)}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        composeStatuses.includes(s)
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted text-muted-foreground border-border hover:border-muted-foreground/40"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            {/* Subject */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Subject</label>
-              <Input
-                data-testid="input-compose-subject"
-                placeholder="Your email subject..."
-                value={composeSubject}
-                onChange={e => setComposeSubject(e.target.value)}
-              />
-            </div>
+              {/* Subject */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Subject</label>
+                <Input
+                  data-testid="input-compose-subject"
+                  placeholder="Your email subject..."
+                  value={composeSubject}
+                  onChange={e => setComposeSubject(e.target.value)}
+                />
+              </div>
 
-            {/* Body */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Message</label>
-              <Textarea
-                data-testid="input-compose-body"
-                placeholder="Write your email message here..."
-                value={composeBody}
-                onChange={e => setComposeBody(e.target.value)}
-                rows={8}
-              />
-              <p className="text-xs text-muted-foreground">Plain text. HTML is supported.</p>
-            </div>
+              {/* Body */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Message</label>
+                <Textarea
+                  data-testid="input-compose-body"
+                  placeholder="Write your email message here..."
+                  value={composeBody}
+                  onChange={e => setComposeBody(e.target.value)}
+                  rows={8}
+                />
+                <p className="text-xs text-muted-foreground">Plain text. HTML is supported.</p>
+              </div>
 
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setComposeOpen(false)}>Cancel</Button>
-              <Button
-                data-testid="button-confirm-send"
-                onClick={handleSend}
-                disabled={!composeSubject.trim() || !composeBody.trim() || composeStatuses.length === 0 || sendMutation.isPending}
-              >
-                <Send className="h-4 w-4 mr-1" />
-                {sendMutation.isPending ? "Sending..." : `Send${recipientPreview ? ` to ${recipientPreview.count}` : ""}`}
-              </Button>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setComposeOpen(false)}>Cancel</Button>
+                <Button
+                  data-testid="button-confirm-send"
+                  onClick={handleSend}
+                  disabled={!composeSubject.trim() || !composeBody.trim() || composeStatuses.length === 0 || sendMutation.isPending}
+                >
+                  <Send className="h-4 w-4 mr-1" />
+                  {sendMutation.isPending ? "Sending..." : `Send${recipientPreview ? ` to ${recipientPreview.count}` : ""}`}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

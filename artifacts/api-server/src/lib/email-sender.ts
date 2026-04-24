@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from "crypto";
 import { db } from "@workspace/db";
 import { appSettingsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
@@ -22,12 +23,62 @@ export interface SendEmailOptions {
   body: string;
 }
 
+function getEncryptionKey(): Buffer {
+  const raw = process.env.EMAIL_ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "seo-marketing-hub-default-key";
+  return createHash("sha256").update(raw).digest();
+}
+
+const ALGO = "aes-256-gcm";
+const PREFIX = "enc:";
+
+export function encryptSecret(plaintext: string): string {
+  if (!plaintext) return plaintext;
+  const key = getEncryptionKey();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv(ALGO, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return PREFIX + Buffer.concat([iv, authTag, encrypted]).toString("base64");
+}
+
+export function decryptSecret(value: string): string {
+  if (!value || !value.startsWith(PREFIX)) return value;
+  try {
+    const key = getEncryptionKey();
+    const buf = Buffer.from(value.slice(PREFIX.length), "base64");
+    const iv = buf.subarray(0, 12);
+    const authTag = buf.subarray(12, 28);
+    const encrypted = buf.subarray(28);
+    const decipher = createDecipheriv(ALGO, key, iv);
+    decipher.setAuthTag(authTag);
+    return decipher.update(encrypted) + decipher.final("utf8");
+  } catch {
+    return value;
+  }
+}
+
 async function getSettingValue(key: string): Promise<string | null> {
   try {
     const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, key));
     return row?.value ?? null;
   } catch {
     return null;
+  }
+}
+
+async function getSecretSetting(key: string): Promise<string | null> {
+  const raw = await getSettingValue(key);
+  if (!raw) return null;
+  return decryptSecret(raw);
+}
+
+export async function setSecretSetting(key: string, value: string): Promise<void> {
+  const encrypted = encryptSecret(value);
+  const existing = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, key));
+  if (existing.length > 0) {
+    await db.update(appSettingsTable).set({ value: encrypted }).where(eq(appSettingsTable.key, key));
+  } else {
+    await db.insert(appSettingsTable).values({ key, value: encrypted });
   }
 }
 
@@ -42,12 +93,12 @@ export async function getEmailProviderConfig(): Promise<EmailProviderConfig | nu
     const smtpHost = await getSettingValue("email_smtp_host") ?? "";
     const smtpPortStr = await getSettingValue("email_smtp_port") ?? "587";
     const smtpUser = await getSettingValue("email_smtp_user") ?? "";
-    const smtpPass = await getSettingValue("email_smtp_pass") ?? "";
+    const smtpPass = await getSecretSetting("email_smtp_pass") ?? "";
     if (!smtpHost || !fromAddress) return null;
     return { provider, smtpHost, smtpPort: parseInt(smtpPortStr, 10), smtpUser, smtpPass, fromAddress, fromName };
   }
 
-  const apiKey = await getSettingValue("email_api_key") ?? "";
+  const apiKey = await getSecretSetting("email_api_key") ?? "";
   if (!apiKey || !fromAddress) return null;
   return { provider, apiKey, fromAddress, fromName };
 }

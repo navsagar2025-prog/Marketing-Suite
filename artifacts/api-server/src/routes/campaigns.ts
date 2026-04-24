@@ -123,11 +123,14 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
     res.status(422).json({ error: "No email provider configured. Set one up in Settings." }); return;
   }
 
+  const ALL_LEAD_STATUSES = ["new", "contacted", "qualified", "converted", "lost"];
   const conditions = [eq(leadsTable.websiteId, campaign.websiteId)];
-  const validStatuses = ["new", "contacted", "qualified"];
   const statuses: string[] = Array.isArray(recipientStatuses) && recipientStatuses.length > 0
-    ? recipientStatuses.filter((s: string) => validStatuses.includes(s))
-    : validStatuses;
+    ? recipientStatuses.filter((s: string) => ALL_LEAD_STATUSES.includes(s))
+    : ["new", "contacted", "qualified"];
+  if (statuses.length === 0) {
+    res.status(400).json({ error: "No valid recipient statuses provided." }); return;
+  }
   conditions.push(inArray(leadsTable.status, statuses));
 
   const leads = await db.select({ email: leadsTable.email }).from(leadsTable).where(and(...conditions));
@@ -143,7 +146,6 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
     status: "active",
     sentAt: new Date(),
     sentCount: sent,
-    impressions: (campaign.impressions ?? 0) + sent,
   }).where(eq(campaignsTable.id, id));
 
   const [updated] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));

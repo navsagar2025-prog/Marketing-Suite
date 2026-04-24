@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAiConfig, setDbSetting, callAI, getDbSetting, PROVIDER_MODELS, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS, type AiProvider } from "../lib/ai-provider.js";
-import { getEmailProviderConfig, testEmailConnection, type EmailProvider } from "../lib/email-sender.js";
+import { getEmailProviderConfig, testEmailConnection, setSecretSetting, type EmailProvider } from "../lib/email-sender.js";
 
 const router: IRouter = Router();
 
@@ -156,11 +156,11 @@ router.patch("/settings/email-provider", async (req, res): Promise<void> => {
   }
   if (fromAddress !== undefined && typeof fromAddress === "string") await setDbSetting("email_from_address", fromAddress);
   if (fromName !== undefined && typeof fromName === "string") await setDbSetting("email_from_name", fromName);
-  if (apiKey !== undefined && typeof apiKey === "string" && apiKey.trim()) await setDbSetting("email_api_key", apiKey.trim());
+  if (apiKey !== undefined && typeof apiKey === "string" && apiKey.trim()) await setSecretSetting("email_api_key", apiKey.trim());
   if (smtpHost !== undefined && typeof smtpHost === "string") await setDbSetting("email_smtp_host", smtpHost);
   if (smtpPort !== undefined) await setDbSetting("email_smtp_port", String(smtpPort));
   if (smtpUser !== undefined && typeof smtpUser === "string") await setDbSetting("email_smtp_user", smtpUser);
-  if (smtpPass !== undefined && typeof smtpPass === "string" && smtpPass.trim()) await setDbSetting("email_smtp_pass", smtpPass.trim());
+  if (smtpPass !== undefined && typeof smtpPass === "string" && smtpPass.trim()) await setSecretSetting("email_smtp_pass", smtpPass.trim());
 
   const savedProvider = (await getDbSetting("email_provider")) as EmailProvider | null;
   const savedFromAddress = await getDbSetting("email_from_address") ?? "";

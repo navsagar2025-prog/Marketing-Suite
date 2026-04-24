@@ -13,6 +13,7 @@ import settingsRouter from "./settings";
 import authRouter from "./auth";
 import adminRouter from "./admin";
 import publicAuditRouter from "./public-audit";
+import usageRouter from "./usage";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -36,5 +37,6 @@ router.use(aiRouter);
 router.use(mediaAssetsRouter);
 router.use(settingsRouter);
 router.use(adminRouter);
+router.use(usageRouter);
 
 export default router;

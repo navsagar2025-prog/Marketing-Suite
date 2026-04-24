@@ -947,6 +947,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/TestAiResponse"
 
+  # ─── Usage ────────────────────────────────────────────────────────────────
+  /usage/me:
+    get:
+      operationId: getMyUsage
+      tags: [usage]
+      summary: Get current user AI usage for this month
+      responses:
+        "200":
+          description: Usage summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyUsageResponse"
+
+  /admin/usage:
+    get:
+      operationId: getAdminUsage
+      tags: [usage]
+      summary: Get AI usage for all users (admin only)
+      responses:
+        "200":
+          description: All users usage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsageResponse"
+
+  /admin/usage/limits:
+    patch:
+      operationId: updateUsageLimits
+      tags: [usage]
+      summary: Update monthly AI usage limits (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUsageLimitsBody"
+      responses:
+        "200":
+          description: Updated limits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageLimits"
+
+  /admin/usage/reset:
+    post:
+      operationId: resetUserUsage
+      tags: [usage]
+      summary: Reset a user's usage for a type (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetUsageBody"
+      responses:
+        "200":
+          description: Usage after reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: integer
+                  type:
+                    type: string
+                  summary:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/UsageEntry"
+                required: [userId, type, summary]
+
 components:
   schemas:
     HealthStatus:
@@ -1963,3 +2038,96 @@ components:
         - message
         - provider
         - model
+
+    # ─── Usage ───────────────────────────────────────────────────────────────
+    UsageEntry:
+      type: object
+      properties:
+        type:
+          type: string
+        used:
+          type: integer
+        limit:
+          type: integer
+        yearMonth:
+          type: string
+      required: [type, used, limit]
+
+    MyUsageResponse:
+      type: object
+      properties:
+        userId:
+          type: integer
+        summary:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageEntry"
+      required: [userId, summary]
+
+    UserUsageSummary:
+      type: object
+      properties:
+        userId:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+        usage:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageEntry"
+      required: [userId, username, role, usage]
+
+    UsageLimits:
+      type: object
+      properties:
+        limits:
+          type: object
+          properties:
+            text:
+              type: integer
+            image:
+              type: integer
+            video:
+              type: integer
+          required: [text, image, video]
+      required: [limits]
+
+    AdminUsageResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserUsageSummary"
+        limits:
+          type: object
+          properties:
+            text:
+              type: integer
+            image:
+              type: integer
+            video:
+              type: integer
+          required: [text, image, video]
+      required: [users, limits]
+
+    UpdateUsageLimitsBody:
+      type: object
+      properties:
+        text:
+          type: integer
+        image:
+          type: integer
+        video:
+          type: integer
+
+    ResetUsageBody:
+      type: object
+      properties:
+        userId:
+          type: integer
+        type:
+          type: string
+      required: [userId, type]

@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminUsageResponse,
   AnalyticsSummary,
   AppSettings,
   Backlink,
@@ -53,6 +54,9 @@ import type {
   ListMediaAssetsParams,
   ListSocialPostsParams,
   MediaAsset,
+  MyUsageResponse,
+  ResetUsageBody,
+  ResetUserUsage200,
   SeoAudit,
   SocialPost,
   SuggestKeywordsBody,
@@ -63,7 +67,9 @@ import type {
   UpdateLeadBody,
   UpdateSettingsBody,
   UpdateSocialPostBody,
+  UpdateUsageLimitsBody,
   UpdateWebsiteBody,
+  UsageLimits,
   Website,
   WebsiteAnalytics,
 } from "./api.schemas";
@@ -4175,4 +4181,326 @@ export const useTestAiConnection = <
   TContext
 > => {
   return useMutation(getTestAiConnectionMutationOptions(options));
+};
+
+/**
+ * @summary Get current user AI usage for this month
+ */
+export const getGetMyUsageUrl = () => {
+  return `/api/usage/me`;
+};
+
+export const getMyUsage = async (
+  options?: RequestInit,
+): Promise<MyUsageResponse> => {
+  return customFetch<MyUsageResponse>(getGetMyUsageUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyUsageQueryKey = () => {
+  return [`/api/usage/me`] as const;
+};
+
+export const getGetMyUsageQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyUsage>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyUsage>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMyUsageQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyUsage>>> = ({
+    signal,
+  }) => getMyUsage({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyUsage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyUsageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyUsage>>
+>;
+export type GetMyUsageQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current user AI usage for this month
+ */
+
+export function useGetMyUsage<
+  TData = Awaited<ReturnType<typeof getMyUsage>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMyUsage>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyUsageQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get AI usage for all users (admin only)
+ */
+export const getGetAdminUsageUrl = () => {
+  return `/api/admin/usage`;
+};
+
+export const getAdminUsage = async (
+  options?: RequestInit,
+): Promise<AdminUsageResponse> => {
+  return customFetch<AdminUsageResponse>(getGetAdminUsageUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminUsageQueryKey = () => {
+  return [`/api/admin/usage`] as const;
+};
+
+export const getGetAdminUsageQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminUsage>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminUsage>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminUsageQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminUsage>>> = ({
+    signal,
+  }) => getAdminUsage({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminUsage>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminUsageQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminUsage>>
+>;
+export type GetAdminUsageQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI usage for all users (admin only)
+ */
+
+export function useGetAdminUsage<
+  TData = Awaited<ReturnType<typeof getAdminUsage>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminUsage>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminUsageQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update monthly AI usage limits (admin only)
+ */
+export const getUpdateUsageLimitsUrl = () => {
+  return `/api/admin/usage/limits`;
+};
+
+export const updateUsageLimits = async (
+  updateUsageLimitsBody: UpdateUsageLimitsBody,
+  options?: RequestInit,
+): Promise<UsageLimits> => {
+  return customFetch<UsageLimits>(getUpdateUsageLimitsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateUsageLimitsBody),
+  });
+};
+
+export const getUpdateUsageLimitsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUsageLimits>>,
+    TError,
+    { data: BodyType<UpdateUsageLimitsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateUsageLimits>>,
+  TError,
+  { data: BodyType<UpdateUsageLimitsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateUsageLimits"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateUsageLimits>>,
+    { data: BodyType<UpdateUsageLimitsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateUsageLimits(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateUsageLimitsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateUsageLimits>>
+>;
+export type UpdateUsageLimitsMutationBody = BodyType<UpdateUsageLimitsBody>;
+export type UpdateUsageLimitsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update monthly AI usage limits (admin only)
+ */
+export const useUpdateUsageLimits = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateUsageLimits>>,
+    TError,
+    { data: BodyType<UpdateUsageLimitsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateUsageLimits>>,
+  TError,
+  { data: BodyType<UpdateUsageLimitsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateUsageLimitsMutationOptions(options));
+};
+
+/**
+ * @summary Reset a user's usage for a type (admin only)
+ */
+export const getResetUserUsageUrl = () => {
+  return `/api/admin/usage/reset`;
+};
+
+export const resetUserUsage = async (
+  resetUsageBody: ResetUsageBody,
+  options?: RequestInit,
+): Promise<ResetUserUsage200> => {
+  return customFetch<ResetUserUsage200>(getResetUserUsageUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resetUsageBody),
+  });
+};
+
+export const getResetUserUsageMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetUserUsage>>,
+    TError,
+    { data: BodyType<ResetUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetUserUsage>>,
+  TError,
+  { data: BodyType<ResetUsageBody> },
+  TContext
+> => {
+  const mutationKey = ["resetUserUsage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetUserUsage>>,
+    { data: BodyType<ResetUsageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return resetUserUsage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetUserUsageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetUserUsage>>
+>;
+export type ResetUserUsageMutationBody = BodyType<ResetUsageBody>;
+export type ResetUserUsageMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reset a user's usage for a type (admin only)
+ */
+export const useResetUserUsage = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetUserUsage>>,
+    TError,
+    { data: BodyType<ResetUsageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetUserUsage>>,
+  TError,
+  { data: BodyType<ResetUsageBody> },
+  TContext
+> => {
+  return useMutation(getResetUserUsageMutationOptions(options));
 };

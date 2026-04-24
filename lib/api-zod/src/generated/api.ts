@@ -903,3 +903,82 @@ export const TestAiConnectionResponse = zod.object({
   provider: zod.string(),
   model: zod.string(),
 });
+
+/**
+ * @summary Get current user AI usage for this month
+ */
+export const GetMyUsageResponse = zod.object({
+  userId: zod.number(),
+  summary: zod.array(
+    zod.object({
+      type: zod.string(),
+      used: zod.number(),
+      limit: zod.number(),
+      yearMonth: zod.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get AI usage for all users (admin only)
+ */
+export const GetAdminUsageResponse = zod.object({
+  users: zod.array(
+    zod.object({
+      userId: zod.number(),
+      username: zod.string(),
+      role: zod.string(),
+      usage: zod.array(
+        zod.object({
+          type: zod.string(),
+          used: zod.number(),
+          limit: zod.number(),
+          yearMonth: zod.string().optional(),
+        }),
+      ),
+    }),
+  ),
+  limits: zod.object({
+    text: zod.number(),
+    image: zod.number(),
+    video: zod.number(),
+  }),
+});
+
+/**
+ * @summary Update monthly AI usage limits (admin only)
+ */
+export const UpdateUsageLimitsBody = zod.object({
+  text: zod.number().optional(),
+  image: zod.number().optional(),
+  video: zod.number().optional(),
+});
+
+export const UpdateUsageLimitsResponse = zod.object({
+  limits: zod.object({
+    text: zod.number(),
+    image: zod.number(),
+    video: zod.number(),
+  }),
+});
+
+/**
+ * @summary Reset a user's usage for a type (admin only)
+ */
+export const ResetUserUsageBody = zod.object({
+  userId: zod.number(),
+  type: zod.string(),
+});
+
+export const ResetUserUsageResponse = zod.object({
+  userId: zod.number(),
+  type: zod.string(),
+  summary: zod.array(
+    zod.object({
+      type: zod.string(),
+      used: zod.number(),
+      limit: zod.number(),
+      yearMonth: zod.string().optional(),
+    }),
+  ),
+});

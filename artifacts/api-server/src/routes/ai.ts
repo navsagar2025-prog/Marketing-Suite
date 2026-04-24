@@ -17,6 +17,7 @@ import { db } from "@workspace/db";
 import { mediaAssetsTable } from "@workspace/db/schema";
 import { getSetting } from "./settings.js";
 import { callAI, getDbSetting, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS } from "../lib/ai-provider.js";
+import { checkAndIncrementUsage } from "../lib/ai-usage.js";
 
 const router: IRouter = Router();
 
@@ -83,6 +84,13 @@ async function callFalQueue(model: string, apiKey: string, body: Record<string, 
 }
 
 router.post("/ai/fix-issue", async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const usageCheck = await checkAndIncrementUsage(userId, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+
   const { issueTitle, issueDescription, recommendation, websiteUrl, websiteName, currentValue } = req.body as {
     issueTitle?: string;
     issueDescription?: string;
@@ -124,6 +132,11 @@ Return ONLY the fixed content — no explanation, no labels, just the ready-to-u
 });
 
 router.post("/ai/suggest-keywords", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
   const parsed = SuggestKeywordsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -156,6 +169,11 @@ Return ONLY valid JSON, no markdown.`;
 });
 
 router.post("/ai/generate-post", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
   const parsed = GenerateSocialPostBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -182,6 +200,11 @@ router.post("/ai/generate-post", async (req, res): Promise<void> => {
 });
 
 router.post("/ai/generate-meta", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
   const parsed = GenerateMetaTagsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -213,6 +236,11 @@ Return ONLY valid JSON with "title" and "description" fields.`;
 });
 
 router.post("/ai/generate-campaign-copy", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
   const parsed = GenerateCampaignCopyBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -235,6 +263,11 @@ Write a headline, subheadline, and main copy (3-4 sentences) + a call to action.
 });
 
 router.post("/ai/generate-seo-brief", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
   const parsed = GenerateSeoBriefBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -264,6 +297,12 @@ Format it clearly with sections.`;
 });
 
 router.post("/ai/generate-image", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "image");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly image generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "image" });
+    return;
+  }
+
   const parsed = GenerateAiImageBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -310,6 +349,12 @@ router.post("/ai/generate-image", async (req, res): Promise<void> => {
 });
 
 router.post("/ai/generate-video", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "video");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly video generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "video" });
+    return;
+  }
+
   const parsed = GenerateAiVideoBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

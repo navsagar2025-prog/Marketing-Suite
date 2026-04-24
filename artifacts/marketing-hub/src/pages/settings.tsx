@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, useUpdateUsageLimits, useResetUserUsage } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 type AiProvider = "replit" | "openai" | "anthropic" | "perplexity" | "gemini";
 
@@ -43,6 +45,8 @@ const PROVIDER_MODELS: Record<AiProvider, string[]> = {
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   // Fal.ai state
   const [falApiKey, setFalApiKey] = useState("");
@@ -57,9 +61,15 @@ export default function SettingsPage() {
   const [showAiKey, setShowAiKey] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Usage limit editing state
+  const [limitEdits, setLimitEdits] = useState<{ text?: string; image?: string; video?: string }>({});
+
   const { data: settings, isLoading, refetch } = useGetSettings();
   const updateMutation = useUpdateSettings();
   const testMutation = useTestAiConnection();
+  const { data: adminUsage, refetch: refetchAdminUsage } = useGetAdminUsage({ query: { enabled: isAdmin } });
+  const updateLimitsMutation = useUpdateUsageLimits();
+  const resetUsageMutation = useResetUserUsage();
 
   const isFalConfigured = settings?.falApiKeyConfigured === true;
   const currentImageModel = selectedImageModel ?? settings?.falImageModel ?? FAL_IMAGE_MODELS[0].value;
@@ -176,6 +186,38 @@ export default function SettingsPage() {
   };
 
   const hasUnsavedChanges = selectedProvider !== null || selectedModel !== null || aiApiKey.trim() !== "";
+
+  const handleSaveLimits = () => {
+    const body: { text?: number; image?: number; video?: number } = {};
+    if (limitEdits.text !== undefined) body.text = parseInt(limitEdits.text, 10);
+    if (limitEdits.image !== undefined) body.image = parseInt(limitEdits.image, 10);
+    if (limitEdits.video !== undefined) body.video = parseInt(limitEdits.video, 10);
+    if (Object.keys(body).length === 0) return;
+    updateLimitsMutation.mutate(
+      { data: body },
+      {
+        onSuccess: () => {
+          toast({ title: "Usage limits updated" });
+          setLimitEdits({});
+          refetchAdminUsage();
+        },
+        onError: () => toast({ title: "Failed to update limits", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleResetUsage = (userId: number, type: string) => {
+    resetUsageMutation.mutate(
+      { data: { userId, type } },
+      {
+        onSuccess: () => {
+          toast({ title: `${type} usage reset` });
+          refetchAdminUsage();
+        },
+        onError: () => toast({ title: "Failed to reset usage", variant: "destructive" }),
+      }
+    );
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
@@ -518,6 +560,113 @@ export default function SettingsPage() {
             </div>
         </CardContent>
       </Card>
+
+      {/* Admin: AI Usage Overview */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-primary/10">
+                <Gauge className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-base">AI Usage Limits &amp; Overview</CardTitle>
+                <CardDescription className="mt-1">Monthly per-user quotas for AI text, image, and video generation</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Limit editors */}
+            {adminUsage && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Monthly limits (applies to all users)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {(["text", "image", "video"] as const).map(type => (
+                    <div key={type} className="space-y-1">
+                      <label className="text-xs text-muted-foreground capitalize">{type}</label>
+                      <Input
+                        data-testid={`input-limit-${type}`}
+                        type="number"
+                        min={0}
+                        value={limitEdits[type] ?? String(adminUsage.limits[type])}
+                        onChange={e => setLimitEdits(prev => ({ ...prev, [type]: e.target.value }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  data-testid="button-save-limits"
+                  size="sm"
+                  onClick={handleSaveLimits}
+                  disabled={updateLimitsMutation.isPending || Object.keys(limitEdits).length === 0}
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  {updateLimitsMutation.isPending ? "Saving..." : "Save Limits"}
+                </Button>
+              </div>
+            )}
+
+            {/* Per-user usage table */}
+            {adminUsage?.users && adminUsage.users.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium">This month&apos;s usage by user</p>
+                <div className="space-y-3">
+                  {adminUsage.users.map(userRow => (
+                    <div key={userRow.userId} className="rounded-md border p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{userRow.username}</span>
+                        <Badge variant="outline" className="text-xs">{userRow.role}</Badge>
+                      </div>
+                      <div className="space-y-1.5">
+                        {userRow.usage.map(entry => {
+                          const pct = entry.limit > 0 ? Math.min(100, Math.round((entry.used / entry.limit) * 100)) : 0;
+                          const isNear = pct >= 80;
+                          const isExhausted = pct >= 100;
+                          return (
+                            <div key={entry.type} className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground capitalize w-12 shrink-0">{entry.type}</span>
+                                <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full",
+                                      isExhausted ? "bg-destructive" : isNear ? "bg-amber-400" : "bg-primary/60"
+                                    )}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                                <span className={cn("text-xs w-16 text-right tabular-nums shrink-0", isExhausted ? "text-destructive font-semibold" : isNear ? "text-amber-600" : "text-muted-foreground")}>
+                                  {entry.used}/{entry.limit}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 shrink-0 text-muted-foreground hover:text-foreground"
+                                  title={`Reset ${entry.type} usage for ${userRow.username}`}
+                                  data-testid={`button-reset-${userRow.userId}-${entry.type}`}
+                                  onClick={() => handleResetUsage(userRow.userId, entry.type)}
+                                  disabled={resetUsageMutation.isPending || entry.used === 0}
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!adminUsage && (
+              <p className="text-sm text-muted-foreground">Loading usage data...</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

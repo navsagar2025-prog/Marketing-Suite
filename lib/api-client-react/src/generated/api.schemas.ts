@@ -588,6 +588,57 @@ export interface TestAiResponse {
   model: string;
 }
 
+export interface UsageEntry {
+  type: string;
+  used: number;
+  limit: number;
+  yearMonth?: string;
+}
+
+export interface MyUsageResponse {
+  userId: number;
+  summary: UsageEntry[];
+}
+
+export interface UserUsageSummary {
+  userId: number;
+  username: string;
+  role: string;
+  usage: UsageEntry[];
+}
+
+export type UsageLimitsLimits = {
+  text: number;
+  image: number;
+  video: number;
+};
+
+export interface UsageLimits {
+  limits: UsageLimitsLimits;
+}
+
+export type AdminUsageResponseLimits = {
+  text: number;
+  image: number;
+  video: number;
+};
+
+export interface AdminUsageResponse {
+  users: UserUsageSummary[];
+  limits: AdminUsageResponseLimits;
+}
+
+export interface UpdateUsageLimitsBody {
+  text?: number;
+  image?: number;
+  video?: number;
+}
+
+export interface ResetUsageBody {
+  userId: number;
+  type: string;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };
@@ -618,4 +669,10 @@ export type ListMediaAssetsParams = {
   websiteId?: number;
   campaignId?: number;
   type?: string;
+};
+
+export type ResetUserUsage200 = {
+  userId: number;
+  type: string;
+  summary: UsageEntry[];
 };

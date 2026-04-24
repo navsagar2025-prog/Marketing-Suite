@@ -22,10 +22,11 @@ import {
   AlertCircle,
   ShieldCheck,
   LogOut,
+  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useGetSettings } from "@workspace/api-client-react";
+import { useGetSettings, useGetMyUsage } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
@@ -78,6 +79,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { theme, toggleTheme } = useTheme();
   const { data: settings } = useGetSettings();
+  const { data: usageData } = useGetMyUsage();
   const { user, logout } = useAuth();
 
   const aiEnabled = settings?.aiEnabled ?? true;
@@ -140,6 +142,47 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {/* AI Usage widget */}
+        {sidebarOpen && usageData?.summary && usageData.summary.length > 0 && (
+          <div className="px-3 pb-1">
+            <Link href="/settings">
+              <div
+                data-testid="ai-usage-widget"
+                className="rounded-md bg-sidebar-accent/40 px-2 py-2 text-xs cursor-pointer hover:bg-sidebar-accent/70 transition-colors space-y-1.5"
+              >
+                <div className="flex items-center gap-1.5 text-sidebar-foreground/70 font-medium">
+                  <Gauge className="h-3 w-3 shrink-0" />
+                  <span>AI Usage this month</span>
+                </div>
+                {usageData.summary.map(entry => {
+                  const pct = entry.limit > 0 ? Math.min(100, Math.round((entry.used / entry.limit) * 100)) : 0;
+                  const isNear = pct >= 80;
+                  const isExhausted = pct >= 100;
+                  return (
+                    <div key={entry.type} className="space-y-0.5">
+                      <div className="flex justify-between text-sidebar-foreground/60">
+                        <span className="capitalize">{entry.type}</span>
+                        <span className={cn(isExhausted ? "text-destructive font-semibold" : isNear ? "text-amber-500" : "")}>
+                          {entry.used}/{entry.limit}
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full bg-sidebar-border overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            isExhausted ? "bg-destructive" : isNear ? "bg-amber-400" : "bg-primary/60"
+                          )}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* AI status badge */}
         {sidebarOpen && settings !== undefined && (

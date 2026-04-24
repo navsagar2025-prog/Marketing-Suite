@@ -83,6 +83,16 @@ Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaig
 - `crawledData`: jsonb (raw crawl data snapshot)
 - `crawledAt`: timestamp
 
+### leads table
+- `score`: integer (nullable) — computed lead score 0–100
+- `scoreBreakdown`: jsonb (nullable) — breakdown object `{sourcePoints, statusPoints, valuePoints, recencyPoints, total}`
+- Scoring engine: `artifacts/api-server/src/lib/lead-scoring.ts`
+- Auto-scored on create/update via `leads.ts` routes
+- Config stored in `app_settings` under key `lead_scoring_config` (JSON)
+- Admin endpoints: `GET/PATCH /api/admin/lead-scoring-config`, `POST /api/admin/leads/recalculate-scores`
+- Default weights: source {paid:30, referral:25, social:20, organic:15, direct:10}, status {qualified:30, contacted:20, new:10}, valueTier {over1000:20, over500:15, over100:10, over0:5}, recencyBonus:10
+- High-intent threshold: score ≥ 70 (used in analytics summary `highIntentLeads` count and frontend filter)
+
 ## Important Notes
 
 - PostgreSQL `numeric` columns (`budget`, `spend`, `value`) return as strings from node-postgres; must call `parseFloat(String(val))` before Zod parsing

@@ -256,6 +256,61 @@ paths:
         "401":
           description: Unauthorized (admin only)
 
+  /admin/lead-scoring-config:
+    get:
+      operationId: getLeadScoringConfig
+      tags: [admin]
+      summary: Get the current lead scoring weights (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Current lead scoring configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadScoringConfig"
+        "401":
+          description: Unauthorized (admin only)
+    patch:
+      operationId: updateLeadScoringConfig
+      tags: [admin]
+      summary: Update lead scoring weights (admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadScoringConfig"
+      responses:
+        "200":
+          description: Updated lead scoring configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadScoringConfig"
+        "401":
+          description: Unauthorized (admin only)
+
+  /admin/leads/recalculate-scores:
+    post:
+      operationId: recalculateLeadScores
+      tags: [admin]
+      summary: Recalculate scores for all leads using current weights (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Recalculation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecalculateScoresResponse"
+        "401":
+          description: Unauthorized (admin only)
+
   # ─── Social Posts ─────────────────────────────────────────────────────────────
   /social-posts:
     get:
@@ -1676,6 +1731,23 @@ components:
           type: ["string", "null"]
         value:
           type: ["number", "null"]
+        score:
+          type: ["integer", "null"]
+          description: Lead quality score 0-100
+        scoreBreakdown:
+          type: ["object", "null"]
+          description: Breakdown of score by category
+          properties:
+            sourcePoints:
+              type: integer
+            statusPoints:
+              type: integer
+            valuePoints:
+              type: integer
+            recencyPoints:
+              type: integer
+            total:
+              type: integer
         createdAt:
           type: string
           format: date-time
@@ -1690,6 +1762,52 @@ components:
         - status
         - createdAt
         - updatedAt
+
+    LeadScoringConfig:
+      type: object
+      description: Global lead scoring weights configuration
+      properties:
+        source:
+          type: object
+          properties:
+            paid: { type: integer }
+            referral: { type: integer }
+            social: { type: integer }
+            organic: { type: integer }
+            direct: { type: integer }
+          required: [paid, referral, social, organic, direct]
+        status:
+          type: object
+          properties:
+            qualified: { type: integer }
+            contacted: { type: integer }
+            new: { type: integer }
+            converted: { type: integer }
+            lost: { type: integer }
+          required: [qualified, contacted, new, converted, lost]
+        valueTier:
+          type: object
+          properties:
+            over1000: { type: integer }
+            over500: { type: integer }
+            over100: { type: integer }
+            over0: { type: integer }
+          required: [over1000, over500, over100, over0]
+        recencyBonus:
+          type: integer
+          description: Points added for leads created within last 7 days
+      required: [source, status, valueTier, recencyBonus]
+
+    RecalculateScoresResponse:
+      type: object
+      properties:
+        updated:
+          type: integer
+          description: Number of leads whose score was updated
+        date:
+          type: string
+          description: ISO date when recalculation ran
+      required: [updated, date]
 
     CreateLeadBody:
       type: object
@@ -1762,6 +1880,9 @@ components:
           type: integer
         avgSeoScore:
           type: ["number", "null"]
+        highIntentLeads:
+          type: integer
+          description: Count of leads with score >= 70
       required:
         - totalWebsites
         - totalKeywords
@@ -1772,6 +1893,7 @@ components:
         - securedBacklinks
         - scheduledPosts
         - convertedLeads
+        - highIntentLeads
 
     WebsiteAnalytics:
       type: object

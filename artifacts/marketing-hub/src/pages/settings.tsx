@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -99,6 +99,12 @@ export default function SettingsPage() {
   const { data: emailSettings, refetch: refetchEmailSettings } = useGetEmailProviderSettings();
   const updateEmailMutation = useUpdateEmailProviderSettings();
   const testEmailMutation = useTestEmailConnection();
+
+  // Lead scoring state
+  const [scoringEdits, setScoringEdits] = useState<Record<string, unknown>>({});
+  const { data: scoringConfig, refetch: refetchScoringConfig } = useGetLeadScoringConfig({ query: { enabled: isAdmin, queryKey: getGetLeadScoringConfigQueryKey() } });
+  const updateScoringMutation = useUpdateLeadScoringConfig();
+  const recalculateMutation = useRecalculateLeadScores();
 
   const activeEmailProvider = (emailProvider ?? emailSettings?.provider ?? null) as EmailProvider | null;
   const activeProviderInfo = EMAIL_PROVIDERS.find(p => p.value === activeEmailProvider);
@@ -289,6 +295,44 @@ export default function SettingsPage() {
         onError: () => setEmailTestResult({ success: false, message: "Request failed" }),
       }
     );
+  };
+
+  const handleSaveScoringConfig = () => {
+    if (Object.keys(scoringEdits).length === 0) return;
+    updateScoringMutation.mutate(
+      { data: scoringEdits as Parameters<typeof updateScoringMutation.mutate>[0]["data"] },
+      {
+        onSuccess: () => {
+          toast({ title: "Lead scoring weights saved" });
+          setScoringEdits({});
+          refetchScoringConfig();
+        },
+        onError: () => toast({ title: "Failed to save scoring weights", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleRecalculateScores = () => {
+    recalculateMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        toast({ title: `Scores recalculated — ${data.updated} leads updated` });
+      },
+      onError: () => toast({ title: "Failed to recalculate scores", variant: "destructive" }),
+    });
+  };
+
+  const activeScoringConfig = {
+    source: { ...((scoringConfig?.source ?? {})), ...((scoringEdits as { source?: object })?.source ?? {}) },
+    status: { ...((scoringConfig?.status ?? {})), ...((scoringEdits as { status?: object })?.status ?? {}) },
+    valueTier: { ...((scoringConfig?.valueTier ?? {})), ...((scoringEdits as { valueTier?: object })?.valueTier ?? {}) },
+    recencyBonus: (scoringEdits as { recencyBonus?: number })?.recencyBonus ?? scoringConfig?.recencyBonus ?? 10,
+  };
+
+  const setScoringWeight = (category: string, key: string, value: number) => {
+    setScoringEdits(prev => ({
+      ...prev,
+      [category]: { ...(prev[category] as object ?? {}), [key]: value },
+    }));
   };
 
   return (
@@ -973,6 +1017,144 @@ export default function SettingsPage() {
             {!adminUsage && (
               <p className="text-sm text-muted-foreground">Loading usage data...</p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lead Scoring Configuration */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-primary/10">
+                <Target className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <CardTitle className="text-base">Lead Scoring</CardTitle>
+                <CardDescription className="mt-1">Configure point weights for automatic lead scoring (0–100 scale)</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="button-recalculate-scores"
+                onClick={handleRecalculateScores}
+                disabled={recalculateMutation.isPending}
+                className="shrink-0"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${recalculateMutation.isPending ? "animate-spin" : ""}`} />
+                Recalculate All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Source weights */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Lead Source Points</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[
+                  { key: "paid", label: "Paid" },
+                  { key: "referral", label: "Referral" },
+                  { key: "social", label: "Social" },
+                  { key: "organic", label: "Organic" },
+                  { key: "direct", label: "Direct" },
+                ].map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <label className="text-xs text-muted-foreground">{label}</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      data-testid={`input-score-source-${key}`}
+                      value={(activeScoringConfig.source as Record<string, number>)[key] ?? 0}
+                      onChange={e => setScoringWeight("source", key, parseInt(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Status weights */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Lead Status Points</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[
+                  { key: "new", label: "New" },
+                  { key: "contacted", label: "Contacted" },
+                  { key: "qualified", label: "Qualified" },
+                  { key: "converted", label: "Converted" },
+                  { key: "lost", label: "Lost" },
+                ].map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <label className="text-xs text-muted-foreground">{label}</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      data-testid={`input-score-status-${key}`}
+                      value={(activeScoringConfig.status as Record<string, number>)[key] ?? 0}
+                      onChange={e => setScoringWeight("status", key, parseInt(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Value tier weights */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Lead Value Points</h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[
+                  { key: "over1000", label: "Over $1000" },
+                  { key: "over500", label: "$500–$1000" },
+                  { key: "over100", label: "$100–$500" },
+                  { key: "over0", label: "Under $100" },
+                ].map(({ key, label }) => (
+                  <div key={key} className="space-y-1">
+                    <label className="text-xs text-muted-foreground">{label}</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      data-testid={`input-score-value-${key}`}
+                      value={(activeScoringConfig.valueTier as Record<string, number>)[key] ?? 0}
+                      onChange={e => setScoringWeight("valueTier", key, parseInt(e.target.value) || 0)}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Recency bonus */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Recency Bonus</h3>
+              <div className="max-w-[120px] space-y-1">
+                <label className="text-xs text-muted-foreground">Points (leads &lt; 7 days old)</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  data-testid="input-score-recency"
+                  value={activeScoringConfig.recencyBonus}
+                  onChange={e => setScoringEdits(prev => ({ ...prev, recencyBonus: parseInt(e.target.value) || 0 }))}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                data-testid="button-save-scoring-config"
+                onClick={handleSaveScoringConfig}
+                disabled={Object.keys(scoringEdits).length === 0 || updateScoringMutation.isPending}
+                size="sm"
+              >
+                <Save className="h-4 w-4 mr-1.5" />
+                {updateScoringMutation.isPending ? "Saving..." : "Save Weights"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

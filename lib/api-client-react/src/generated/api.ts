@@ -51,6 +51,7 @@ import type {
   KeywordRankHistory,
   KeywordSuggestions,
   Lead,
+  LeadScoringConfig,
   LeadsFunnel,
   ListBacklinksParams,
   ListCampaignsParams,
@@ -60,6 +61,7 @@ import type {
   ListSocialPostsParams,
   MediaAsset,
   MyUsageResponse,
+  RecalculateScoresResponse,
   ResetUsageBody,
   ResetUserUsage200,
   SendCampaignEmailBody,
@@ -1135,6 +1137,248 @@ export const useSnapshotKeywordRanks = <
   TContext
 > => {
   return useMutation(getSnapshotKeywordRanksMutationOptions(options));
+};
+
+/**
+ * @summary Get the current lead scoring weights (admin only)
+ */
+export const getGetLeadScoringConfigUrl = () => {
+  return `/api/admin/lead-scoring-config`;
+};
+
+export const getLeadScoringConfig = async (
+  options?: RequestInit,
+): Promise<LeadScoringConfig> => {
+  return customFetch<LeadScoringConfig>(getGetLeadScoringConfigUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLeadScoringConfigQueryKey = () => {
+  return [`/api/admin/lead-scoring-config`] as const;
+};
+
+export const getGetLeadScoringConfigQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeadScoringConfig>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLeadScoringConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLeadScoringConfigQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLeadScoringConfig>>
+  > = ({ signal }) => getLeadScoringConfig({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeadScoringConfig>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLeadScoringConfigQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeadScoringConfig>>
+>;
+export type GetLeadScoringConfigQueryError = ErrorType<void>;
+
+/**
+ * @summary Get the current lead scoring weights (admin only)
+ */
+
+export function useGetLeadScoringConfig<
+  TData = Awaited<ReturnType<typeof getLeadScoringConfig>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getLeadScoringConfig>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLeadScoringConfigQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update lead scoring weights (admin only)
+ */
+export const getUpdateLeadScoringConfigUrl = () => {
+  return `/api/admin/lead-scoring-config`;
+};
+
+export const updateLeadScoringConfig = async (
+  leadScoringConfig: LeadScoringConfig,
+  options?: RequestInit,
+): Promise<LeadScoringConfig> => {
+  return customFetch<LeadScoringConfig>(getUpdateLeadScoringConfigUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(leadScoringConfig),
+  });
+};
+
+export const getUpdateLeadScoringConfigMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLeadScoringConfig>>,
+    TError,
+    { data: BodyType<LeadScoringConfig> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLeadScoringConfig>>,
+  TError,
+  { data: BodyType<LeadScoringConfig> },
+  TContext
+> => {
+  const mutationKey = ["updateLeadScoringConfig"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLeadScoringConfig>>,
+    { data: BodyType<LeadScoringConfig> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateLeadScoringConfig(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLeadScoringConfigMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLeadScoringConfig>>
+>;
+export type UpdateLeadScoringConfigMutationBody = BodyType<LeadScoringConfig>;
+export type UpdateLeadScoringConfigMutationError = ErrorType<void>;
+
+/**
+ * @summary Update lead scoring weights (admin only)
+ */
+export const useUpdateLeadScoringConfig = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLeadScoringConfig>>,
+    TError,
+    { data: BodyType<LeadScoringConfig> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLeadScoringConfig>>,
+  TError,
+  { data: BodyType<LeadScoringConfig> },
+  TContext
+> => {
+  return useMutation(getUpdateLeadScoringConfigMutationOptions(options));
+};
+
+/**
+ * @summary Recalculate scores for all leads using current weights (admin only)
+ */
+export const getRecalculateLeadScoresUrl = () => {
+  return `/api/admin/leads/recalculate-scores`;
+};
+
+export const recalculateLeadScores = async (
+  options?: RequestInit,
+): Promise<RecalculateScoresResponse> => {
+  return customFetch<RecalculateScoresResponse>(getRecalculateLeadScoresUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRecalculateLeadScoresMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recalculateLeadScores>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof recalculateLeadScores>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["recalculateLeadScores"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof recalculateLeadScores>>,
+    void
+  > = () => {
+    return recalculateLeadScores(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RecalculateLeadScoresMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recalculateLeadScores>>
+>;
+
+export type RecalculateLeadScoresMutationError = ErrorType<void>;
+
+/**
+ * @summary Recalculate scores for all leads using current weights (admin only)
+ */
+export const useRecalculateLeadScores = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof recalculateLeadScores>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof recalculateLeadScores>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRecalculateLeadScoresMutationOptions(options));
 };
 
 /**

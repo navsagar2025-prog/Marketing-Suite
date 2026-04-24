@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { eq, desc, count, sum, countDistinct, and, gte } from "drizzle-orm";
-import { db, staffUsersTable, ipRateLimitsTable, ipAllowlistTable } from "@workspace/db";
+import { db, staffUsersTable, ipRateLimitsTable, ipAllowlistTable, leadsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth.js";
 import { runRankSnapshot } from "./keywords.js";
 import { SnapshotKeywordRanksResponse } from "@workspace/api-zod";
+import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights, type LeadScoringWeights } from "../lib/lead-scoring.js";
+import { getDbSetting, setDbSetting } from "../lib/ai-provider.js";
 
 const DAILY_LIMIT = 2;
 
@@ -176,6 +178,44 @@ router.delete("/admin/staff/:id", async (req, res): Promise<void> => {
 router.post("/admin/keywords/snapshot", async (_req, res): Promise<void> => {
   const result = await runRankSnapshot();
   res.json(SnapshotKeywordRanksResponse.parse(result));
+});
+
+async function loadScoringWeights(): Promise<LeadScoringWeights> {
+  try {
+    const raw = await getDbSetting("lead_scoring_config");
+    if (raw) return { ...DEFAULT_SCORING_WEIGHTS, ...JSON.parse(raw) };
+  } catch {
+  }
+  return DEFAULT_SCORING_WEIGHTS;
+}
+
+router.get("/admin/lead-scoring-config", async (_req, res): Promise<void> => {
+  const weights = await loadScoringWeights();
+  res.json(weights);
+});
+
+router.patch("/admin/lead-scoring-config", async (req, res): Promise<void> => {
+  const current = await loadScoringWeights();
+  const updated = mergeWeights(current, req.body ?? {});
+  await setDbSetting("lead_scoring_config", JSON.stringify(updated));
+  res.json(updated);
+});
+
+router.post("/admin/leads/recalculate-scores", async (_req, res): Promise<void> => {
+  const weights = await loadScoringWeights();
+  const leads = await db.select().from(leadsTable);
+  let updated = 0;
+  for (const lead of leads) {
+    const { score, breakdown } = calculateLeadScore(
+      { source: lead.source, status: lead.status, value: lead.value, createdAt: lead.createdAt },
+      weights
+    );
+    if (lead.score !== score) {
+      await db.update(leadsTable).set({ score, scoreBreakdown: breakdown }).where(eq(leadsTable.id, lead.id));
+      updated++;
+    }
+  }
+  res.json({ updated, date: new Date().toISOString().slice(0, 10) });
 });
 
 export default router;

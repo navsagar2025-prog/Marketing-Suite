@@ -5,6 +5,7 @@
  * SEO & Marketing Hub API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LeadScoreBreakdown } from "./leadScoreBreakdown";
 
 export interface Lead {
   id: number;
@@ -24,6 +25,16 @@ export interface Lead {
   notes?: string | null;
   /** @nullable */
   value?: number | null;
+  /**
+   * Lead quality score 0-100
+   * @nullable
+   */
+  score?: number | null;
+  /**
+   * Breakdown of score by category
+   * @nullable
+   */
+  scoreBreakdown?: LeadScoreBreakdown;
   createdAt: Date;
   updatedAt: Date;
 }

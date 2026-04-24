@@ -83,7 +83,7 @@ export default function Dashboard() {
         <StatCard label="Backlinks" value={summary?.totalBacklinks} icon={Link2} href="/backlinks" sublabel={`${summary?.securedBacklinks ?? 0} secured`} loading={summaryLoading} />
         <StatCard label="Scheduled Posts" value={summary?.scheduledPosts} icon={Calendar} href="/social" loading={summaryLoading} />
         <StatCard label="Avg SEO Score" value={summary?.avgSeoScore !== null && summary?.avgSeoScore !== undefined ? Math.round(summary.avgSeoScore) : "—"} icon={TrendingUp} loading={summaryLoading} />
-        <StatCard label="Converted Leads" value={summary?.convertedLeads} icon={Target} href="/leads" loading={summaryLoading} />
+        <StatCard label="High-Intent Leads" value={summary?.highIntentLeads} icon={Target} href="/leads" sublabel="score ≥ 70" loading={summaryLoading} />
       </div>
 
       {/* Charts row */}

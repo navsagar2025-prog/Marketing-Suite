@@ -293,6 +293,18 @@ export interface UpdateBacklinkBody {
   notes?: string | null;
 }
 
+/**
+ * Breakdown of score by category
+ * @nullable
+ */
+export type LeadScoreBreakdown = {
+  sourcePoints?: number;
+  statusPoints?: number;
+  valuePoints?: number;
+  recencyPoints?: number;
+  total?: number;
+} | null;
+
 export interface Lead {
   id: number;
   websiteId: number;
@@ -311,8 +323,59 @@ export interface Lead {
   notes?: string | null;
   /** @nullable */
   value?: number | null;
+  /**
+   * Lead quality score 0-100
+   * @nullable
+   */
+  score?: number | null;
+  /**
+   * Breakdown of score by category
+   * @nullable
+   */
+  scoreBreakdown?: LeadScoreBreakdown;
   createdAt: string;
   updatedAt: string;
+}
+
+export type LeadScoringConfigSource = {
+  paid: number;
+  referral: number;
+  social: number;
+  organic: number;
+  direct: number;
+};
+
+export type LeadScoringConfigStatus = {
+  qualified: number;
+  contacted: number;
+  new: number;
+  converted: number;
+  lost: number;
+};
+
+export type LeadScoringConfigValueTier = {
+  over1000: number;
+  over500: number;
+  over100: number;
+  over0: number;
+};
+
+/**
+ * Global lead scoring weights configuration
+ */
+export interface LeadScoringConfig {
+  source: LeadScoringConfigSource;
+  status: LeadScoringConfigStatus;
+  valueTier: LeadScoringConfigValueTier;
+  /** Points added for leads created within last 7 days */
+  recencyBonus: number;
+}
+
+export interface RecalculateScoresResponse {
+  /** Number of leads whose score was updated */
+  updated: number;
+  /** ISO date when recalculation ran */
+  date: string;
 }
 
 export interface CreateLeadBody {
@@ -360,6 +423,8 @@ export interface AnalyticsSummary {
   convertedLeads: number;
   /** @nullable */
   avgSeoScore?: number | null;
+  /** Count of leads with score >= 70 */
+  highIntentLeads: number;
 }
 
 export interface WebsiteAnalytics {

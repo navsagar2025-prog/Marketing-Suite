@@ -218,6 +218,104 @@ export const SnapshotKeywordRanksResponse = zod.object({
 });
 
 /**
+ * @summary Get the current lead scoring weights (admin only)
+ */
+export const GetLeadScoringConfigResponse = zod
+  .object({
+    source: zod.object({
+      paid: zod.number(),
+      referral: zod.number(),
+      social: zod.number(),
+      organic: zod.number(),
+      direct: zod.number(),
+    }),
+    status: zod.object({
+      qualified: zod.number(),
+      contacted: zod.number(),
+      new: zod.number(),
+      converted: zod.number(),
+      lost: zod.number(),
+    }),
+    valueTier: zod.object({
+      over1000: zod.number(),
+      over500: zod.number(),
+      over100: zod.number(),
+      over0: zod.number(),
+    }),
+    recencyBonus: zod
+      .number()
+      .describe("Points added for leads created within last 7 days"),
+  })
+  .describe("Global lead scoring weights configuration");
+
+/**
+ * @summary Update lead scoring weights (admin only)
+ */
+export const UpdateLeadScoringConfigBody = zod
+  .object({
+    source: zod.object({
+      paid: zod.number(),
+      referral: zod.number(),
+      social: zod.number(),
+      organic: zod.number(),
+      direct: zod.number(),
+    }),
+    status: zod.object({
+      qualified: zod.number(),
+      contacted: zod.number(),
+      new: zod.number(),
+      converted: zod.number(),
+      lost: zod.number(),
+    }),
+    valueTier: zod.object({
+      over1000: zod.number(),
+      over500: zod.number(),
+      over100: zod.number(),
+      over0: zod.number(),
+    }),
+    recencyBonus: zod
+      .number()
+      .describe("Points added for leads created within last 7 days"),
+  })
+  .describe("Global lead scoring weights configuration");
+
+export const UpdateLeadScoringConfigResponse = zod
+  .object({
+    source: zod.object({
+      paid: zod.number(),
+      referral: zod.number(),
+      social: zod.number(),
+      organic: zod.number(),
+      direct: zod.number(),
+    }),
+    status: zod.object({
+      qualified: zod.number(),
+      contacted: zod.number(),
+      new: zod.number(),
+      converted: zod.number(),
+      lost: zod.number(),
+    }),
+    valueTier: zod.object({
+      over1000: zod.number(),
+      over500: zod.number(),
+      over100: zod.number(),
+      over0: zod.number(),
+    }),
+    recencyBonus: zod
+      .number()
+      .describe("Points added for leads created within last 7 days"),
+  })
+  .describe("Global lead scoring weights configuration");
+
+/**
+ * @summary Recalculate scores for all leads using current weights (admin only)
+ */
+export const RecalculateLeadScoresResponse = zod.object({
+  updated: zod.number().describe("Number of leads whose score was updated"),
+  date: zod.string().describe("ISO date when recalculation ran"),
+});
+
+/**
  * @summary List social posts
  */
 export const ListSocialPostsQueryParams = zod.object({
@@ -578,6 +676,17 @@ export const ListLeadsResponseItem = zod.object({
     .describe("new | contacted | qualified | converted | lost"),
   notes: zod.string().nullish(),
   value: zod.number().nullish(),
+  score: zod.number().nullish().describe("Lead quality score 0-100"),
+  scoreBreakdown: zod
+    .object({
+      sourcePoints: zod.number().optional(),
+      statusPoints: zod.number().optional(),
+      valuePoints: zod.number().optional(),
+      recencyPoints: zod.number().optional(),
+      total: zod.number().optional(),
+    })
+    .nullish()
+    .describe("Breakdown of score by category"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -629,6 +738,17 @@ export const UpdateLeadResponse = zod.object({
     .describe("new | contacted | qualified | converted | lost"),
   notes: zod.string().nullish(),
   value: zod.number().nullish(),
+  score: zod.number().nullish().describe("Lead quality score 0-100"),
+  scoreBreakdown: zod
+    .object({
+      sourcePoints: zod.number().optional(),
+      statusPoints: zod.number().optional(),
+      valuePoints: zod.number().optional(),
+      recencyPoints: zod.number().optional(),
+      total: zod.number().optional(),
+    })
+    .nullish()
+    .describe("Breakdown of score by category"),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -654,6 +774,7 @@ export const GetAnalyticsSummaryResponse = zod.object({
   scheduledPosts: zod.number(),
   convertedLeads: zod.number(),
   avgSeoScore: zod.number().nullish(),
+  highIntentLeads: zod.number().describe("Count of leads with score >= 70"),
 });
 
 /**

@@ -18,4 +18,6 @@ export interface AnalyticsSummary {
   convertedLeads: number;
   /** @nullable */
   avgSeoScore?: number | null;
+  /** Count of leads with score >= 70 */
+  highIntentLeads: number;
 }

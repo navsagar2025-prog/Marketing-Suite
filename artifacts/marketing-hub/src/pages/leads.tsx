@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Users, Trash2, Search } from "lucide-react";
+import { Plus, Users, Trash2, Search, TrendingUp, ArrowUpDown } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import {
   useListLeads,
@@ -54,10 +55,85 @@ const statusColors: Record<string, string> = {
 
 const FUNNEL_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
+type ScoreBreakdown = {
+  sourcePoints: number;
+  statusPoints: number;
+  valuePoints: number;
+  recencyPoints: number;
+  total: number;
+};
+
+function ScoreBadge({ score, breakdown }: { score: number | null | undefined; breakdown?: ScoreBreakdown | null }) {
+  if (score == null) return <span className="text-xs text-muted-foreground">—</span>;
+
+  const colorClass = score >= 70
+    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+    : score >= 40
+    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+    : "bg-muted text-muted-foreground";
+
+  const badge = (
+    <span
+      className={`text-xs font-bold px-2 py-0.5 rounded cursor-pointer select-none ${colorClass}`}
+      data-testid="badge-lead-score"
+    >
+      {score}
+    </span>
+  );
+
+  if (!breakdown) return badge;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        {badge}
+      </PopoverTrigger>
+      <PopoverContent className="w-56 text-sm" side="left">
+        <p className="font-semibold mb-2">Score breakdown</p>
+        <ul className="space-y-1 text-xs">
+          {breakdown.sourcePoints > 0 && (
+            <li className="flex justify-between">
+              <span className="text-muted-foreground">Source</span>
+              <span className="font-mono text-green-600">+{breakdown.sourcePoints}</span>
+            </li>
+          )}
+          {breakdown.statusPoints > 0 && (
+            <li className="flex justify-between">
+              <span className="text-muted-foreground">Status</span>
+              <span className="font-mono text-green-600">+{breakdown.statusPoints}</span>
+            </li>
+          )}
+          {breakdown.valuePoints > 0 && (
+            <li className="flex justify-between">
+              <span className="text-muted-foreground">Lead value</span>
+              <span className="font-mono text-green-600">+{breakdown.valuePoints}</span>
+            </li>
+          )}
+          {breakdown.recencyPoints > 0 && (
+            <li className="flex justify-between">
+              <span className="text-muted-foreground">Recency bonus</span>
+              <span className="font-mono text-green-600">+{breakdown.recencyPoints}</span>
+            </li>
+          )}
+          <li className="flex justify-between border-t pt-1 mt-1 font-medium">
+            <span>Total</span>
+            <span>{breakdown.total}</span>
+          </li>
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+type SortKey = "createdAt" | "score";
+
 export default function Leads() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterIntent, setFilterIntent] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: websites } = useListWebsites();
@@ -95,6 +171,15 @@ export default function Leads() {
     });
   };
 
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(key === "score" ? "desc" : "asc");
+    }
+  };
+
   const funnelData = funnel
     ? [
         { name: "New", value: funnel.newLeads },
@@ -105,9 +190,19 @@ export default function Leads() {
       ]
     : [];
 
-  const filtered = (leads ?? []).filter(l =>
-    !search || l.name.toLowerCase().includes(search.toLowerCase()) || (l.email ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = (leads ?? [])
+    .filter(l => !search || l.name.toLowerCase().includes(search.toLowerCase()) || (l.email ?? "").toLowerCase().includes(search.toLowerCase()))
+    .filter(l => !filterIntent || (l.score != null && l.score >= 70))
+    .sort((a, b) => {
+      if (sortKey === "score") {
+        const aScore = a.score ?? -1;
+        const bScore = b.score ?? -1;
+        return sortDir === "desc" ? bScore - aScore : aScore - bScore;
+      }
+      const aDate = new Date(a.createdAt).getTime();
+      const bDate = new Date(b.createdAt).getTime();
+      return sortDir === "asc" ? aDate - bDate : bDate - aDate;
+    });
 
   return (
     <div className="p-6 space-y-6">
@@ -229,7 +324,7 @@ export default function Leads() {
         </Card>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input data-testid="input-search-leads" className="pl-8" placeholder="Search leads..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -241,6 +336,16 @@ export default function Leads() {
             {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Button
+          variant={filterIntent ? "default" : "outline"}
+          size="sm"
+          data-testid="button-filter-high-intent"
+          onClick={() => setFilterIntent(v => !v)}
+          className="gap-1.5 whitespace-nowrap"
+        >
+          <TrendingUp className="h-4 w-4" />
+          {filterIntent ? "High-intent only" : "All leads"}
+        </Button>
       </div>
 
       <Card>
@@ -250,7 +355,7 @@ export default function Leads() {
           ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">{search ? "No leads match" : "No leads yet"}</p>
+              <p className="text-sm">{search || filterIntent ? "No leads match" : "No leads yet"}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -262,6 +367,16 @@ export default function Leads() {
                     <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Source</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Value</th>
                     <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
+                    <th
+                      className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider cursor-pointer hover:text-foreground select-none"
+                      data-testid="th-score"
+                      onClick={() => toggleSort("score")}
+                    >
+                      <span className="flex items-center justify-center gap-1">
+                        Score
+                        <ArrowUpDown className={`h-3 w-3 ${sortKey === "score" ? "text-primary" : ""}`} />
+                      </span>
+                    </th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -274,6 +389,12 @@ export default function Leads() {
                       <td className="px-4 py-3 text-right font-mono text-sm">{l.value ? `$${parseFloat(String(l.value)).toLocaleString()}` : "—"}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[l.status] ?? ""}`}>{l.status}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <ScoreBadge
+                          score={l.score}
+                          breakdown={l.scoreBreakdown as ScoreBreakdown | null}
+                        />
                       </td>
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" data-testid={`button-delete-lead-${l.id}`} onClick={() => handleDelete(l.id)} disabled={deleteMutation.isPending}>

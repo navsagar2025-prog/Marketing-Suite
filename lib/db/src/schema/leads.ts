@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { websitesTable } from "./websites";
@@ -15,6 +15,8 @@ export const leadsTable = pgTable("leads", {
   status: text("status").notNull().default("new"),
   notes: text("notes"),
   value: numeric("value", { precision: 10, scale: 2 }),
+  score: integer("score"),
+  scoreBreakdown: jsonb("score_breakdown"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

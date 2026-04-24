@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, count, sql } from "drizzle-orm";
+import { eq, count, sql, gte } from "drizzle-orm";
 import { db, websitesTable, keywordsTable, socialPostsTable, campaignsTable, backlinksTable, leadsTable } from "@workspace/db";
 import {
   GetWebsiteAnalyticsParams,
@@ -21,6 +21,7 @@ router.get("/analytics/summary", async (_req, res): Promise<void> => {
   const [securedBacklinks] = await db.select({ count: count() }).from(backlinksTable).where(eq(backlinksTable.status, "link_secured"));
   const [scheduledPosts] = await db.select({ count: count() }).from(socialPostsTable).where(eq(socialPostsTable.status, "scheduled"));
   const [convertedLeads] = await db.select({ count: count() }).from(leadsTable).where(eq(leadsTable.status, "converted"));
+  const [highIntentLeads] = await db.select({ count: count() }).from(leadsTable).where(gte(leadsTable.score, 70));
   const avgSeoResult = await db.select({ avg: sql<number>`avg(seo_score)` }).from(websitesTable);
 
   res.json(GetAnalyticsSummaryResponse.parse({
@@ -33,6 +34,7 @@ router.get("/analytics/summary", async (_req, res): Promise<void> => {
     securedBacklinks: securedBacklinks?.count ?? 0,
     scheduledPosts: scheduledPosts?.count ?? 0,
     convertedLeads: convertedLeads?.count ?? 0,
+    highIntentLeads: highIntentLeads?.count ?? 0,
     avgSeoScore: avgSeoResult[0]?.avg != null ? parseFloat(String(avgSeoResult[0].avg)) : null,
   }));
 });

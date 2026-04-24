@@ -103,7 +103,7 @@ export default function Campaigns() {
   const { data: recipientPreview } = useGetCampaignRecipients(
     composeCampaignId ?? 0,
     recipientParams,
-    { query: { enabled: !!composeCampaignId && composeOpen, queryKey: getGetCampaignRecipientsQueryKey(composeCampaignId ?? 0, recipientParams) } }
+    { query: { enabled: !!composeCampaignId && composeOpen && composeStatuses.length > 0, queryKey: getGetCampaignRecipientsQueryKey(composeCampaignId ?? 0, recipientParams) } }
   );
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));

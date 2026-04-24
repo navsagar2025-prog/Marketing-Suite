@@ -976,6 +976,11 @@ export const GetEmailProviderSettingsResponse = zod.object({
     .describe(
       "Mailchimp audience\/list ID for syncing leads to a Mailchimp audience (optional)",
     ),
+  mailchimpSendMode: zod
+    .enum(["direct", "sync_and_send", "sync_only"])
+    .describe(
+      "Mailchimp send mode — direct: Mandrill only; sync_and_send: sync to list then send; sync_only: list sync only, no email sent\n",
+    ),
 });
 
 /**
@@ -996,6 +1001,10 @@ export const UpdateEmailProviderSettingsBody = zod.object({
     .describe(
       "Mailchimp audience\/list ID for syncing leads to a Mailchimp audience",
     ),
+  mailchimpSendMode: zod
+    .enum(["direct", "sync_and_send", "sync_only"])
+    .optional()
+    .describe("Mailchimp send mode"),
 });
 
 export const UpdateEmailProviderSettingsResponse = zod.object({
@@ -1014,6 +1023,11 @@ export const UpdateEmailProviderSettingsResponse = zod.object({
     .string()
     .describe(
       "Mailchimp audience\/list ID for syncing leads to a Mailchimp audience (optional)",
+    ),
+  mailchimpSendMode: zod
+    .enum(["direct", "sync_and_send", "sync_only"])
+    .describe(
+      "Mailchimp send mode — direct: Mandrill only; sync_and_send: sync to list then send; sync_only: list sync only, no email sent\n",
     ),
 });
 

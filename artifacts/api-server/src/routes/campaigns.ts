@@ -169,8 +169,13 @@ router.get("/campaigns/:id/recipients", async (req, res): Promise<void> => {
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
   const { statuses } = req.query;
-  const statusList = typeof statuses === "string" ? statuses.split(",") : ["new", "contacted", "qualified"];
+  const statusList = typeof statuses === "string" ? statuses.split(",").filter(Boolean) : ["new", "contacted", "qualified"];
   const validStatuses = statusList.filter(s => ["new", "contacted", "qualified", "converted", "lost"].includes(s));
+
+  if (validStatuses.length === 0) {
+    res.json({ count: 0, total: 0 });
+    return;
+  }
 
   const leads = await db.select({ email: leadsTable.email, name: leadsTable.name }).from(leadsTable)
     .where(and(eq(leadsTable.websiteId, campaign.websiteId), inArray(leadsTable.status, validStatuses)));

@@ -5,6 +5,7 @@
  * SEO & Marketing Hub API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateEmailProviderBodyMailchimpSendMode } from "./updateEmailProviderBodyMailchimpSendMode";
 
 export interface UpdateEmailProviderBody {
   provider?: string;
@@ -17,4 +18,6 @@ export interface UpdateEmailProviderBody {
   smtpPass?: string;
   /** Mailchimp audience/list ID for syncing leads to a Mailchimp audience */
   audienceId?: string;
+  /** Mailchimp send mode */
+  mailchimpSendMode?: UpdateEmailProviderBodyMailchimpSendMode;
 }

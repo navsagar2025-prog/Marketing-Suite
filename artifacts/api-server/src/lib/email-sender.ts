@@ -17,6 +17,13 @@ export interface EmailProviderConfig {
   fromName?: string;
   /** Mailchimp Marketing API audience/list ID for syncing leads to a Mailchimp list */
   audienceId?: string;
+  /**
+   * Mailchimp send mode (default: "direct"):
+   *   "direct"        – send via Mandrill only (no audience sync)
+   *   "sync_and_send" – sync leads to audience list, then send via Mandrill
+   *   "sync_only"     – sync leads to audience list only; no email is sent
+   */
+  mailchimpSendMode?: "direct" | "sync_and_send" | "sync_only";
 }
 
 export interface SendEmailOptions {
@@ -109,7 +116,11 @@ export async function getEmailProviderConfig(): Promise<EmailProviderConfig | nu
 
   if (provider === "mailchimp") {
     const audienceId = await getSettingValue("email_mailchimp_audience_id") ?? undefined;
-    return { provider, apiKey, fromAddress, fromName, audienceId };
+    const rawMode = await getSettingValue("email_mailchimp_send_mode") ?? "direct";
+    const mailchimpSendMode = (["direct", "sync_and_send", "sync_only"].includes(rawMode)
+      ? rawMode
+      : "direct") as "direct" | "sync_and_send" | "sync_only";
+    return { provider, apiKey, fromAddress, fromName, audienceId, mailchimpSendMode };
   }
 
   return { provider, apiKey, fromAddress, fromName };
@@ -227,15 +238,19 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
 
   if (config.provider === "mailchimp") {
     const apiKey = config.apiKey!;
+    const mode = config.mailchimpSendMode ?? "direct";
+    const doSync = (mode === "sync_and_send" || mode === "sync_only") && !!config.audienceId;
+    const doSend = mode === "direct" || mode === "sync_and_send";
 
-    if (config.audienceId) {
+    if (doSync && config.audienceId) {
       const dc = apiKey.split("-").pop() ?? "us1";
       const authHeader = `Basic ${Buffer.from(`anystring:${apiKey}`).toString("base64")}`;
       const baseUrl = `https://${dc}.api.mailchimp.com/3.0`;
 
       for (const recipient of to) {
         const [firstName, ...lastParts] = recipient.split("@")[0]?.split(/[._-]/) ?? [""];
-        const subscriberHash = (await import("crypto")).createHash("md5").update(recipient.toLowerCase()).digest("hex");
+        const { createHash } = await import("crypto");
+        const subscriberHash = createHash("md5").update(recipient.toLowerCase()).digest("hex");
         const memberResp = await fetch(`${baseUrl}/lists/${config.audienceId}/members/${subscriberHash}`, {
           method: "PUT",
           headers: { Authorization: authHeader, "Content-Type": "application/json" },
@@ -250,6 +265,10 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
           throw new Error(`Mailchimp audience sync error ${memberResp.status}: ${err}`);
         }
       }
+    }
+
+    if (!doSend) {
+      return { sent: 0 };
     }
 
     let sent = 0;

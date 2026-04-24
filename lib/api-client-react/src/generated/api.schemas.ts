@@ -643,6 +643,19 @@ export interface ResetUsageBody {
   type: string;
 }
 
+/**
+ * Mailchimp send mode — direct: Mandrill only; sync_and_send: sync to list then send; sync_only: list sync only, no email sent
+
+ */
+export type EmailProviderSettingsMailchimpSendMode =
+  (typeof EmailProviderSettingsMailchimpSendMode)[keyof typeof EmailProviderSettingsMailchimpSendMode];
+
+export const EmailProviderSettingsMailchimpSendMode = {
+  direct: "direct",
+  sync_and_send: "sync_and_send",
+  sync_only: "sync_only",
+} as const;
+
 export interface EmailProviderSettings {
   /**
    * smtp | sendgrid | mailgun | resend | mailchimp
@@ -658,7 +671,22 @@ export interface EmailProviderSettings {
   smtpPassConfigured: boolean;
   /** Mailchimp audience/list ID for syncing leads to a Mailchimp audience (optional) */
   audienceId: string;
+  /** Mailchimp send mode — direct: Mandrill only; sync_and_send: sync to list then send; sync_only: list sync only, no email sent
+   */
+  mailchimpSendMode: EmailProviderSettingsMailchimpSendMode;
 }
+
+/**
+ * Mailchimp send mode
+ */
+export type UpdateEmailProviderBodyMailchimpSendMode =
+  (typeof UpdateEmailProviderBodyMailchimpSendMode)[keyof typeof UpdateEmailProviderBodyMailchimpSendMode];
+
+export const UpdateEmailProviderBodyMailchimpSendMode = {
+  direct: "direct",
+  sync_and_send: "sync_and_send",
+  sync_only: "sync_only",
+} as const;
 
 export interface UpdateEmailProviderBody {
   provider?: string;
@@ -671,6 +699,8 @@ export interface UpdateEmailProviderBody {
   smtpPass?: string;
   /** Mailchimp audience/list ID for syncing leads to a Mailchimp audience */
   audienceId?: string;
+  /** Mailchimp send mode */
+  mailchimpSendMode?: UpdateEmailProviderBodyMailchimpSendMode;
 }
 
 export interface TestEmailBody {

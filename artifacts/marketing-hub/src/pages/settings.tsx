@@ -81,6 +81,7 @@ export default function SettingsPage() {
   const [emailFromName, setEmailFromName] = useState("");
   const [emailApiKey, setEmailApiKey] = useState("");
   const [emailAudienceId, setEmailAudienceId] = useState("");
+  const [emailMailchimpSendMode, setEmailMailchimpSendMode] = useState<"direct" | "sync_and_send" | "sync_only">("direct");
   const [emailSmtpHost, setEmailSmtpHost] = useState("");
   const [emailSmtpPort, setEmailSmtpPort] = useState("587");
   const [emailSmtpUser, setEmailSmtpUser] = useState("");
@@ -258,6 +259,7 @@ export default function SettingsPage() {
     if (emailFromName.trim()) body.fromName = emailFromName.trim();
     if (emailApiKey.trim()) body.apiKey = emailApiKey.trim();
     if (emailAudienceId.trim()) body.audienceId = emailAudienceId.trim();
+    if (activeEmailProvider === "mailchimp") body.mailchimpSendMode = emailMailchimpSendMode;
     if (emailSmtpHost.trim()) body.smtpHost = emailSmtpHost.trim();
     if (emailSmtpPort.trim()) body.smtpPort = parseInt(emailSmtpPort.trim(), 10);
     if (emailSmtpUser.trim()) body.smtpUser = emailSmtpUser.trim();
@@ -725,19 +727,49 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Mailchimp Audience List ID */}
+          {/* Mailchimp Audience List ID + Send Mode */}
           {activeEmailProvider === "mailchimp" && (
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Audience List ID <span className="font-normal text-muted-foreground">(optional)</span></label>
-              <Input
-                data-testid="input-email-mailchimp-audience-id"
-                placeholder={emailSettings?.audienceId || "e.g. abc123def"}
-                value={emailAudienceId}
-                onChange={e => { setEmailAudienceId(e.target.value); setEmailDirty(true); }}
-              />
-              <p className="text-xs text-muted-foreground">
-                When set, leads are synced to this Mailchimp audience/list (via Marketing API) before sending via Mandrill. Find your List ID under Audience &rarr; Settings &rarr; Audience name and defaults.
-              </p>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Audience List ID <span className="font-normal text-muted-foreground">(optional)</span></label>
+                <Input
+                  data-testid="input-email-mailchimp-audience-id"
+                  placeholder={emailSettings?.audienceId || "e.g. abc123def"}
+                  value={emailAudienceId}
+                  onChange={e => { setEmailAudienceId(e.target.value); setEmailDirty(true); }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Find your List ID in Mailchimp under Audience &rarr; Settings &rarr; Audience name and defaults.
+                </p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Send Mode</label>
+                <div className="flex flex-col gap-1.5" data-testid="mailchimp-send-mode">
+                  {[
+                    { value: "direct", label: "Send via Mandrill only", desc: "No audience sync — emails are sent directly through Mandrill." },
+                    { value: "sync_and_send", label: "Sync to list and send", desc: "Leads are added to the Mailchimp audience, then emailed via Mandrill." },
+                    { value: "sync_only", label: "Sync to list only", desc: "Leads are added to the Mailchimp audience only — no email is sent." },
+                  ].map(opt => (
+                    <label key={opt.value} className="flex items-start gap-2 cursor-pointer rounded-md border p-2 hover:bg-muted/40 transition-colors">
+                      <input
+                        type="radio"
+                        name="mailchimp-send-mode"
+                        value={opt.value}
+                        checked={(emailMailchimpSendMode || emailSettings?.mailchimpSendMode || "direct") === opt.value}
+                        onChange={() => { setEmailMailchimpSendMode(opt.value as "direct" | "sync_and_send" | "sync_only"); setEmailDirty(true); }}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <div>
+                        <span className="text-sm font-medium">{opt.label}</span>
+                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {(emailMailchimpSendMode === "sync_only" || (!emailMailchimpSendMode && emailSettings?.mailchimpSendMode === "sync_only")) && !emailAudienceId && !emailSettings?.audienceId && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">An Audience List ID is required for Sync to list only mode.</p>
+                )}
+              </div>
             </div>
           )}
 

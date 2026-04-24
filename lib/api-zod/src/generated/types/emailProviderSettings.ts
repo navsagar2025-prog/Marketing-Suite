@@ -5,6 +5,7 @@
  * SEO & Marketing Hub API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { EmailProviderSettingsMailchimpSendMode } from "./emailProviderSettingsMailchimpSendMode";
 
 export interface EmailProviderSettings {
   /**
@@ -21,4 +22,7 @@ export interface EmailProviderSettings {
   smtpPassConfigured: boolean;
   /** Mailchimp audience/list ID for syncing leads to a Mailchimp audience (optional) */
   audienceId: string;
+  /** Mailchimp send mode — direct: Mandrill only; sync_and_send: sync to list then send; sync_only: list sync only, no email sent
+   */
+  mailchimpSendMode: EmailProviderSettingsMailchimpSendMode;
 }

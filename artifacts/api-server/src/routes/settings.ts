@@ -142,11 +142,12 @@ router.get("/settings/email-provider", async (_req, res): Promise<void> => {
   const apiKeyConfigured = !!(await getDbSetting("email_api_key"));
   const smtpPassConfigured = !!(await getDbSetting("email_smtp_pass"));
   const audienceId = await getDbSetting("email_mailchimp_audience_id") ?? "";
-  res.json({ provider, fromAddress, fromName, smtpHost, smtpPort: parseInt(smtpPort, 10), smtpUser, apiKeyConfigured, smtpPassConfigured, audienceId });
+  const mailchimpSendMode = (await getDbSetting("email_mailchimp_send_mode") ?? "direct") as "direct" | "sync_and_send" | "sync_only";
+  res.json({ provider, fromAddress, fromName, smtpHost, smtpPort: parseInt(smtpPort, 10), smtpUser, apiKeyConfigured, smtpPassConfigured, audienceId, mailchimpSendMode });
 });
 
 router.patch("/settings/email-provider", async (req, res): Promise<void> => {
-  const { provider, apiKey, fromAddress, fromName, smtpHost, smtpPort, smtpUser, smtpPass, audienceId } = req.body ?? {};
+  const { provider, apiKey, fromAddress, fromName, smtpHost, smtpPort, smtpUser, smtpPass, audienceId, mailchimpSendMode } = req.body ?? {};
 
   if (provider !== undefined) {
     if (!VALID_EMAIL_PROVIDERS.includes(provider)) {
@@ -163,6 +164,10 @@ router.patch("/settings/email-provider", async (req, res): Promise<void> => {
   if (smtpUser !== undefined && typeof smtpUser === "string") await setDbSetting("email_smtp_user", smtpUser);
   if (smtpPass !== undefined && typeof smtpPass === "string" && smtpPass.trim()) await setSecretSetting("email_smtp_pass", smtpPass.trim());
   if (audienceId !== undefined && typeof audienceId === "string") await setDbSetting("email_mailchimp_audience_id", audienceId.trim());
+  const validModes = ["direct", "sync_and_send", "sync_only"];
+  if (mailchimpSendMode !== undefined && typeof mailchimpSendMode === "string" && validModes.includes(mailchimpSendMode)) {
+    await setDbSetting("email_mailchimp_send_mode", mailchimpSendMode);
+  }
 
   const savedProvider = (await getDbSetting("email_provider")) as EmailProvider | null;
   const savedFromAddress = await getDbSetting("email_from_address") ?? "";
@@ -173,7 +178,8 @@ router.patch("/settings/email-provider", async (req, res): Promise<void> => {
   const apiKeyConfigured = !!(await getDbSetting("email_api_key"));
   const smtpPassConfigured = !!(await getDbSetting("email_smtp_pass"));
   const savedAudienceId = await getDbSetting("email_mailchimp_audience_id") ?? "";
-  res.json({ provider: savedProvider, fromAddress: savedFromAddress, fromName: savedFromName, smtpHost: savedSmtpHost, smtpPort: parseInt(savedSmtpPort, 10), smtpUser: savedSmtpUser, apiKeyConfigured, smtpPassConfigured, audienceId: savedAudienceId });
+  const savedMailchimpSendMode = (await getDbSetting("email_mailchimp_send_mode") ?? "direct") as "direct" | "sync_and_send" | "sync_only";
+  res.json({ provider: savedProvider, fromAddress: savedFromAddress, fromName: savedFromName, smtpHost: savedSmtpHost, smtpPort: parseInt(savedSmtpPort, 10), smtpUser: savedSmtpUser, apiKeyConfigured, smtpPassConfigured, audienceId: savedAudienceId, mailchimpSendMode: savedMailchimpSendMode });
 });
 
 router.post("/settings/test-email", async (req, res): Promise<void> => {

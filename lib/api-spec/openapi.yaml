@@ -2261,6 +2261,11 @@ components:
         audienceId:
           type: string
           description: Mailchimp audience/list ID for syncing leads to a Mailchimp audience (optional)
+        mailchimpSendMode:
+          type: string
+          enum: [direct, sync_and_send, sync_only]
+          description: |
+            Mailchimp send mode — direct: Mandrill only; sync_and_send: sync to list then send; sync_only: list sync only, no email sent
       required:
         - fromAddress
         - fromName
@@ -2270,6 +2275,7 @@ components:
         - apiKeyConfigured
         - smtpPassConfigured
         - audienceId
+        - mailchimpSendMode
 
     UpdateEmailProviderBody:
       type: object
@@ -2293,6 +2299,10 @@ components:
         audienceId:
           type: string
           description: Mailchimp audience/list ID for syncing leads to a Mailchimp audience
+        mailchimpSendMode:
+          type: string
+          enum: [direct, sync_and_send, sync_only]
+          description: Mailchimp send mode
 
     TestEmailBody:
       type: object

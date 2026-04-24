@@ -1908,6 +1908,10 @@ components:
       properties:
         falApiKeyConfigured:
           type: boolean
+        falImageModel:
+          type: string
+        falVideoModel:
+          type: string
         aiProvider:
           type: string
         aiModel:
@@ -1918,6 +1922,8 @@ components:
           type: boolean
       required:
         - falApiKeyConfigured
+        - falImageModel
+        - falVideoModel
         - aiProvider
         - aiModel
         - aiEnabled
@@ -1928,6 +1934,10 @@ components:
       properties:
         falApiKey:
           type: ["string", "null"]
+        falImageModel:
+          type: string
+        falVideoModel:
+          type: string
         aiProvider:
           type: string
         aiModel:

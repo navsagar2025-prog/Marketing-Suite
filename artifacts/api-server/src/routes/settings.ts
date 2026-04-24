@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { getAiConfig, setDbSetting, deleteDbSetting, callAI, PROVIDER_MODELS, type AiProvider } from "../lib/ai-provider.js";
+import { getAiConfig, setDbSetting, callAI, getDbSetting, PROVIDER_MODELS, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS, type AiProvider } from "../lib/ai-provider.js";
 
 const router: IRouter = Router();
 
@@ -13,8 +13,18 @@ export function getSetting(key: string): string | null {
 router.get("/settings", async (_req, res): Promise<void> => {
   const falConfigured = !!(process.env.FAL_KEY ?? process.env.FAL_AI_API_KEY);
   const aiConfig = await getAiConfig();
+  const savedImageModel = await getDbSetting("fal_image_model");
+  const savedVideoModel = await getDbSetting("fal_video_model");
+  const falImageModel = (savedImageModel && FAL_IMAGE_MODELS.some(m => m.value === savedImageModel))
+    ? savedImageModel
+    : FAL_IMAGE_MODELS[0].value;
+  const falVideoModel = (savedVideoModel && FAL_VIDEO_MODELS.some(m => m.value === savedVideoModel))
+    ? savedVideoModel
+    : FAL_VIDEO_MODELS[0].value;
   res.json({
     falApiKeyConfigured: falConfigured,
+    falImageModel,
+    falVideoModel,
     aiProvider: aiConfig.provider,
     aiModel: aiConfig.model,
     aiEnabled: aiConfig.enabled,
@@ -23,7 +33,7 @@ router.get("/settings", async (_req, res): Promise<void> => {
 });
 
 router.patch("/settings", async (req, res): Promise<void> => {
-  const { falApiKey, aiProvider, aiModel, aiEnabled, aiApiKey } = req.body ?? {};
+  const { falApiKey, falImageModel, falVideoModel, aiProvider, aiModel, aiEnabled, aiApiKey } = req.body ?? {};
 
   if (falApiKey !== undefined) {
     if (falApiKey === null || falApiKey === "") {
@@ -31,6 +41,14 @@ router.patch("/settings", async (req, res): Promise<void> => {
     } else if (typeof falApiKey === "string" && falApiKey.trim()) {
       process.env.FAL_KEY = falApiKey.trim();
     }
+  }
+
+  if (typeof falImageModel === "string" && FAL_IMAGE_MODELS.some(m => m.value === falImageModel)) {
+    await setDbSetting("fal_image_model", falImageModel);
+  }
+
+  if (typeof falVideoModel === "string" && FAL_VIDEO_MODELS.some(m => m.value === falVideoModel)) {
+    await setDbSetting("fal_video_model", falVideoModel);
   }
 
   if (aiProvider !== undefined && typeof aiProvider === "string") {
@@ -68,8 +86,16 @@ router.patch("/settings", async (req, res): Promise<void> => {
 
   const falConfigured = !!(process.env.FAL_KEY ?? process.env.FAL_AI_API_KEY);
   const aiConfig = await getAiConfig();
+  const savedImageModel = await getDbSetting("fal_image_model");
+  const savedVideoModel = await getDbSetting("fal_video_model");
+  const resolvedImageModel = (savedImageModel && FAL_IMAGE_MODELS.some(m => m.value === savedImageModel))
+    ? savedImageModel : FAL_IMAGE_MODELS[0].value;
+  const resolvedVideoModel = (savedVideoModel && FAL_VIDEO_MODELS.some(m => m.value === savedVideoModel))
+    ? savedVideoModel : FAL_VIDEO_MODELS[0].value;
   res.json({
     falApiKeyConfigured: falConfigured,
+    falImageModel: resolvedImageModel,
+    falVideoModel: resolvedVideoModel,
     aiProvider: aiConfig.provider,
     aiModel: aiConfig.model,
     aiEnabled: aiConfig.enabled,

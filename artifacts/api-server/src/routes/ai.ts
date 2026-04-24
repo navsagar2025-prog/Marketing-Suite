@@ -16,12 +16,24 @@ import {
 import { db } from "@workspace/db";
 import { mediaAssetsTable } from "@workspace/db/schema";
 import { getSetting } from "./settings.js";
-import { callAI } from "../lib/ai-provider.js";
+import { callAI, getDbSetting, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS } from "../lib/ai-provider.js";
 
 const router: IRouter = Router();
 
-const FAL_IMAGE_MODEL = "fal-ai/flux/schnell";
-const FAL_VIDEO_MODEL = "fal-ai/kling-video/v2.1/standard/text-to-video";
+const DEFAULT_FAL_IMAGE_MODEL = FAL_IMAGE_MODELS[0].value;
+const DEFAULT_FAL_VIDEO_MODEL = FAL_VIDEO_MODELS[0].value;
+
+async function getFalImageModel(): Promise<string> {
+  const saved = await getDbSetting("fal_image_model");
+  if (saved && FAL_IMAGE_MODELS.some(m => m.value === saved)) return saved;
+  return DEFAULT_FAL_IMAGE_MODEL;
+}
+
+async function getFalVideoModel(): Promise<string> {
+  const saved = await getDbSetting("fal_video_model");
+  if (saved && FAL_VIDEO_MODELS.some(m => m.value === saved)) return saved;
+  return DEFAULT_FAL_VIDEO_MODEL;
+}
 
 function toFalImageSize(aspectRatio?: string | null): string {
   switch (aspectRatio) {
@@ -268,7 +280,8 @@ router.post("/ai/generate-image", async (req, res): Promise<void> => {
   const imageSize = toFalImageSize(aspectRatio);
 
   try {
-    const result = await callFalQueue(FAL_IMAGE_MODEL, apiKey, {
+    const imageModel = await getFalImageModel();
+    const result = await callFalQueue(imageModel, apiKey, {
       prompt,
       image_size: imageSize,
       num_inference_steps: 4,
@@ -314,7 +327,8 @@ router.post("/ai/generate-video", async (req, res): Promise<void> => {
   const duration = durationSeconds && [5, 10].includes(durationSeconds) ? String(durationSeconds) : "5";
 
   try {
-    const result = await callFalQueue(FAL_VIDEO_MODEL, apiKey, {
+    const videoModel = await getFalVideoModel();
+    const result = await callFalQueue(videoModel, apiKey, {
       prompt,
       aspect_ratio: aspect,
       duration,

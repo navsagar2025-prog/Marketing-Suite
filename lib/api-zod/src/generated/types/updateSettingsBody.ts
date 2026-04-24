@@ -9,6 +9,8 @@
 export interface UpdateSettingsBody {
   /** @nullable */
   falApiKey?: string | null;
+  falImageModel?: string;
+  falVideoModel?: string;
   aiProvider?: string;
   aiModel?: string;
   aiEnabled?: boolean;

@@ -9,6 +9,22 @@ import { useGetSettings, useUpdateSettings, useTestAiConnection } from "@workspa
 
 type AiProvider = "replit" | "openai" | "anthropic" | "perplexity" | "gemini";
 
+const FAL_IMAGE_MODELS: Array<{ value: string; label: string }> = [
+  { value: "fal-ai/flux/schnell", label: "FLUX Schnell (Fast)" },
+  { value: "fal-ai/flux/dev", label: "FLUX Dev (Balanced)" },
+  { value: "fal-ai/flux-pro", label: "FLUX Pro (Best quality)" },
+  { value: "fal-ai/flux-realism", label: "FLUX Realism (Photorealistic)" },
+  { value: "fal-ai/stable-diffusion-v35-large", label: "Stable Diffusion 3.5 Large" },
+];
+
+const FAL_VIDEO_MODELS: Array<{ value: string; label: string }> = [
+  { value: "fal-ai/kling-video/v2.1/standard/text-to-video", label: "Kling v2.1 Standard" },
+  { value: "fal-ai/kling-video/v2.1/pro/text-to-video", label: "Kling v2.1 Pro" },
+  { value: "fal-ai/kling-video/v1.6/standard/text-to-video", label: "Kling v1.6 Standard" },
+  { value: "fal-ai/minimax/video-01", label: "MiniMax Video-01" },
+  { value: "fal-ai/runway-gen4/turbo/text-to-video", label: "Runway Gen4" },
+];
+
 const PROVIDERS: { value: AiProvider; label: string; requiresKey: boolean; description: string }[] = [
   { value: "replit", label: "Replit Default (Free)", requiresKey: false, description: "Built-in AI proxy — no API key required." },
   { value: "openai", label: "OpenAI (ChatGPT)", requiresKey: true, description: "GPT-4, GPT-4o, and newer OpenAI models." },
@@ -31,6 +47,8 @@ export default function SettingsPage() {
   // Fal.ai state
   const [falApiKey, setFalApiKey] = useState("");
   const [showFalKey, setShowFalKey] = useState(false);
+  const [selectedImageModel, setSelectedImageModel] = useState<string | null>(null);
+  const [selectedVideoModel, setSelectedVideoModel] = useState<string | null>(null);
 
   // AI provider state
   const [selectedProvider, setSelectedProvider] = useState<AiProvider | null>(null);
@@ -44,6 +62,8 @@ export default function SettingsPage() {
   const testMutation = useTestAiConnection();
 
   const isFalConfigured = settings?.falApiKeyConfigured === true;
+  const currentImageModel = selectedImageModel ?? settings?.falImageModel ?? FAL_IMAGE_MODELS[0].value;
+  const currentVideoModel = selectedVideoModel ?? settings?.falVideoModel ?? FAL_VIDEO_MODELS[0].value;
 
   const currentProvider = (selectedProvider ?? settings?.aiProvider ?? "replit") as AiProvider;
   const currentModel = selectedModel ?? settings?.aiModel ?? PROVIDER_MODELS[currentProvider]?.[0] ?? "";
@@ -63,6 +83,21 @@ export default function SettingsPage() {
           refetch();
         },
         onError: () => toast({ title: "Failed to save API key", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleSaveFalModels = (imageModel: string, videoModel: string) => {
+    updateMutation.mutate(
+      { data: { falImageModel: imageModel, falVideoModel: videoModel } },
+      {
+        onSuccess: () => {
+          toast({ title: "Media generation models saved" });
+          setSelectedImageModel(null);
+          setSelectedVideoModel(null);
+          refetch();
+        },
+        onError: () => toast({ title: "Failed to save models", variant: "destructive" }),
       }
     );
   };
@@ -424,7 +459,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Media models info */}
+      {/* Media generation model selection */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -433,21 +468,55 @@ export default function SettingsPage() {
             </div>
             <div>
               <CardTitle className="text-base">Media Generation Models</CardTitle>
-              <CardDescription className="mt-1">Fixed models used for Fal.ai image and video generation</CardDescription>
+              <CardDescription className="mt-1">Select which Fal.ai models are used for image and video generation</CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between py-2 border-b">
-              <span className="text-muted-foreground">Image Generation</span>
-              <span className="font-mono text-xs">fal-ai/flux/schnell</span>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Image Generation Model</label>
+              <div className="relative">
+                <select
+                  data-testid="select-fal-image-model"
+                  value={currentImageModel}
+                  onChange={e => setSelectedImageModel(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {FAL_IMAGE_MODELS.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground font-mono">{currentImageModel}</p>
             </div>
-            <div className="flex justify-between py-2">
-              <span className="text-muted-foreground">Video Generation</span>
-              <span className="font-mono text-xs">fal-ai/kling-video/v2.1</span>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Video Generation Model</label>
+              <div className="relative">
+                <select
+                  data-testid="select-fal-video-model"
+                  value={currentVideoModel}
+                  onChange={e => setSelectedVideoModel(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {FAL_VIDEO_MODELS.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+              <p className="text-xs text-muted-foreground font-mono">{currentVideoModel}</p>
             </div>
           </div>
+          <Button
+            data-testid="button-save-fal-models"
+            onClick={() => handleSaveFalModels(currentImageModel, currentVideoModel)}
+            disabled={updateMutation.isPending || (selectedImageModel === null && selectedVideoModel === null)}
+          >
+            <Save className="h-4 w-4 mr-1" />
+            {updateMutation.isPending ? "Saving..." : "Save Models"}
+          </Button>
         </CardContent>
       </Card>
     </div>

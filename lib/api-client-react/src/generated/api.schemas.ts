@@ -561,6 +561,8 @@ export interface CreateMediaAssetBody {
 
 export interface AppSettings {
   falApiKeyConfigured: boolean;
+  falImageModel: string;
+  falVideoModel: string;
   aiProvider: string;
   aiModel: string;
   aiEnabled: boolean;
@@ -570,6 +572,8 @@ export interface AppSettings {
 export interface UpdateSettingsBody {
   /** @nullable */
   falApiKey?: string | null;
+  falImageModel?: string;
+  falVideoModel?: string;
   aiProvider?: string;
   aiModel?: string;
   aiEnabled?: boolean;

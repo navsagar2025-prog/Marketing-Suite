@@ -6,6 +6,22 @@ import { eq } from "drizzle-orm";
 
 export type AiProvider = "replit" | "openai" | "anthropic" | "perplexity" | "gemini";
 
+export const FAL_IMAGE_MODELS: Array<{ value: string; label: string }> = [
+  { value: "fal-ai/flux/schnell", label: "FLUX Schnell (Fast)" },
+  { value: "fal-ai/flux/dev", label: "FLUX Dev (Balanced)" },
+  { value: "fal-ai/flux-pro", label: "FLUX Pro (Best quality)" },
+  { value: "fal-ai/flux-realism", label: "FLUX Realism (Photorealistic)" },
+  { value: "fal-ai/stable-diffusion-v35-large", label: "Stable Diffusion 3.5 Large" },
+];
+
+export const FAL_VIDEO_MODELS: Array<{ value: string; label: string }> = [
+  { value: "fal-ai/kling-video/v2.1/standard/text-to-video", label: "Kling v2.1 Standard" },
+  { value: "fal-ai/kling-video/v2.1/pro/text-to-video", label: "Kling v2.1 Pro" },
+  { value: "fal-ai/kling-video/v1.6/standard/text-to-video", label: "Kling v1.6 Standard" },
+  { value: "fal-ai/minimax/video-01", label: "MiniMax Video-01" },
+  { value: "fal-ai/runway-gen4/turbo/text-to-video", label: "Runway Gen4" },
+];
+
 export interface AiConfig {
   provider: AiProvider;
   model: string;
@@ -41,7 +57,7 @@ export const PROVIDER_MODELS: Record<AiProvider, { models: string[]; defaultMode
   },
 };
 
-async function getDbSetting(key: string): Promise<string | null> {
+export async function getDbSetting(key: string): Promise<string | null> {
   try {
     const [row] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.key, key));
     return row?.value ?? null;

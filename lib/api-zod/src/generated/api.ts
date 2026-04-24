@@ -863,6 +863,8 @@ export const DeleteMediaAssetParams = zod.object({
  */
 export const GetSettingsResponse = zod.object({
   falApiKeyConfigured: zod.boolean(),
+  falImageModel: zod.string(),
+  falVideoModel: zod.string(),
   aiProvider: zod.string(),
   aiModel: zod.string(),
   aiEnabled: zod.boolean(),
@@ -874,6 +876,8 @@ export const GetSettingsResponse = zod.object({
  */
 export const UpdateSettingsBody = zod.object({
   falApiKey: zod.string().nullish(),
+  falImageModel: zod.string().optional(),
+  falVideoModel: zod.string().optional(),
   aiProvider: zod.string().optional(),
   aiModel: zod.string().optional(),
   aiEnabled: zod.boolean().optional(),
@@ -882,6 +886,8 @@ export const UpdateSettingsBody = zod.object({
 
 export const UpdateSettingsResponse = zod.object({
   falApiKeyConfigured: zod.boolean(),
+  falImageModel: zod.string(),
+  falVideoModel: zod.string(),
   aiProvider: zod.string(),
   aiModel: zod.string(),
   aiEnabled: zod.boolean(),

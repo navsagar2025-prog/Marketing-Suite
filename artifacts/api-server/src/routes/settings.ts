@@ -45,7 +45,13 @@ router.patch("/settings", async (req, res): Promise<void> => {
   }
 
   if (aiModel !== undefined && typeof aiModel === "string") {
-    await setDbSetting("ai_model", aiModel);
+    const currentProviderStr = typeof aiProvider === "string" && (Object.keys(PROVIDER_MODELS) as AiProvider[]).includes(aiProvider as AiProvider)
+      ? (aiProvider as AiProvider)
+      : (await getAiConfig()).provider;
+    const providerModels = PROVIDER_MODELS[currentProviderStr]?.models ?? [];
+    if (providerModels.includes(aiModel)) {
+      await setDbSetting("ai_model", aiModel);
+    }
   }
 
   if (aiEnabled !== undefined) {

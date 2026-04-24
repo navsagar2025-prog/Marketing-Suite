@@ -15,6 +15,8 @@ export interface EmailProviderConfig {
   smtpPass?: string;
   fromAddress: string;
   fromName?: string;
+  /** Mailchimp Marketing API audience/list ID for syncing leads to a Mailchimp list */
+  audienceId?: string;
 }
 
 export interface SendEmailOptions {
@@ -104,6 +106,12 @@ export async function getEmailProviderConfig(): Promise<EmailProviderConfig | nu
 
   const apiKey = await getSecretSetting("email_api_key") ?? "";
   if (!apiKey || !fromAddress) return null;
+
+  if (provider === "mailchimp") {
+    const audienceId = await getSettingValue("email_mailchimp_audience_id") ?? undefined;
+    return { provider, apiKey, fromAddress, fromName, audienceId };
+  }
+
   return { provider, apiKey, fromAddress, fromName };
 }
 
@@ -218,13 +226,39 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
   }
 
   if (config.provider === "mailchimp") {
+    const apiKey = config.apiKey!;
+
+    if (config.audienceId) {
+      const dc = apiKey.split("-").pop() ?? "us1";
+      const authHeader = `Basic ${Buffer.from(`anystring:${apiKey}`).toString("base64")}`;
+      const baseUrl = `https://${dc}.api.mailchimp.com/3.0`;
+
+      for (const recipient of to) {
+        const [firstName, ...lastParts] = recipient.split("@")[0]?.split(/[._-]/) ?? [""];
+        const subscriberHash = (await import("crypto")).createHash("md5").update(recipient.toLowerCase()).digest("hex");
+        const memberResp = await fetch(`${baseUrl}/lists/${config.audienceId}/members/${subscriberHash}`, {
+          method: "PUT",
+          headers: { Authorization: authHeader, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email_address: recipient,
+            status_if_new: "subscribed",
+            merge_fields: { FNAME: firstName ?? "", LNAME: lastParts.join(" ") },
+          }),
+        });
+        if (!memberResp.ok) {
+          const err = await memberResp.text();
+          throw new Error(`Mailchimp audience sync error ${memberResp.status}: ${err}`);
+        }
+      }
+    }
+
     let sent = 0;
     for (const recipient of to) {
       const resp = await fetch("https://mandrillapp.com/api/1.0/messages/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          key: config.apiKey,
+          key: apiKey,
           message: {
             text: body,
             subject,

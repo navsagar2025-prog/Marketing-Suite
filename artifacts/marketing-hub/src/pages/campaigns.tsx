@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail } from "lucide-react";
+import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail, Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -59,6 +59,19 @@ const typeColor: Record<string, string> = {
 
 interface CampaignContext { id: number; websiteId: number | null }
 
+function renderMarkdownPreview(text: string): string {
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/`(.+?)`/g, "<code class='bg-muted px-1 rounded text-xs'>$1</code>")
+    .replace(/^### (.+)$/gm, "<h3 class='text-sm font-semibold mt-2'>$1</h3>")
+    .replace(/^## (.+)$/gm, "<h2 class='text-base font-semibold mt-3'>$1</h2>")
+    .replace(/^# (.+)$/gm, "<h1 class='text-lg font-bold mt-3'>$1</h1>")
+    .replace(/^[*-] (.+)$/gm, "<li class='ml-4 list-disc'>$1</li>")
+    .replace(/\n/g, "<br/>");
+}
+
 export default function Campaigns() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -74,6 +87,7 @@ export default function Campaigns() {
   const [composeSubject, setComposeSubject] = useState("");
   const [composeBody, setComposeBody] = useState("");
   const [composeStatuses, setComposeStatuses] = useState<string[]>(["new", "contacted", "qualified"]);
+  const [composePreview, setComposePreview] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -460,15 +474,33 @@ export default function Campaigns() {
 
               {/* Body */}
               <div className="space-y-1">
-                <label className="text-sm font-medium">Message</label>
-                <Textarea
-                  data-testid="input-compose-body"
-                  placeholder="Write your email message here..."
-                  value={composeBody}
-                  onChange={e => setComposeBody(e.target.value)}
-                  rows={8}
-                />
-                <p className="text-xs text-muted-foreground">Plain text. HTML is supported.</p>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Message</label>
+                  <button
+                    type="button"
+                    data-testid="button-compose-preview-toggle"
+                    onClick={() => setComposePreview(p => !p)}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {composePreview ? <><EyeOff className="h-3.5 w-3.5" /> Edit</> : <><Eye className="h-3.5 w-3.5" /> Preview</>}
+                  </button>
+                </div>
+                {composePreview ? (
+                  <div
+                    data-testid="compose-body-preview"
+                    className="min-h-[160px] rounded-md border bg-muted/30 p-3 text-sm prose prose-sm max-w-none dark:prose-invert overflow-auto"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(composeBody) || '<span class="text-muted-foreground">Nothing to preview yet.</span>' }}
+                  />
+                ) : (
+                  <Textarea
+                    data-testid="input-compose-body"
+                    placeholder="Write your email message here. Supports basic Markdown: **bold**, *italic*, # Heading, - List item"
+                    value={composeBody}
+                    onChange={e => setComposeBody(e.target.value)}
+                    rows={8}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">Supports basic Markdown. Click Preview to see how it renders.</p>
               </div>
 
               <div className="flex justify-end gap-2">

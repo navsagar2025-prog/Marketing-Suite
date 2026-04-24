@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, createVerify, timingSafeEqual } from "crypto";
 import { db, campaignsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 
@@ -57,12 +57,16 @@ router.post("/webhooks/email/sendgrid", async (req: Request, res: Response): Pro
     return;
   }
 
-  const expected = createHmac("sha256", signingKey)
-    .update(timestamp + rawBody.toString("utf8"))
-    .digest("base64");
-
-  if (!timingSafeStringEqual(expected, signature)) {
-    res.status(401).json({ error: "Invalid webhook signature." });
+  try {
+    const verifier = createVerify("SHA256");
+    verifier.update(timestamp + rawBody.toString("utf8"));
+    const isValid = verifier.verify(signingKey, signature, "base64");
+    if (!isValid) {
+      res.status(401).json({ error: "Invalid webhook signature." });
+      return;
+    }
+  } catch {
+    res.status(401).json({ error: "Webhook signature verification failed." });
     return;
   }
 

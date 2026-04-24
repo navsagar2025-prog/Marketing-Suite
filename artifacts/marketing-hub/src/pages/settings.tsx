@@ -80,6 +80,7 @@ export default function SettingsPage() {
   const [emailFromAddress, setEmailFromAddress] = useState("");
   const [emailFromName, setEmailFromName] = useState("");
   const [emailApiKey, setEmailApiKey] = useState("");
+  const [emailAudienceId, setEmailAudienceId] = useState("");
   const [emailSmtpHost, setEmailSmtpHost] = useState("");
   const [emailSmtpPort, setEmailSmtpPort] = useState("587");
   const [emailSmtpUser, setEmailSmtpUser] = useState("");
@@ -256,6 +257,7 @@ export default function SettingsPage() {
     if (from) body.fromAddress = from;
     if (emailFromName.trim()) body.fromName = emailFromName.trim();
     if (emailApiKey.trim()) body.apiKey = emailApiKey.trim();
+    if (emailAudienceId.trim()) body.audienceId = emailAudienceId.trim();
     if (emailSmtpHost.trim()) body.smtpHost = emailSmtpHost.trim();
     if (emailSmtpPort.trim()) body.smtpPort = parseInt(emailSmtpPort.trim(), 10);
     if (emailSmtpUser.trim()) body.smtpUser = emailSmtpUser.trim();
@@ -720,6 +722,22 @@ export default function SettingsPage() {
                 value={emailApiKey}
                 onChange={e => { setEmailApiKey(e.target.value); setEmailDirty(true); }}
               />
+            </div>
+          )}
+
+          {/* Mailchimp Audience List ID */}
+          {activeEmailProvider === "mailchimp" && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Audience List ID <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <Input
+                data-testid="input-email-mailchimp-audience-id"
+                placeholder={emailSettings?.audienceId || "e.g. abc123def"}
+                value={emailAudienceId}
+                onChange={e => { setEmailAudienceId(e.target.value); setEmailDirty(true); }}
+              />
+              <p className="text-xs text-muted-foreground">
+                When set, leads are synced to this Mailchimp audience/list (via Marketing API) before sending via Mandrill. Find your List ID under Audience &rarr; Settings &rarr; Audience name and defaults.
+              </p>
             </div>
           )}
 

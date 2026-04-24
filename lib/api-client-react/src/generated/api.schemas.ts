@@ -99,6 +99,25 @@ export interface UpdateKeywordBody {
   notes?: string | null;
 }
 
+export interface KeywordRankHistory {
+  id: number;
+  keywordId: number;
+  /** @nullable */
+  rank?: number | null;
+  /** ISO date string (YYYY-MM-DD) */
+  recordedDate: string;
+  createdAt: string;
+}
+
+export interface SnapshotKeywordsResponse {
+  /** Number of keywords snapshotted */
+  snapshotted: number;
+  /** Number of keywords skipped (already have a snapshot today) */
+  skipped: number;
+  /** Date of the snapshot (YYYY-MM-DD) */
+  date: string;
+}
+
 export interface SocialPost {
   id: number;
   websiteId: number;
@@ -739,6 +758,13 @@ export interface CampaignRecipientsResponse {
 
 export type ListKeywordsParams = {
   websiteId?: number;
+};
+
+export type GetKeywordRankHistoryParams = {
+  /**
+   * Number of days of history to return (default 90)
+   */
+  days?: number;
 };
 
 export type ListSocialPostsParams = {

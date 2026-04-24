@@ -29,6 +29,9 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET/POST /api/websites` — Website management
 - `GET/PATCH/DELETE /api/websites/:id`
 - `GET/POST /api/keywords` — Keyword tracking
+- `PATCH/DELETE /api/keywords/:id` — Update/delete keyword
+- `GET /api/keywords/:id/history?days=90` — Rank history (default 90 days)
+- `POST /api/keywords/snapshot` — Capture rank snapshot for all keywords now
 - `GET/POST/PATCH/DELETE /api/campaigns` — Campaign management
 - `GET/POST/PATCH/DELETE /api/social-posts` — Social media posts
 - `GET/POST/PATCH/DELETE /api/backlinks` — Backlink tracking
@@ -61,7 +64,16 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`
+Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`
+
+### keyword_rank_history table
+- `id`: serial PK
+- `keywordId`: FK → keywords (cascade delete)
+- `rank`: integer (nullable)
+- `recordedDate`: date (YYYY-MM-DD)
+- `createdAt`: timestamp
+- Unique constraint: (keywordId, recordedDate) — one snapshot per keyword per day
+- Daily cron at 00:00 UTC auto-populates from `keywords.currentRank`
 
 ### seo_audits table
 - `id`: serial PK

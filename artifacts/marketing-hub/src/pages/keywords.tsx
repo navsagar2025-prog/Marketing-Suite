@@ -1,15 +1,19 @@
-import { useState } from "react";
-import { Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,8 +25,12 @@ import {
   useSuggestKeywords,
   useListWebsites,
   useGetSettings,
+  useGetKeywordRankHistory,
+  useSnapshotKeywordRanks,
   getListKeywordsQueryKey,
+  getGetKeywordRankHistoryQueryKey,
 } from "@workspace/api-client-react";
+import type { Keyword, KeywordRankHistory } from "@workspace/api-client-react";
 
 const createSchema = z.object({
   websiteId: z.coerce.number().min(1, "Website is required"),
@@ -36,12 +44,264 @@ const createSchema = z.object({
 
 type CreateForm = z.infer<typeof createSchema>;
 
+function Sparkline({ history }: { history: KeywordRankHistory[] }) {
+  const pts = history
+    .filter((h) => h.rank !== null && h.rank !== undefined)
+    .map((h) => ({ date: h.recordedDate, rank: h.rank as number }));
+
+  if (pts.length < 2) {
+    return <span className="text-xs text-muted-foreground">no data</span>;
+  }
+
+  const W = 80, H = 26, pad = 2;
+  const ranks = pts.map((p) => p.rank);
+  const minRank = Math.min(...ranks);
+  const maxRank = Math.max(...ranks);
+  const range = maxRank - minRank || 1;
+
+  const points = pts
+    .map((p, i) => {
+      const x = pad + (i / (pts.length - 1)) * (W - pad * 2);
+      const y = pad + ((p.rank - minRank) / range) * (H - pad * 2);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  const lastRank = pts[pts.length - 1].rank;
+  const firstRank = pts[0].rank;
+  const color = lastRank < firstRank ? "#22c55e" : lastRank > firstRank ? "#ef4444" : "#94a3b8";
+
+  return (
+    <svg width={W} height={H} className="overflow-visible shrink-0" aria-hidden>
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function getMovementBadge(history: KeywordRankHistory[]): "up" | "down" | null {
+  if (history.length < 2) return null;
+  const sorted = [...history].sort((a, b) => a.recordedDate.localeCompare(b.recordedDate));
+  const newest = sorted[sorted.length - 1];
+  if (!newest.rank) return null;
+  const sevenDaysAgoStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  })();
+  const weekOld = sorted.findLast((h) => h.recordedDate <= sevenDaysAgoStr) ?? sorted[0];
+  if (!weekOld.rank) return null;
+  const diff = weekOld.rank - newest.rank;
+  if (diff >= 5) return "up";
+  if (diff <= -5) return "down";
+  return null;
+}
+
+function KeywordRowWithHistory({
+  kw,
+  onSelect,
+  onDelete,
+  deleteIsPending,
+}: {
+  kw: Keyword;
+  onSelect: (kw: Keyword) => void;
+  onDelete: (id: number) => void;
+  deleteIsPending: boolean;
+}) {
+  const { data: history30 } = useGetKeywordRankHistory(kw.id, { days: 30 });
+  const movement = history30 ? getMovementBadge(history30) : null;
+
+  const difficultyColor = (d: number | null | undefined) => {
+    if (!d) return "";
+    if (d >= 70) return "text-red-600 dark:text-red-400";
+    if (d >= 40) return "text-yellow-600 dark:text-yellow-400";
+    return "text-green-600 dark:text-green-400";
+  };
+
+  return (
+    <tr
+      data-testid={`row-keyword-${kw.id}`}
+      className="border-b last:border-0 hover:bg-muted/20 group cursor-pointer"
+      onClick={() => onSelect(kw)}
+    >
+      <td className="px-4 py-3 font-medium">
+        <span className="flex items-center gap-1.5">
+          {kw.keyword}
+          {movement === "up" && (
+            <span className="inline-flex items-center gap-0.5 text-green-600 dark:text-green-400 text-xs font-semibold" title="Moved up 5+ positions in last 7 days">
+              <TrendingUp className="h-3 w-3" />
+            </span>
+          )}
+          {movement === "down" && (
+            <span className="inline-flex items-center gap-0.5 text-red-600 dark:text-red-400 text-xs font-semibold" title="Dropped 5+ positions in last 7 days">
+              <TrendingDown className="h-3 w-3" />
+            </span>
+          )}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-right font-mono text-sm">{kw.currentRank ?? "—"}</td>
+      <td className="px-4 py-3 text-right text-muted-foreground">{kw.searchVolume?.toLocaleString() ?? "—"}</td>
+      <td className={`px-4 py-3 text-right font-semibold ${difficultyColor(kw.difficulty)}`}>{kw.difficulty ?? "—"}</td>
+      <td className="px-4 py-3 text-center">
+        <Badge variant={kw.status === "tracking" ? "default" : "secondary"} className="text-xs">{kw.status}</Badge>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-2">
+          {history30 ? (
+            history30.some((h) => h.rank !== null) ? (
+              <Sparkline history={history30} />
+            ) : (
+              <span className="w-20 text-xs text-right text-muted-foreground">no data</span>
+            )
+          ) : (
+            <Skeleton className="h-5 w-20" />
+          )}
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 shrink-0" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 opacity-0 group-hover:opacity-100 shrink-0"
+            data-testid={`button-delete-keyword-${kw.id}`}
+            onClick={(e) => { e.stopPropagation(); onDelete(kw.id); }}
+            disabled={deleteIsPending}
+          >
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function KeywordDetailPanel({
+  keyword,
+  open,
+  onClose,
+}: {
+  keyword: Keyword | null;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { data: history90, isLoading } = useGetKeywordRankHistory(
+    keyword?.id ?? 0,
+    { days: 90 },
+    { query: { enabled: !!keyword && open } },
+  );
+
+  const stats = useMemo(() => {
+    if (!history90 || history90.length === 0) return null;
+    const ranked = history90.filter((h) => h.rank !== null && h.rank !== undefined) as Array<KeywordRankHistory & { rank: number }>;
+    if (ranked.length === 0) return null;
+    const ranks = ranked.map((h) => h.rank);
+    const best = Math.min(...ranks);
+    const worst = Math.max(...ranks);
+    const sorted = [...ranked].sort((a, b) => a.recordedDate.localeCompare(b.recordedDate));
+    const thirtyDaysAgoStr = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      return d.toISOString().slice(0, 10);
+    })();
+    const oldest30 = sorted.find((h) => h.recordedDate >= thirtyDaysAgoStr);
+    const newest = sorted[sorted.length - 1];
+    const change30 = oldest30 && newest ? oldest30.rank - newest.rank : null;
+    return { best, worst, change30 };
+  }, [history90]);
+
+  const chartData = useMemo(() => {
+    if (!history90) return [];
+    return history90
+      .filter((h) => h.rank !== null)
+      .map((h) => ({ date: h.recordedDate.slice(5), rank: h.rank }));
+  }, [history90]);
+
+  if (!keyword) return null;
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="truncate">{keyword.keyword}</SheetTitle>
+        </SheetHeader>
+        <div className="mt-6 space-y-6">
+          {stats && (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-lg border p-3 text-center">
+                <div className="text-xl font-bold font-mono text-green-600 dark:text-green-400">#{stats.best}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Best rank</div>
+              </div>
+              <div className="rounded-lg border p-3 text-center">
+                <div className="text-xl font-bold font-mono text-red-600 dark:text-red-400">#{stats.worst}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">Worst rank</div>
+              </div>
+              <div className="rounded-lg border p-3 text-center">
+                {stats.change30 === null ? (
+                  <div className="text-xl font-bold font-mono text-muted-foreground">—</div>
+                ) : stats.change30 > 0 ? (
+                  <div className="text-xl font-bold font-mono text-green-600 dark:text-green-400">+{stats.change30}</div>
+                ) : stats.change30 < 0 ? (
+                  <div className="text-xl font-bold font-mono text-red-600 dark:text-red-400">{stats.change30}</div>
+                ) : (
+                  <div className="text-xl font-bold font-mono text-muted-foreground">0</div>
+                )}
+                <div className="text-xs text-muted-foreground mt-0.5">30-day change</div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <h3 className="text-sm font-medium mb-3">Rank history (last 90 days)</h3>
+            {isLoading ? (
+              <Skeleton className="h-52 w-full" />
+            ) : chartData.length < 2 ? (
+              <div className="h-52 flex items-center justify-center text-sm text-muted-foreground border rounded-md">
+                Not enough data yet — take a snapshot to start tracking.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={208}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" />
+                  <YAxis
+                    reversed
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    formatter={(v: number) => [`#${v}`, "Rank"]}
+                    contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 12 }}
+                  />
+                  <Line type="monotone" dataKey="rank" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="text-xs text-muted-foreground space-y-1.5 border-t pt-4">
+            <div className="flex justify-between"><span>Current rank</span><span className="font-mono">{keyword.currentRank ?? "—"}</span></div>
+            <div className="flex justify-between"><span>Search volume</span><span>{keyword.searchVolume?.toLocaleString() ?? "—"}</span></div>
+            <div className="flex justify-between"><span>Difficulty</span><span>{keyword.difficulty ?? "—"}</span></div>
+            <div className="flex justify-between"><span>Status</span><span className="capitalize">{keyword.status}</span></div>
+            {keyword.notes && <div className="pt-1"><span className="font-medium">Notes:</span> {keyword.notes}</div>}
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export default function Keywords() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [aiNiche, setAiNiche] = useState("");
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
+  const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: keywords, isLoading } = useListKeywords();
@@ -49,6 +309,7 @@ export default function Keywords() {
   const createMutation = useCreateKeyword();
   const deleteMutation = useDeleteKeyword();
   const suggestMutation = useSuggestKeywords();
+  const snapshotMutation = useSnapshotKeywordRanks();
   const { data: settings } = useGetSettings();
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
@@ -72,16 +333,29 @@ export default function Keywords() {
 
   const handleDelete = (id: number) => {
     deleteMutation.mutate({ id }, {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey() }),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey() });
+        if (selectedKeyword?.id === id) setSelectedKeyword(null);
+      },
+    });
+  };
+
+  const handleSnapshot = () => {
+    snapshotMutation.mutate({}, {
+      onSuccess: (result) => {
+        toast({ title: `Snapshot complete — ${result.snapshotted} keywords captured for ${result.date}` });
+        (keywords ?? []).forEach((kw) => {
+          queryClient.invalidateQueries({ queryKey: getGetKeywordRankHistoryQueryKey(kw.id) });
+        });
+      },
+      onError: () => toast({ title: "Snapshot failed", variant: "destructive" }),
     });
   };
 
   const handleAiSuggest = () => {
     if (!aiNiche.trim()) return;
     suggestMutation.mutate({ data: { niche: aiNiche } }, {
-      onSuccess: (result) => {
-        setAiResult(result.keywords);
-      },
+      onSuccess: (result) => setAiResult(result.keywords),
       onError: () => toast({ title: "AI suggestion failed", variant: "destructive" }),
     });
   };
@@ -89,13 +363,6 @@ export default function Keywords() {
   const filtered = (keywords ?? []).filter(k =>
     !search || k.keyword.toLowerCase().includes(search.toLowerCase())
   );
-
-  const difficultyColor = (d: number | null | undefined) => {
-    if (!d) return "";
-    if (d >= 70) return "text-red-600 dark:text-red-400";
-    if (d >= 40) return "text-yellow-600 dark:text-yellow-400";
-    return "text-green-600 dark:text-green-400";
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -105,6 +372,16 @@ export default function Keywords() {
           <p className="text-sm text-muted-foreground mt-0.5">Track your SEO keyword rankings</p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="button-snapshot-ranks"
+            onClick={handleSnapshot}
+            disabled={snapshotMutation.isPending}
+          >
+            <Camera className="h-4 w-4 mr-1" />
+            {snapshotMutation.isPending ? "Snapshotting..." : "Snapshot ranks now"}
+          </Button>
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
               <Button
@@ -255,25 +532,18 @@ export default function Keywords() {
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Volume</th>
                     <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Difficulty</th>
                     <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3" />
+                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">30-day trend</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(kw => (
-                    <tr key={kw.id} data-testid={`row-keyword-${kw.id}`} className="border-b last:border-0 hover:bg-muted/20 group">
-                      <td className="px-4 py-3 font-medium">{kw.keyword}</td>
-                      <td className="px-4 py-3 text-right font-mono text-sm">{kw.currentRank ?? "—"}</td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">{kw.searchVolume?.toLocaleString() ?? "—"}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${difficultyColor(kw.difficulty)}`}>{kw.difficulty ?? "—"}</td>
-                      <td className="px-4 py-3 text-center">
-                        <Badge variant={kw.status === "tracking" ? "default" : "secondary"} className="text-xs">{kw.status}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" data-testid={`button-delete-keyword-${kw.id}`} onClick={() => handleDelete(kw.id)} disabled={deleteMutation.isPending}>
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                        </Button>
-                      </td>
-                    </tr>
+                    <KeywordRowWithHistory
+                      key={kw.id}
+                      kw={kw}
+                      onSelect={setSelectedKeyword}
+                      onDelete={handleDelete}
+                      deleteIsPending={deleteMutation.isPending}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -281,6 +551,12 @@ export default function Keywords() {
           )}
         </CardContent>
       </Card>
+
+      <KeywordDetailPanel
+        keyword={selectedKeyword}
+        open={!!selectedKeyword}
+        onClose={() => setSelectedKeyword(null)}
+      />
     </div>
   );
 }

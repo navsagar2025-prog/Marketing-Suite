@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, keywordsTable } from "@workspace/db";
+import { eq, and, gte } from "drizzle-orm";
+import { db, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
 import {
   ListKeywordsQueryParams,
   ListKeywordsResponse,
@@ -9,6 +9,10 @@ import {
   UpdateKeywordBody,
   UpdateKeywordResponse,
   DeleteKeywordParams,
+  GetKeywordRankHistoryParams,
+  GetKeywordRankHistoryQueryParams,
+  GetKeywordRankHistoryResponse,
+  SnapshotKeywordRanksResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -34,6 +38,11 @@ router.post("/keywords", async (req, res): Promise<void> => {
   res.status(201).json(keyword);
 });
 
+router.post("/keywords/snapshot", async (req, res): Promise<void> => {
+  const result = await runRankSnapshot();
+  res.json(SnapshotKeywordRanksResponse.parse(result));
+});
+
 router.patch("/keywords/:id", async (req, res): Promise<void> => {
   const params = UpdateKeywordParams.safeParse(req.params);
   if (!params.success) {
@@ -53,6 +62,39 @@ router.patch("/keywords/:id", async (req, res): Promise<void> => {
   res.json(UpdateKeywordResponse.parse(keyword));
 });
 
+router.get("/keywords/:id/history", async (req, res): Promise<void> => {
+  const params = GetKeywordRankHistoryParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const queryParsed = GetKeywordRankHistoryQueryParams.safeParse(req.query);
+  const days = queryParsed.success && queryParsed.data.days ? queryParsed.data.days : 90;
+
+  const [keyword] = await db.select({ id: keywordsTable.id }).from(keywordsTable).where(eq(keywordsTable.id, params.data.id));
+  if (!keyword) {
+    res.status(404).json({ error: "Keyword not found" });
+    return;
+  }
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+  const history = await db
+    .select()
+    .from(keywordRankHistoryTable)
+    .where(
+      and(
+        eq(keywordRankHistoryTable.keywordId, params.data.id),
+        gte(keywordRankHistoryTable.recordedDate, cutoffDate),
+      ),
+    )
+    .orderBy(keywordRankHistoryTable.recordedDate);
+
+  res.json(GetKeywordRankHistoryResponse.parse(history));
+});
+
 router.delete("/keywords/:id", async (req, res): Promise<void> => {
   const params = DeleteKeywordParams.safeParse(req.params);
   if (!params.success) {
@@ -66,5 +108,29 @@ router.delete("/keywords/:id", async (req, res): Promise<void> => {
   }
   res.sendStatus(204);
 });
+
+export async function runRankSnapshot(): Promise<{ snapshotted: number; skipped: number; date: string }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const keywords = await db.select().from(keywordsTable);
+  let snapshotted = 0;
+  let skipped = 0;
+  for (const kw of keywords) {
+    try {
+      const result = await db
+        .insert(keywordRankHistoryTable)
+        .values({ keywordId: kw.id, rank: kw.currentRank ?? null, recordedDate: today })
+        .onConflictDoNothing()
+        .returning();
+      if (result.length > 0) {
+        snapshotted++;
+      } else {
+        skipped++;
+      }
+    } catch {
+      skipped++;
+    }
+  }
+  return { snapshotted, skipped, date: today };
+}
 
 export default router;

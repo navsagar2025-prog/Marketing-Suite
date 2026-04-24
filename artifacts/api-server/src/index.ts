@@ -4,6 +4,8 @@ import { db, staffUsersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
+import cron from "node-cron";
+import { runRankSnapshot } from "./routes/keywords";
 
 const rawPort = process.env["PORT"];
 
@@ -52,6 +54,14 @@ seedAdminUser()
       }
       logger.info({ port }, "Server listening");
     });
+
+    cron.schedule("0 0 * * *", () => {
+      logger.info("Running daily keyword rank snapshot");
+      runRankSnapshot()
+        .then((result) => logger.info(result, "Daily keyword rank snapshot complete"))
+        .catch((err) => logger.error({ err }, "Daily keyword rank snapshot failed"));
+    }, { timezone: "UTC" });
+    logger.info("Daily keyword rank snapshot cron scheduled (00:00 UTC)");
   })
   .catch((err) => {
     logger.error({ err }, "Failed to seed admin user");

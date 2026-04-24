@@ -211,6 +211,47 @@ paths:
         "204":
           description: Deleted
 
+  /keywords/{id}/history:
+    get:
+      operationId: getKeywordRankHistory
+      tags: [keywords]
+      summary: Get rank history for a keyword
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: days
+          in: query
+          schema:
+            type: integer
+          description: Number of days of history to return (default 90)
+      responses:
+        "200":
+          description: Rank history entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KeywordRankHistory"
+        "404":
+          description: Keyword not found
+
+  /keywords/snapshot:
+    post:
+      operationId: snapshotKeywordRanks
+      tags: [keywords]
+      summary: Capture a rank snapshot for all tracked keywords now
+      responses:
+        "200":
+          description: Snapshot result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotKeywordsResponse"
+
   # ─── Social Posts ─────────────────────────────────────────────────────────────
   /social-posts:
     get:
@@ -1275,6 +1316,44 @@ components:
           type: string
         notes:
           type: ["string", "null"]
+
+    KeywordRankHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+        keywordId:
+          type: integer
+        rank:
+          type: ["integer", "null"]
+        recordedDate:
+          type: string
+          description: ISO date string (YYYY-MM-DD)
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - keywordId
+        - recordedDate
+        - createdAt
+
+    SnapshotKeywordsResponse:
+      type: object
+      properties:
+        snapshotted:
+          type: integer
+          description: Number of keywords snapshotted
+        skipped:
+          type: integer
+          description: Number of keywords skipped (already have a snapshot today)
+        date:
+          type: string
+          description: Date of the snapshot (YYYY-MM-DD)
+      required:
+        - snapshotted
+        - skipped
+        - date
 
     # ─── SocialPost ───────────────────────────────────────────────────────────
     SocialPost:

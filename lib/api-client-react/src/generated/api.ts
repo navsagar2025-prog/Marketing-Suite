@@ -45,8 +45,10 @@ import type {
   GeneratedContent,
   GeneratedMeta,
   GetCampaignRecipientsParams,
+  GetKeywordRankHistoryParams,
   HealthStatus,
   Keyword,
+  KeywordRankHistory,
   KeywordSuggestions,
   Lead,
   LeadsFunnel,
@@ -63,6 +65,7 @@ import type {
   SendCampaignEmailBody,
   SendCampaignEmailResponse,
   SeoAudit,
+  SnapshotKeywordsResponse,
   SocialPost,
   SuggestKeywordsBody,
   TestAiResponse,
@@ -934,6 +937,204 @@ export const useDeleteKeyword = <
   TContext
 > => {
   return useMutation(getDeleteKeywordMutationOptions(options));
+};
+
+/**
+ * @summary Get rank history for a keyword
+ */
+export const getGetKeywordRankHistoryUrl = (
+  id: number,
+  params?: GetKeywordRankHistoryParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/keywords/${id}/history?${stringifiedParams}`
+    : `/api/keywords/${id}/history`;
+};
+
+export const getKeywordRankHistory = async (
+  id: number,
+  params?: GetKeywordRankHistoryParams,
+  options?: RequestInit,
+): Promise<KeywordRankHistory[]> => {
+  return customFetch<KeywordRankHistory[]>(
+    getGetKeywordRankHistoryUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetKeywordRankHistoryQueryKey = (
+  id: number,
+  params?: GetKeywordRankHistoryParams,
+) => {
+  return [`/api/keywords/${id}/history`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetKeywordRankHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKeywordRankHistory>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  params?: GetKeywordRankHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKeywordRankHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetKeywordRankHistoryQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKeywordRankHistory>>
+  > = ({ signal }) =>
+    getKeywordRankHistory(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKeywordRankHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKeywordRankHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKeywordRankHistory>>
+>;
+export type GetKeywordRankHistoryQueryError = ErrorType<void>;
+
+/**
+ * @summary Get rank history for a keyword
+ */
+
+export function useGetKeywordRankHistory<
+  TData = Awaited<ReturnType<typeof getKeywordRankHistory>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  params?: GetKeywordRankHistoryParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKeywordRankHistory>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKeywordRankHistoryQueryOptions(
+    id,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Capture a rank snapshot for all tracked keywords now
+ */
+export const getSnapshotKeywordRanksUrl = () => {
+  return `/api/keywords/snapshot`;
+};
+
+export const snapshotKeywordRanks = async (
+  options?: RequestInit,
+): Promise<SnapshotKeywordsResponse> => {
+  return customFetch<SnapshotKeywordsResponse>(getSnapshotKeywordRanksUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSnapshotKeywordRanksMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof snapshotKeywordRanks>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof snapshotKeywordRanks>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["snapshotKeywordRanks"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof snapshotKeywordRanks>>,
+    void
+  > = () => {
+    return snapshotKeywordRanks(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SnapshotKeywordRanksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof snapshotKeywordRanks>>
+>;
+
+export type SnapshotKeywordRanksMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Capture a rank snapshot for all tracked keywords now
+ */
+export const useSnapshotKeywordRanks = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof snapshotKeywordRanks>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof snapshotKeywordRanks>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getSnapshotKeywordRanksMutationOptions(options));
 };
 
 /**

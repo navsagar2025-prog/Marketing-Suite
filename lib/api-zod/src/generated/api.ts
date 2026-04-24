@@ -173,6 +173,42 @@ export const DeleteKeywordParams = zod.object({
 });
 
 /**
+ * @summary Get rank history for a keyword
+ */
+export const GetKeywordRankHistoryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetKeywordRankHistoryQueryParams = zod.object({
+  days: zod.coerce
+    .number()
+    .optional()
+    .describe("Number of days of history to return (default 90)"),
+});
+
+export const GetKeywordRankHistoryResponseItem = zod.object({
+  id: zod.number(),
+  keywordId: zod.number(),
+  rank: zod.number().nullish(),
+  recordedDate: zod.string().describe("ISO date string (YYYY-MM-DD)"),
+  createdAt: zod.coerce.date(),
+});
+export const GetKeywordRankHistoryResponse = zod.array(
+  GetKeywordRankHistoryResponseItem,
+);
+
+/**
+ * @summary Capture a rank snapshot for all tracked keywords now
+ */
+export const SnapshotKeywordRanksResponse = zod.object({
+  snapshotted: zod.number().describe("Number of keywords snapshotted"),
+  skipped: zod
+    .number()
+    .describe("Number of keywords skipped (already have a snapshot today)"),
+  date: zod.string().describe("Date of the snapshot (YYYY-MM-DD)"),
+});
+
+/**
  * @summary List social posts
  */
 export const ListSocialPostsQueryParams = zod.object({

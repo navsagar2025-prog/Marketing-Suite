@@ -31,7 +31,7 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET/POST /api/keywords` — Keyword tracking
 - `PATCH/DELETE /api/keywords/:id` — Update/delete keyword
 - `GET /api/keywords/:id/history?days=90` — Rank history (default 90 days)
-- `POST /api/keywords/snapshot` — Capture rank snapshot for all keywords now
+- `POST /api/admin/keywords/snapshot` — Capture rank snapshot for all keywords now (admin only)
 - `GET/POST/PATCH/DELETE /api/campaigns` — Campaign management
 - `GET/POST/PATCH/DELETE /api/social-posts` — Social media posts
 - `GET/POST/PATCH/DELETE /api/backlinks` — Backlink tracking

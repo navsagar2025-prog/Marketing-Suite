@@ -21,6 +21,7 @@ export interface SendEmailOptions {
   to: string[];
   subject: string;
   body: string;
+  campaignId?: number;
 }
 
 function getEncryptionKey(): Buffer {
@@ -104,8 +105,10 @@ export async function getEmailProviderConfig(): Promise<EmailProviderConfig | nu
 }
 
 export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOptions): Promise<{ sent: number }> {
-  const { to, subject, body } = opts;
+  const { to, subject, body, campaignId } = opts;
   if (to.length === 0) return { sent: 0 };
+
+  const campaignIdStr = campaignId != null ? String(campaignId) : undefined;
 
   if (config.provider === "smtp") {
     const transporter = nodemailer.createTransport({
@@ -117,24 +120,34 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
 
     const from = config.fromName ? `"${config.fromName}" <${config.fromAddress}>` : config.fromAddress;
     for (const recipient of to) {
-      await transporter.sendMail({ from, to: recipient, subject, text: body });
+      await transporter.sendMail({
+        from,
+        to: recipient,
+        subject,
+        text: body,
+        headers: campaignIdStr ? { "X-Campaign-Id": campaignIdStr } : undefined,
+      });
     }
     return { sent: to.length };
   }
 
   if (config.provider === "sendgrid") {
+    const payload: Record<string, unknown> = {
+      personalizations: to.map(email => ({ to: [{ email }] })),
+      from: { email: config.fromAddress, name: config.fromName },
+      subject,
+      content: [{ type: "text/plain", value: body }],
+    };
+    if (campaignIdStr) {
+      payload.custom_args = { campaign_id: campaignIdStr };
+    }
     const resp = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        personalizations: to.map(email => ({ to: [{ email }] })),
-        from: { email: config.fromAddress, name: config.fromName },
-        subject,
-        content: [{ type: "text/plain", value: body }],
-      }),
+      body: JSON.stringify(payload),
     });
     if (!resp.ok) {
       const err = await resp.text();
@@ -145,48 +158,64 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
 
   if (config.provider === "mailgun") {
     const domain = config.fromAddress.split("@")[1] ?? "";
-    const form = new URLSearchParams();
-    form.set("from", config.fromName ? `${config.fromName} <${config.fromAddress}>` : config.fromAddress);
-    form.set("to", to.join(","));
-    form.set("subject", subject);
-    form.set("text", body);
-    const resp = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`api:${config.apiKey}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: form.toString(),
-    });
-    if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error(`Mailgun error ${resp.status}: ${err}`);
+    let sent = 0;
+    for (const recipient of to) {
+      const form = new URLSearchParams();
+      form.set("from", config.fromName ? `${config.fromName} <${config.fromAddress}>` : config.fromAddress);
+      form.set("to", recipient);
+      form.set("subject", subject);
+      form.set("text", body);
+      if (campaignIdStr) {
+        form.set("v:campaign_id", campaignIdStr);
+      }
+      const resp = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(`api:${config.apiKey}`).toString("base64")}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form.toString(),
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(`Mailgun error ${resp.status}: ${err}`);
+      }
+      sent++;
     }
-    return { sent: to.length };
+    return { sent };
   }
 
   if (config.provider === "resend") {
-    const resp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    let sent = 0;
+    for (const recipient of to) {
+      const payload: Record<string, unknown> = {
         from: config.fromName ? `${config.fromName} <${config.fromAddress}>` : config.fromAddress,
-        to,
+        to: [recipient],
         subject,
         text: body,
-      }),
-    });
-    if (!resp.ok) {
-      const err = await resp.text();
-      throw new Error(`Resend error ${resp.status}: ${err}`);
+      };
+      if (campaignIdStr) {
+        payload.tags = [{ name: "campaign_id", value: campaignIdStr }];
+      }
+      const resp = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const err = await resp.text();
+        throw new Error(`Resend error ${resp.status}: ${err}`);
+      }
+      sent++;
     }
-    return { sent: to.length };
+    return { sent };
   }
 
   if (config.provider === "mailchimp") {
+    let sent = 0;
     for (const recipient of to) {
       const resp = await fetch("https://mandrillapp.com/api/1.0/messages/send", {
         method: "POST",
@@ -199,6 +228,7 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
             from_email: config.fromAddress,
             from_name: config.fromName,
             to: [{ email: recipient, type: "to" }],
+            metadata: campaignIdStr ? { campaign_id: campaignIdStr } : undefined,
           },
         }),
       });
@@ -206,8 +236,9 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
         const err = await resp.text();
         throw new Error(`Mailchimp/Mandrill error ${resp.status}: ${err}`);
       }
+      sent++;
     }
-    return { sent: to.length };
+    return { sent };
   }
 
   throw new Error(`Unsupported provider: ${config.provider}`);

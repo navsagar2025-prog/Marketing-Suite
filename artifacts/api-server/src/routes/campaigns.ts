@@ -110,6 +110,10 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
   const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
+  if (campaign.type !== "email") {
+    res.status(422).json({ error: `Only email campaigns can be sent. This campaign type is "${campaign.type}".` }); return;
+  }
+
   const { subject, body, recipientStatuses } = req.body ?? {};
   if (!subject || typeof subject !== "string" || !subject.trim()) {
     res.status(400).json({ error: "subject is required" }); return;
@@ -140,7 +144,7 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
     res.status(422).json({ error: "No leads with valid email addresses match the selected filters." }); return;
   }
 
-  const { sent } = await sendEmails(emailConfig, { to, subject: subject.trim(), body: body.trim() });
+  const { sent } = await sendEmails(emailConfig, { to, subject: subject.trim(), body: body.trim(), campaignId: id });
 
   await db.update(campaignsTable).set({
     status: "active",

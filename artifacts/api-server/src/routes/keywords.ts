@@ -70,7 +70,8 @@ router.get("/keywords/:id/history", async (req, res): Promise<void> => {
     return;
   }
   const queryParsed = GetKeywordRankHistoryQueryParams.safeParse(req.query);
-  const days = queryParsed.success && queryParsed.data.days ? queryParsed.data.days : 90;
+  const rawDays = queryParsed.success && queryParsed.data.days ? queryParsed.data.days : 90;
+  const days = Math.min(Math.max(rawDays, 1), 365);
 
   const [keyword] = await db.select({ id: keywordsTable.id }).from(keywordsTable).where(eq(keywordsTable.id, params.data.id));
   if (!keyword) {

@@ -25,7 +25,10 @@ export interface SendEmailOptions {
 }
 
 function getEncryptionKey(): Buffer {
-  const raw = process.env.EMAIL_ENCRYPTION_KEY ?? process.env.SESSION_SECRET ?? "seo-marketing-hub-default-key";
+  const raw = process.env.EMAIL_ENCRYPTION_KEY ?? process.env.SESSION_SECRET;
+  if (!raw) {
+    throw new Error("EMAIL_ENCRYPTION_KEY or SESSION_SECRET environment variable is required for email credential encryption. Set one to enable email provider configuration.");
+  }
   return createHash("sha256").update(raw).digest();
 }
 

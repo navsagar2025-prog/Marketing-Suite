@@ -17,7 +17,7 @@ const EMAIL_PROVIDERS: { value: EmailProvider; label: string; usesApiKey: boolea
   { value: "sendgrid", label: "SendGrid", usesApiKey: true, description: "Twilio SendGrid API." },
   { value: "mailgun", label: "Mailgun", usesApiKey: true, description: "Mailgun sending API." },
   { value: "resend", label: "Resend", usesApiKey: true, description: "Resend.com — modern email API." },
-  { value: "mailchimp", label: "Mailchimp Transactional (Mandrill)", usesApiKey: true, description: "Mailchimp Mandrill API for transactional email." },
+  { value: "mailchimp", label: "Mailchimp (Mandrill)", usesApiKey: true, description: "Mandrill transactional API — requires a paid Mailchimp plan. For audience list-based sends, use Mailchimp's native campaign tools instead." },
 ];
 
 type AiProvider = "replit" | "openai" | "anthropic" | "perplexity" | "gemini";

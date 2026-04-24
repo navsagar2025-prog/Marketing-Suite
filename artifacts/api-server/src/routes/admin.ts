@@ -210,10 +210,8 @@ router.post("/admin/leads/recalculate-scores", async (_req, res): Promise<void> 
       { source: lead.source, status: lead.status, value: lead.value, createdAt: lead.createdAt },
       weights
     );
-    if (lead.score !== score) {
-      await db.update(leadsTable).set({ score, scoreBreakdown: breakdown }).where(eq(leadsTable.id, lead.id));
-      updated++;
-    }
+    await db.update(leadsTable).set({ score, scoreBreakdown: breakdown }).where(eq(leadsTable.id, lead.id));
+    updated++;
   }
   res.json({ updated, date: new Date().toISOString().slice(0, 10) });
 });

@@ -24,6 +24,7 @@ import {
   useDeleteLead,
   useGetLeadsFunnel,
   useListWebsites,
+  useGetAnalyticsSummary,
   getListLeadsQueryKey,
   getGetLeadsFunnelQueryKey,
 } from "@workspace/api-client-react";
@@ -138,6 +139,7 @@ export default function Leads() {
   const queryClient = useQueryClient();
   const { data: websites } = useListWebsites();
   const { data: funnel } = useGetLeadsFunnel();
+  const { data: summary } = useGetAnalyticsSummary();
   const { data: leads, isLoading } = useListLeads(filterStatus !== "all" ? { status: filterStatus } : undefined, {
     query: { queryKey: getListLeadsQueryKey(filterStatus !== "all" ? { status: filterStatus } : undefined) }
   });
@@ -301,11 +303,20 @@ export default function Leads() {
       {funnel && funnelData.some(d => d.value > 0) && (
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <CardTitle className="text-base">Lead Funnel</CardTitle>
-              {funnel.totalValue && (
-                <span className="text-sm text-muted-foreground">Pipeline value: <span className="font-semibold text-foreground">${Number(funnel.totalValue).toLocaleString()}</span></span>
-              )}
+              <div className="flex items-center gap-4">
+                {summary?.highIntentLeads != null && (
+                  <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                    <TrendingUp className="h-3.5 w-3.5 text-green-500" />
+                    <span className="font-semibold text-foreground">{summary.highIntentLeads}</span>
+                    high-intent (score &ge; 70)
+                  </span>
+                )}
+                {funnel.totalValue && (
+                  <span className="text-sm text-muted-foreground">Pipeline: <span className="font-semibold text-foreground">${Number(funnel.totalValue).toLocaleString()}</span></span>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>

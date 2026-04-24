@@ -10,10 +10,21 @@ import analyticsRouter from "./analytics";
 import aiRouter from "./ai";
 import mediaAssetsRouter from "./media-assets";
 import settingsRouter from "./settings";
+import authRouter from "./auth";
+import adminRouter from "./admin";
+import publicAuditRouter from "./public-audit";
+import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+
+router.use(authRouter);
+
+router.use(publicAuditRouter);
+
+router.use(requireAuth);
+
 router.use(websitesRouter);
 router.use(keywordsRouter);
 router.use(socialPostsRouter);
@@ -24,5 +35,6 @@ router.use(analyticsRouter);
 router.use(aiRouter);
 router.use(mediaAssetsRouter);
 router.use(settingsRouter);
+router.use(adminRouter);
 
 export default router;

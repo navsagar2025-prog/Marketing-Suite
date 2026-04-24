@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +17,11 @@ import MediaAssets from "@/pages/media-assets";
 import SettingsPage from "@/pages/settings";
 import CalendarPage from "@/pages/calendar";
 import NotFound from "@/pages/not-found";
+import LoginPage from "@/pages/login";
+import ReportPage from "@/pages/report";
+import AdminPage from "@/pages/admin";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,26 +32,57 @@ const queryClient = new QueryClient({
   },
 });
 
-function Router() {
-  return (
-    <Layout>
+function ProtectedRouter() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
       <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/websites" component={Websites} />
-        <Route path="/websites/:id" component={WebsiteDetail} />
-        <Route path="/keywords" component={Keywords} />
-        <Route path="/social" component={Social} />
-        <Route path="/calendar" component={CalendarPage} />
-        <Route path="/campaigns" component={Campaigns} />
-        <Route path="/backlinks" component={Backlinks} />
-        <Route path="/leads" component={Leads} />
-        <Route path="/analytics" component={Analytics} />
-        <Route path="/ai" component={AiTools} />
-        <Route path="/media" component={MediaAssets} />
-        <Route path="/settings" component={SettingsPage} />
-        <Route component={NotFound} />
+        <Route path="/login" component={LoginPage} />
+        <Route path="/report" component={ReportPage} />
+        <Route>
+          <Redirect to="/login" />
+        </Route>
       </Switch>
-    </Layout>
+    );
+  }
+
+  return (
+    <Switch>
+      <Route path="/login">
+        <Redirect to="/" />
+      </Route>
+      <Route path="/report" component={ReportPage} />
+      <Route>
+        <Layout>
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/websites" component={Websites} />
+            <Route path="/websites/:id" component={WebsiteDetail} />
+            <Route path="/keywords" component={Keywords} />
+            <Route path="/social" component={Social} />
+            <Route path="/calendar" component={CalendarPage} />
+            <Route path="/campaigns" component={Campaigns} />
+            <Route path="/backlinks" component={Backlinks} />
+            <Route path="/leads" component={Leads} />
+            <Route path="/analytics" component={Analytics} />
+            <Route path="/ai" component={AiTools} />
+            <Route path="/media" component={MediaAssets} />
+            <Route path="/settings" component={SettingsPage} />
+            <Route path="/admin" component={AdminPage} />
+            <Route component={NotFound} />
+          </Switch>
+        </Layout>
+      </Route>
+    </Switch>
   );
 }
 
@@ -54,9 +90,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <ProtectedRouter />
+          </WouterRouter>
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

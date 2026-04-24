@@ -20,10 +20,13 @@ import {
   CalendarDays,
   Brain,
   AlertCircle,
+  ShieldCheck,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useGetSettings } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -75,10 +78,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { theme, toggleTheme } = useTheme();
   const { data: settings } = useGetSettings();
+  const { user, logout } = useAuth();
 
   const aiEnabled = settings?.aiEnabled ?? true;
   const aiProvider = settings?.aiProvider ?? "replit";
   const providerLabel = PROVIDER_SHORT[aiProvider] ?? aiProvider;
+
+  const allNavItems = [
+    ...navItems,
+    ...(user?.role === "admin" ? [{ path: "/admin", label: "Admin", icon: ShieldCheck }] : []),
+  ];
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -110,7 +119,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Nav items */}
         <nav className="flex-1 py-2 overflow-y-auto">
-          {navItems.map(({ path, label, icon: Icon }) => {
+          {allNavItems.map(({ path, label, icon: Icon }) => {
             const active = location === path || (path !== "/" && location.startsWith(path));
             return (
               <Link
@@ -175,8 +184,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Theme toggle */}
-        <div className="p-2 border-t border-sidebar-border">
+        {/* Footer: user info + theme toggle + logout */}
+        <div className="p-2 border-t border-sidebar-border space-y-1">
+          {sidebarOpen && user && (
+            <p className="text-xs text-sidebar-foreground/60 px-1 truncate">
+              Signed in as <span className="font-medium text-sidebar-foreground">{user.username}</span>
+            </p>
+          )}
           <Button
             variant="ghost"
             size={sidebarOpen ? "sm" : "icon"}
@@ -186,6 +200,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             {theme === "light" ? <Moon className="h-4 w-4 shrink-0" /> : <Sun className="h-4 w-4 shrink-0" />}
             {sidebarOpen && <span className="ml-2">{theme === "light" ? "Dark Mode" : "Light Mode"}</span>}
+          </Button>
+          <Button
+            variant="ghost"
+            size={sidebarOpen ? "sm" : "icon"}
+            data-testid="button-logout"
+            className="w-full text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            onClick={logout}
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            {sidebarOpen && <span className="ml-2">Sign out</span>}
           </Button>
         </div>
       </aside>

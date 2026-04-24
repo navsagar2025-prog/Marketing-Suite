@@ -198,7 +198,7 @@ export const GetKeywordRankHistoryResponse = zod.array(
 );
 
 /**
- * @summary Capture a rank snapshot for all tracked keywords now
+ * @summary Capture a rank snapshot for all tracked keywords now (admin only)
  */
 export const SnapshotKeywordRanksResponse = zod.object({
   snapshotted: zod

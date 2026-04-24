@@ -239,11 +239,13 @@ paths:
         "404":
           description: Keyword not found
 
-  /keywords/snapshot:
+  /admin/keywords/snapshot:
     post:
       operationId: snapshotKeywordRanks
-      tags: [keywords]
-      summary: Capture a rank snapshot for all tracked keywords now
+      tags: [admin]
+      summary: Capture a rank snapshot for all tracked keywords now (admin only)
+      security:
+        - BearerAuth: []
       responses:
         "200":
           description: Snapshot result
@@ -251,6 +253,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SnapshotKeywordsResponse"
+        "401":
+          description: Unauthorized (admin only)
 
   # ─── Social Posts ─────────────────────────────────────────────────────────────
   /social-posts:

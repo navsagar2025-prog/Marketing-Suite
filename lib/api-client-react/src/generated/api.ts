@@ -1057,10 +1057,10 @@ export function useGetKeywordRankHistory<
 }
 
 /**
- * @summary Capture a rank snapshot for all tracked keywords now
+ * @summary Capture a rank snapshot for all tracked keywords now (admin only)
  */
 export const getSnapshotKeywordRanksUrl = () => {
-  return `/api/keywords/snapshot`;
+  return `/api/admin/keywords/snapshot`;
 };
 
 export const snapshotKeywordRanks = async (
@@ -1073,7 +1073,7 @@ export const snapshotKeywordRanks = async (
 };
 
 export const getSnapshotKeywordRanksMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1112,13 +1112,13 @@ export type SnapshotKeywordRanksMutationResult = NonNullable<
   Awaited<ReturnType<typeof snapshotKeywordRanks>>
 >;
 
-export type SnapshotKeywordRanksMutationError = ErrorType<unknown>;
+export type SnapshotKeywordRanksMutationError = ErrorType<void>;
 
 /**
- * @summary Capture a rank snapshot for all tracked keywords now
+ * @summary Capture a rank snapshot for all tracked keywords now (admin only)
  */
 export const useSnapshotKeywordRanks = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

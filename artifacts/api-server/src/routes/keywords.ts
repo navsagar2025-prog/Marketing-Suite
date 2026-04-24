@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte } from "drizzle-orm";
 import { db, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
-import { requireAdmin } from "../lib/auth.js";
 import {
   ListKeywordsQueryParams,
   ListKeywordsResponse,
@@ -13,7 +12,6 @@ import {
   GetKeywordRankHistoryParams,
   GetKeywordRankHistoryQueryParams,
   GetKeywordRankHistoryResponse,
-  SnapshotKeywordRanksResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -39,10 +37,6 @@ router.post("/keywords", async (req, res): Promise<void> => {
   res.status(201).json(keyword);
 });
 
-router.post("/keywords/snapshot", requireAdmin, async (req, res): Promise<void> => {
-  const result = await runRankSnapshot();
-  res.json(SnapshotKeywordRanksResponse.parse(result));
-});
 
 router.patch("/keywords/:id", async (req, res): Promise<void> => {
   const params = UpdateKeywordParams.safeParse(req.params);

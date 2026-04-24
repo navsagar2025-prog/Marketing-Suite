@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import { eq, desc, count, sum, countDistinct, and, gte } from "drizzle-orm";
 import { db, staffUsersTable, ipRateLimitsTable, ipAllowlistTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth.js";
+import { runRankSnapshot } from "./keywords.js";
+import { SnapshotKeywordRanksResponse } from "@workspace/api-zod";
 
 const DAILY_LIMIT = 2;
 
@@ -169,6 +171,11 @@ router.delete("/admin/staff/:id", async (req, res): Promise<void> => {
     return;
   }
   res.sendStatus(204);
+});
+
+router.post("/admin/keywords/snapshot", async (_req, res): Promise<void> => {
+  const result = await runRankSnapshot();
+  res.json(SnapshotKeywordRanksResponse.parse(result));
 });
 
 export default router;

@@ -102,8 +102,8 @@ function getMovementBadge(history: KeywordRankHistory[]): "up" | "down" | null {
     d.setDate(d.getDate() - 7);
     return d.toISOString().slice(0, 10);
   })();
-  const weekOld = sorted.findLast((h) => h.recordedDate <= sevenDaysAgoStr) ?? sorted[0];
-  if (!weekOld.rank) return null;
+  const weekOld = sorted.findLast((h) => h.recordedDate <= sevenDaysAgoStr);
+  if (!weekOld || !weekOld.rank) return null;
   const diff = weekOld.rank - newest.rank;
   if (diff >= 5) return "up";
   if (diff <= -5) return "down";
@@ -352,7 +352,8 @@ export default function Keywords() {
   const handleSnapshot = () => {
     snapshotMutation.mutate({}, {
       onSuccess: (result) => {
-        toast({ title: `Snapshot complete — ${result.snapshotted} keywords captured for ${result.date}` });
+        const failedNote = result.failed > 0 ? ` (${result.failed} failed)` : "";
+        toast({ title: `Snapshot complete — ${result.snapshotted} keywords captured for ${result.date}${failedNote}` });
         (keywords ?? []).forEach((kw) => {
           queryClient.invalidateQueries({ queryKey: getGetKeywordRankHistoryQueryKey(kw.id) });
         });

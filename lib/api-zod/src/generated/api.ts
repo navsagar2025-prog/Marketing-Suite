@@ -201,10 +201,19 @@ export const GetKeywordRankHistoryResponse = zod.array(
  * @summary Capture a rank snapshot for all tracked keywords now
  */
 export const SnapshotKeywordRanksResponse = zod.object({
-  snapshotted: zod.number().describe("Number of keywords snapshotted"),
+  snapshotted: zod
+    .number()
+    .describe("Number of keywords successfully snapshotted"),
   skipped: zod
     .number()
-    .describe("Number of keywords skipped (already have a snapshot today)"),
+    .describe(
+      "Number of keywords skipped because they already have a snapshot today",
+    ),
+  failed: zod
+    .number()
+    .describe(
+      "Number of keywords that encountered a database error during snapshotting",
+    ),
   date: zod.string().describe("Date of the snapshot (YYYY-MM-DD)"),
 });
 

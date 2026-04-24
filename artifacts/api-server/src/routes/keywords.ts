@@ -110,12 +110,12 @@ router.delete("/keywords/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-export async function runRankSnapshot(): Promise<{ snapshotted: number; skipped: number; date: string }> {
+export async function runRankSnapshot(): Promise<{ snapshotted: number; skipped: number; failed: number; date: string }> {
   const today = new Date().toISOString().slice(0, 10);
   const keywords = await db.select().from(keywordsTable);
   let snapshotted = 0;
   let skipped = 0;
-  const errors: Array<{ keywordId: number; error: unknown }> = [];
+  let failed = 0;
   for (const kw of keywords) {
     try {
       const result = await db
@@ -129,14 +129,12 @@ export async function runRankSnapshot(): Promise<{ snapshotted: number; skipped:
         skipped++;
       }
     } catch (err) {
-      errors.push({ keywordId: kw.id, error: err });
+      failed++;
+      const { logger } = await import("../lib/logger.js");
+      logger.error({ keywordId: kw.id, err }, "Keyword snapshot failed for keyword");
     }
   }
-  if (errors.length > 0) {
-    const { logger } = await import("../lib/logger.js");
-    logger.error({ errors }, `Keyword snapshot: ${errors.length} keywords failed to snapshot`);
-  }
-  return { snapshotted, skipped: skipped + errors.length, date: today };
+  return { snapshotted, skipped, failed, date: today };
 }
 
 export default router;

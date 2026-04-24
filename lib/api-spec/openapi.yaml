@@ -1343,16 +1343,20 @@ components:
       properties:
         snapshotted:
           type: integer
-          description: Number of keywords snapshotted
+          description: Number of keywords successfully snapshotted
         skipped:
           type: integer
-          description: Number of keywords skipped (already have a snapshot today)
+          description: Number of keywords skipped because they already have a snapshot today
+        failed:
+          type: integer
+          description: Number of keywords that encountered a database error during snapshotting
         date:
           type: string
           description: Date of the snapshot (YYYY-MM-DD)
       required:
         - snapshotted
         - skipped
+        - failed
         - date
 
     # ─── SocialPost ───────────────────────────────────────────────────────────

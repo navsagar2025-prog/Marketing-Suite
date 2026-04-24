@@ -7,10 +7,12 @@
  */
 
 export interface SnapshotKeywordsResponse {
-  /** Number of keywords snapshotted */
+  /** Number of keywords successfully snapshotted */
   snapshotted: number;
-  /** Number of keywords skipped (already have a snapshot today) */
+  /** Number of keywords skipped because they already have a snapshot today */
   skipped: number;
+  /** Number of keywords that encountered a database error during snapshotting */
+  failed: number;
   /** Date of the snapshot (YYYY-MM-DD) */
   date: string;
 }

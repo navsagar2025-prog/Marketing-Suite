@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,34 +54,40 @@ function Sparkline({ history }: { history: KeywordRankHistory[] }) {
     return <span className="text-xs text-muted-foreground">no data</span>;
   }
 
-  const W = 80, H = 26, pad = 2;
+  const W = 80, H = 26, pad = 3;
   const ranks = pts.map((p) => p.rank);
   const minRank = Math.min(...ranks);
   const maxRank = Math.max(...ranks);
   const range = maxRank - minRank || 1;
 
-  const points = pts
-    .map((p, i) => {
-      const x = pad + (i / (pts.length - 1)) * (W - pad * 2);
-      const y = pad + ((p.rank - minRank) / range) * (H - pad * 2);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+  const coordPts = pts.map((p, i) => ({
+    x: pad + (i / (pts.length - 1)) * (W - pad * 2),
+    y: pad + ((p.rank - minRank) / range) * (H - pad * 2),
+    rank: p.rank,
+    date: p.date,
+  }));
+
+  const polylinePoints = coordPts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
 
   const lastRank = pts[pts.length - 1].rank;
   const firstRank = pts[0].rank;
   const color = lastRank < firstRank ? "#22c55e" : lastRank > firstRank ? "#ef4444" : "#94a3b8";
 
   return (
-    <svg width={W} height={H} className="overflow-visible shrink-0" aria-hidden>
+    <svg width={W} height={H} className="overflow-visible shrink-0" role="img" aria-label="Rank trend sparkline">
       <polyline
-        points={points}
+        points={polylinePoints}
         fill="none"
         stroke={color}
         strokeWidth={1.5}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
+      {coordPts.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={4} fill="transparent" stroke="transparent">
+          <title>{`Rank #${p.rank} on ${p.date}`}</title>
+        </circle>
+      ))}
     </svg>
   );
 }
@@ -303,6 +310,8 @@ export default function Keywords() {
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const queryClient = useQueryClient();
   const { data: keywords, isLoading } = useListKeywords();
   const { data: websites } = useListWebsites();
@@ -372,16 +381,18 @@ export default function Keywords() {
           <p className="text-sm text-muted-foreground mt-0.5">Track your SEO keyword rankings</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            data-testid="button-snapshot-ranks"
-            onClick={handleSnapshot}
-            disabled={snapshotMutation.isPending}
-          >
-            <Camera className="h-4 w-4 mr-1" />
-            {snapshotMutation.isPending ? "Snapshotting..." : "Snapshot ranks now"}
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="button-snapshot-ranks"
+              onClick={handleSnapshot}
+              disabled={snapshotMutation.isPending}
+            >
+              <Camera className="h-4 w-4 mr-1" />
+              {snapshotMutation.isPending ? "Snapshotting..." : "Snapshot ranks now"}
+            </Button>
+          )}
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
               <Button

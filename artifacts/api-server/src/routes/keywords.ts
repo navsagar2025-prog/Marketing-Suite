@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte } from "drizzle-orm";
 import { db, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
+import { requireAdmin } from "../lib/auth.js";
 import {
   ListKeywordsQueryParams,
   ListKeywordsResponse,
@@ -38,7 +39,7 @@ router.post("/keywords", async (req, res): Promise<void> => {
   res.status(201).json(keyword);
 });
 
-router.post("/keywords/snapshot", async (req, res): Promise<void> => {
+router.post("/keywords/snapshot", requireAdmin, async (req, res): Promise<void> => {
   const result = await runRankSnapshot();
   res.json(SnapshotKeywordRanksResponse.parse(result));
 });
@@ -114,6 +115,7 @@ export async function runRankSnapshot(): Promise<{ snapshotted: number; skipped:
   const keywords = await db.select().from(keywordsTable);
   let snapshotted = 0;
   let skipped = 0;
+  const errors: Array<{ keywordId: number; error: unknown }> = [];
   for (const kw of keywords) {
     try {
       const result = await db
@@ -126,11 +128,15 @@ export async function runRankSnapshot(): Promise<{ snapshotted: number; skipped:
       } else {
         skipped++;
       }
-    } catch {
-      skipped++;
+    } catch (err) {
+      errors.push({ keywordId: kw.id, error: err });
     }
   }
-  return { snapshotted, skipped, date: today };
+  if (errors.length > 0) {
+    const { logger } = await import("../lib/logger.js");
+    logger.error({ errors }, `Keyword snapshot: ${errors.length} keywords failed to snapshot`);
+  }
+  return { snapshotted, skipped: skipped + errors.length, date: today };
 }
 
 export default router;

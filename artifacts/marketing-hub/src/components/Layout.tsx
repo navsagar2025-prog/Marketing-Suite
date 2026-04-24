@@ -149,9 +149,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   ? <Brain className="h-3.5 w-3.5 shrink-0" />
                   : <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 }
-                <span className="truncate font-medium">
+                <span className="truncate font-medium flex-1">
                   {aiEnabled ? `AI: ${providerLabel}` : "AI: Disabled"}
                 </span>
+                <span
+                  data-testid="ai-connectivity-dot"
+                  className={cn(
+                    "h-2 w-2 rounded-full shrink-0",
+                    !aiEnabled
+                      ? "bg-muted-foreground/40"
+                      : (aiProvider === "replit" || settings?.aiApiKeyConfigured)
+                        ? "bg-green-400"
+                        : "bg-amber-400"
+                  )}
+                  title={
+                    !aiEnabled
+                      ? "AI disabled"
+                      : (aiProvider === "replit" || settings?.aiApiKeyConfigured)
+                        ? "AI configured and ready"
+                        : "API key not configured"
+                  }
+                />
               </div>
             </Link>
           </div>

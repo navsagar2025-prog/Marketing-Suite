@@ -17,6 +17,7 @@ import {
   useRunSeoAudit,
   useListSeoAudits,
   useFixSeoIssue,
+  useGetSettings,
   getGetWebsiteQueryKey,
   getGetWebsiteAnalyticsQueryKey,
   getListKeywordsQueryKey,
@@ -76,6 +77,8 @@ function FixPanel({ issue, websiteUrl, websiteName }: { issue: SeoAuditIssue; we
   const [fix, setFix] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const fixMutation = useFixSeoIssue();
+  const { data: aiSettings } = useGetSettings();
+  const aiDisabled = aiSettings !== undefined && aiSettings.aiEnabled === false;
 
   const handleFix = () => {
     fixMutation.mutate({
@@ -103,7 +106,14 @@ function FixPanel({ issue, websiteUrl, websiteName }: { issue: SeoAuditIssue; we
   return (
     <div className="mt-2 space-y-2">
       {!fix ? (
-        <Button size="sm" variant="outline" onClick={handleFix} disabled={fixMutation.isPending} className="text-xs">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleFix}
+          disabled={fixMutation.isPending || aiDisabled}
+          className="text-xs"
+          title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+        >
           {fixMutation.isPending ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Generating fix...</> : <><ShieldCheck className="h-3 w-3 mr-1" /> Fix with AI</>}
         </Button>
       ) : (

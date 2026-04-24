@@ -22,6 +22,7 @@ import {
   useDeleteSocialPost,
   useGenerateSocialPost,
   useListWebsites,
+  useGetSettings,
   getListSocialPostsQueryKey,
 } from "@workspace/api-client-react";
 import type { MediaAsset } from "@workspace/api-client-react";
@@ -79,6 +80,8 @@ export default function Social() {
   const createMutation = useCreateSocialPost();
   const deleteMutation = useDeleteSocialPost();
   const generateMutation = useGenerateSocialPost();
+  const { data: settings } = useGetSettings();
+  const aiDisabled = settings !== undefined && settings.aiEnabled === false;
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -121,12 +124,23 @@ export default function Social() {
           <p className="text-sm text-muted-foreground mt-0.5">Manage posts across all platforms</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" data-testid="button-ai-generate-image" onClick={() => setAiMediaOpen(true)}>
+          <Button
+            variant="outline" size="sm"
+            data-testid="button-ai-generate-image"
+            onClick={() => setAiMediaOpen(true)}
+            disabled={aiDisabled}
+            title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+          >
             <ImageIcon className="h-4 w-4 mr-1" /> Generate Media
           </Button>
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" data-testid="button-ai-generate-post">
+              <Button
+                variant="outline" size="sm"
+                data-testid="button-ai-generate-post"
+                disabled={aiDisabled}
+                title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+              >
                 <Sparkles className="h-4 w-4 mr-1" /> AI Generate
               </Button>
             </DialogTrigger>

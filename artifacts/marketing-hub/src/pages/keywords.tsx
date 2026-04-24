@@ -20,6 +20,7 @@ import {
   useDeleteKeyword,
   useSuggestKeywords,
   useListWebsites,
+  useGetSettings,
   getListKeywordsQueryKey,
 } from "@workspace/api-client-react";
 
@@ -48,6 +49,8 @@ export default function Keywords() {
   const createMutation = useCreateKeyword();
   const deleteMutation = useDeleteKeyword();
   const suggestMutation = useSuggestKeywords();
+  const { data: settings } = useGetSettings();
+  const aiDisabled = settings !== undefined && settings.aiEnabled === false;
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -103,7 +106,12 @@ export default function Keywords() {
         <div className="flex gap-2">
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" data-testid="button-ai-suggest">
+              <Button
+                variant="outline" size="sm"
+                data-testid="button-ai-suggest"
+                disabled={aiDisabled}
+                title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+              >
                 <Sparkles className="h-4 w-4 mr-1" /> AI Suggest
               </Button>
             </DialogTrigger>

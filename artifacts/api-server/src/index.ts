@@ -1,11 +1,13 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, staffUsersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, staffUsersTable, leadsTable } from "@workspace/db";
+import { eq, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import cron from "node-cron";
 import { runRankSnapshot } from "./routes/keywords";
+import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
+import { getDbSetting } from "./lib/ai-provider";
 
 const rawPort = process.env["PORT"];
 
@@ -45,7 +47,23 @@ async function seedAdminUser(): Promise<void> {
   }
 }
 
+async function backfillLeadScores(): Promise<void> {
+  const rawConfig = await getDbSetting("lead_scoring_config");
+  const weights = rawConfig ? mergeWeights(DEFAULT_SCORING_WEIGHTS, JSON.parse(rawConfig)) : DEFAULT_SCORING_WEIGHTS;
+  const unscoredLeads = await db.select().from(leadsTable).where(isNull(leadsTable.score));
+  if (unscoredLeads.length === 0) return;
+  for (const lead of unscoredLeads) {
+    const { score, breakdown } = calculateLeadScore(
+      { source: lead.source, status: lead.status, value: lead.value, createdAt: lead.createdAt },
+      weights
+    );
+    await db.update(leadsTable).set({ score, scoreBreakdown: breakdown }).where(eq(leadsTable.id, lead.id));
+  }
+  logger.info({ count: unscoredLeads.length }, "Backfilled lead scores for unscored leads");
+}
+
 seedAdminUser()
+  .then(() => backfillLeadScores())
   .then(() => {
     app.listen(port, (err) => {
       if (err) {

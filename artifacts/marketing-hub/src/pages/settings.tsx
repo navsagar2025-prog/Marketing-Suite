@@ -300,7 +300,7 @@ export default function SettingsPage() {
   const handleSaveScoringConfig = () => {
     if (Object.keys(scoringEdits).length === 0) return;
     updateScoringMutation.mutate(
-      { data: scoringEdits as Parameters<typeof updateScoringMutation.mutate>[0]["data"] },
+      { data: activeScoringConfig as Parameters<typeof updateScoringMutation.mutate>[0]["data"] },
       {
         onSuccess: () => {
           toast({ title: "Lead scoring weights saved" });
@@ -1143,6 +1143,24 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+
+            {/* Weights summary preview */}
+            {(() => {
+              const src = activeScoringConfig.source as Record<string, number>;
+              const sta = activeScoringConfig.status as Record<string, number>;
+              const val = activeScoringConfig.valueTier as Record<string, number>;
+              const maxSource = Math.max(...Object.values(src).map(Number), 0);
+              const maxStatus = Math.max(...Object.values(sta).map(Number), 0);
+              const maxValue = Math.max(...Object.values(val).map(Number), 0);
+              const maxRecency = Number(activeScoringConfig.recencyBonus) || 0;
+              const maxPossible = Math.min(100, maxSource + maxStatus + maxValue + maxRecency);
+              return (
+                <div className="rounded-md bg-muted/50 border px-4 py-3 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>Max possible score with current weights</span>
+                  <span className={`font-mono font-bold text-sm ${maxPossible >= 70 ? "text-green-600" : "text-yellow-600"}`}>{maxPossible} / 100</span>
+                </div>
+              );
+            })()}
 
             <div className="flex justify-end">
               <Button

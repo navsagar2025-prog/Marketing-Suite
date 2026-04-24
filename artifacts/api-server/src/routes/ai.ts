@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
 import {
   SuggestKeywordsBody,
   SuggestKeywordsResponse,
@@ -17,6 +16,7 @@ import {
 import { db } from "@workspace/db";
 import { mediaAssetsTable } from "@workspace/db/schema";
 import { getSetting } from "./settings.js";
+import { callAI } from "../lib/ai-provider.js";
 
 const router: IRouter = Router();
 
@@ -102,12 +102,13 @@ Provide the EXACT text the user should use to fix this issue. Be specific and ac
 
 Return ONLY the fixed content — no explanation, no labels, just the ready-to-use text.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-4.1-mini",
-    max_completion_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
-  res.json({ fix: response.choices[0]?.message?.content ?? "" });
+  try {
+    const fix = await callAI(prompt, { maxTokens: 1024 });
+    res.json({ fix });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
 });
 
 router.post("/ai/suggest-keywords", async (req, res): Promise<void> => {
@@ -127,19 +128,19 @@ Return a JSON object with a "keywords" array where each item has:
 
 Return ONLY valid JSON, no markdown.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 2048,
-    messages: [{ role: "user", content: prompt }],
-  });
-  const content = response.choices[0]?.message?.content ?? '{"keywords":[]}';
-  let parsed2;
   try {
-    parsed2 = JSON.parse(content);
-  } catch {
-    parsed2 = { keywords: [] };
+    const content = await callAI(prompt, { maxTokens: 2048 });
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(content);
+    } catch {
+      parsedResult = { keywords: [] };
+    }
+    res.json(SuggestKeywordsResponse.parse(parsedResult));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
   }
-  res.json(SuggestKeywordsResponse.parse(parsed2));
 });
 
 router.post("/ai/generate-post", async (req, res): Promise<void> => {
@@ -159,12 +160,13 @@ router.post("/ai/generate-post", async (req, res): Promise<void> => {
   const guide = platformGuide[platform] ?? "2-3 engaging sentences.";
   const prompt = `Write a social media post for ${platform} about: "${topic}"${niche ? ` in the ${niche} niche` : ""}. Tone: ${tone ?? "engaging"}. ${guide} Return ONLY the post text, no extra commentary.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 512,
-    messages: [{ role: "user", content: prompt }],
-  });
-  res.json(GenerateSocialPostResponse.parse({ content: response.choices[0]?.message?.content ?? "" }));
+  try {
+    const content = await callAI(prompt, { maxTokens: 512 });
+    res.json(GenerateSocialPostResponse.parse({ content }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
 });
 
 router.post("/ai/generate-meta", async (req, res): Promise<void> => {
@@ -183,18 +185,19 @@ Rules:
 
 Return ONLY valid JSON with "title" and "description" fields.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 512,
-    messages: [{ role: "user", content: prompt }],
-  });
-  let result = { title: "", description: "" };
   try {
-    result = JSON.parse(response.choices[0]?.message?.content ?? "{}");
-  } catch {
-    // fallback
+    const content = await callAI(prompt, { maxTokens: 512 });
+    let result = { title: "", description: "" };
+    try {
+      result = JSON.parse(content);
+    } catch {
+      // fallback
+    }
+    res.json(GenerateMetaTagsResponse.parse(result));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
   }
-  res.json(GenerateMetaTagsResponse.parse(result));
 });
 
 router.post("/ai/generate-campaign-copy", async (req, res): Promise<void> => {
@@ -210,12 +213,13 @@ Product/Service: ${product}${targetAudience ? `\nTarget Audience: ${targetAudien
 
 Write a headline, subheadline, and main copy (3-4 sentences) + a call to action. Return ONLY the copy text, formatted clearly.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
-  res.json(GenerateCampaignCopyResponse.parse({ content: response.choices[0]?.message?.content ?? "" }));
+  try {
+    const content = await callAI(prompt, { maxTokens: 1024 });
+    res.json(GenerateCampaignCopyResponse.parse({ content }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
 });
 
 router.post("/ai/generate-seo-brief", async (req, res): Promise<void> => {
@@ -238,12 +242,13 @@ Include:
 
 Format it clearly with sections.`;
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.1",
-    max_completion_tokens: 2048,
-    messages: [{ role: "user", content: prompt }],
-  });
-  res.json(GenerateSeoBriefResponse.parse({ content: response.choices[0]?.message?.content ?? "" }));
+  try {
+    const content = await callAI(prompt, { maxTokens: 2048 });
+    res.json(GenerateSeoBriefResponse.parse({ content }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
 });
 
 router.post("/ai/generate-image", async (req, res): Promise<void> => {

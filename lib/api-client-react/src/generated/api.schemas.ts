@@ -561,11 +561,27 @@ export interface CreateMediaAssetBody {
 
 export interface AppSettings {
   falApiKeyConfigured: boolean;
+  aiProvider: string;
+  aiModel: string;
+  aiEnabled: boolean;
+  aiApiKeyConfigured: boolean;
 }
 
 export interface UpdateSettingsBody {
   /** @nullable */
   falApiKey?: string | null;
+  aiProvider?: string;
+  aiModel?: string;
+  aiEnabled?: boolean;
+  /** @nullable */
+  aiApiKey?: string | null;
+}
+
+export interface TestAiResponse {
+  success: boolean;
+  message: string;
+  provider: string;
+  model: string;
 }
 
 export type ListKeywordsParams = {

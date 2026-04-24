@@ -1,18 +1,19 @@
 import { useState } from "react";
-import { Sparkles, Search, Share2, Globe, Megaphone, FileText } from "lucide-react";
+import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 import {
   useSuggestKeywords,
   useGenerateSocialPost,
   useGenerateMetaTags,
   useGenerateCampaignCopy,
   useGenerateSeoBrief,
+  useGetSettings,
 } from "@workspace/api-client-react";
 
 const PLATFORMS = [
@@ -34,6 +35,8 @@ function ResultBox({ content, label }: { content: string; label?: string }) {
 
 export default function AiTools() {
   const { toast } = useToast();
+  const { data: settings } = useGetSettings();
+  const aiDisabled = settings !== undefined && settings.aiEnabled === false;
 
   // Keyword Suggester state
   const [kwNiche, setKwNiche] = useState("");
@@ -117,7 +120,23 @@ export default function AiTools() {
         <p className="text-sm text-muted-foreground mt-0.5">AI-powered content generation for SEO & marketing</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {aiDisabled && (
+        <div className="flex items-start gap-3 p-4 rounded-md border border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300" data-testid="banner-ai-disabled">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-medium text-sm">AI features are disabled</p>
+            <p className="text-xs mt-0.5 opacity-80">Enable AI in Settings to use content generation tools.</p>
+          </div>
+          <Link href="/settings">
+            <Button variant="outline" size="sm" className="shrink-0 border-amber-300 dark:border-amber-700">
+              <Settings className="h-3.5 w-3.5 mr-1" />
+              Settings
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${aiDisabled ? "opacity-60 pointer-events-none" : ""}`}>
         {/* 1. Keyword Suggester */}
         <Card data-testid="card-keyword-suggester">
           <CardHeader className="pb-3">

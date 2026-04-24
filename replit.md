@@ -17,7 +17,7 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - **Build**: esbuild (CJS bundle)
 - **Frontend**: React + Vite + Tailwind + shadcn/ui
 - **Charts**: Recharts
-- **AI**: OpenAI (gpt-4.1) via Replit AI Integrations
+- **AI**: Multi-provider via central `callAI()` service — supports Replit Default (free), OpenAI, Anthropic, Perplexity, Google Gemini; configured in Settings UI
 
 ## Artifacts
 
@@ -47,8 +47,9 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET /api/media-assets` — List saved media assets (filter by websiteId/campaignId/type)
 - `POST /api/media-assets` — Save a media asset record
 - `DELETE /api/media-assets/:id` — Delete a media asset
-- `GET /api/settings` — Get app settings (falApiKeyConfigured boolean)
-- `PATCH /api/settings` — Update settings (set/remove falApiKey)
+- `GET /api/settings` — Get app settings (falApiKeyConfigured, aiProvider, aiModel, aiEnabled, aiApiKeyConfigured)
+- `PATCH /api/settings` — Update settings (falApiKey, aiProvider, aiModel, aiEnabled, aiApiKey)
+- `POST /api/settings/test-ai` — Test the configured AI provider connection
 - `POST /api/websites/detect` — Auto-detect niche/SEO score from URL via crawl + AI
 - `POST /api/websites/:id/audit` — Run full SEO audit (crawl URL + AI analysis, store snapshot)
 - `GET /api/websites/:id/audits` — List audit history for a website

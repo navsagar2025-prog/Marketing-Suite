@@ -863,6 +863,10 @@ export const DeleteMediaAssetParams = zod.object({
  */
 export const GetSettingsResponse = zod.object({
   falApiKeyConfigured: zod.boolean(),
+  aiProvider: zod.string(),
+  aiModel: zod.string(),
+  aiEnabled: zod.boolean(),
+  aiApiKeyConfigured: zod.boolean(),
 });
 
 /**
@@ -870,8 +874,26 @@ export const GetSettingsResponse = zod.object({
  */
 export const UpdateSettingsBody = zod.object({
   falApiKey: zod.string().nullish(),
+  aiProvider: zod.string().optional(),
+  aiModel: zod.string().optional(),
+  aiEnabled: zod.boolean().optional(),
+  aiApiKey: zod.string().nullish(),
 });
 
 export const UpdateSettingsResponse = zod.object({
   falApiKeyConfigured: zod.boolean(),
+  aiProvider: zod.string(),
+  aiModel: zod.string(),
+  aiEnabled: zod.boolean(),
+  aiApiKeyConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Test AI provider connection
+ */
+export const TestAiConnectionResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+  provider: zod.string(),
+  model: zod.string(),
 });

@@ -9,4 +9,9 @@
 export interface UpdateSettingsBody {
   /** @nullable */
   falApiKey?: string | null;
+  aiProvider?: string;
+  aiModel?: string;
+  aiEnabled?: boolean;
+  /** @nullable */
+  aiApiKey?: string | null;
 }

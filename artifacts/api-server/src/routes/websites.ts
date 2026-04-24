@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, websitesTable, seoAuditsTable } from "@workspace/db";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import { callAI } from "../lib/ai-provider.js";
 import {
   ListWebsitesResponse,
   CreateWebsiteBody,
@@ -47,14 +47,10 @@ Crawled data:
 
 Return ONLY valid JSON: { "name": "...", "niche": "...", "seoScore": 0-100, "description": "..." }`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      max_completion_tokens: 512,
-      messages: [{ role: "user", content: prompt }],
-    });
     let result = { name: crawled.title ?? new URL(url).hostname, niche: "General", seoScore: null as number | null, description: null as string | null };
     try {
-      const parsed = JSON.parse(response.choices[0]?.message?.content ?? "{}");
+      const content = await callAI(prompt, { maxTokens: 512 });
+      const parsed = JSON.parse(content);
       result = {
         name: parsed.name || result.name,
         niche: parsed.niche || result.niche,
@@ -95,13 +91,9 @@ Crawled data:
 - Word Count: ${crawled.wordCount}
 
 Return ONLY valid JSON: { "name": "...", "niche": "...", "seoScore": 0-100 }`;
-      const response = await openai.chat.completions.create({
-        model: "gpt-4.1-mini",
-        max_completion_tokens: 256,
-        messages: [{ role: "user", content: prompt }],
-      });
       try {
-        const ai = JSON.parse(response.choices[0]?.message?.content ?? "{}");
+        const content = await callAI(prompt, { maxTokens: 256 });
+        const ai = JSON.parse(content);
         if (!name && ai.name) name = ai.name;
         if (!niche && ai.niche) niche = ai.niche;
         if (seoScore == null && typeof ai.seoScore === "number") seoScore = ai.seoScore;
@@ -265,13 +257,8 @@ Order issues by severity (critical first, then warning, then info).`;
   let issues: unknown[] = [];
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      max_completion_tokens: 3000,
-      messages: [{ role: "user", content: prompt }],
-    });
-    const content = response.choices[0]?.message?.content ?? "";
-    const parsed = JSON.parse(content);
+    const aiContent = await callAI(prompt, { maxTokens: 3000 });
+    const parsed = JSON.parse(aiContent);
     score = typeof parsed.score === "number" ? Math.max(0, Math.min(100, parsed.score)) : 50;
     issues = Array.isArray(parsed.issues) ? parsed.issues : [];
   } catch {

@@ -48,6 +48,7 @@ export * from "./seoAudit";
 export * from "./seoAuditIssue";
 export * from "./socialPost";
 export * from "./suggestKeywordsBody";
+export * from "./testAiResponse";
 export * from "./updateBacklinkBody";
 export * from "./updateCampaignBody";
 export * from "./updateKeywordBody";

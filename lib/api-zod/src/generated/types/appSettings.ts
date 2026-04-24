@@ -8,4 +8,8 @@
 
 export interface AppSettings {
   falApiKeyConfigured: boolean;
+  aiProvider: string;
+  aiModel: string;
+  aiEnabled: boolean;
+  aiApiKeyConfigured: boolean;
 }

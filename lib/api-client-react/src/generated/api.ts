@@ -56,6 +56,7 @@ import type {
   SeoAudit,
   SocialPost,
   SuggestKeywordsBody,
+  TestAiResponse,
   UpdateBacklinkBody,
   UpdateCampaignBody,
   UpdateKeywordBody,
@@ -4093,4 +4094,85 @@ export const useUpdateSettings = <
   TContext
 > => {
   return useMutation(getUpdateSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Test AI provider connection
+ */
+export const getTestAiConnectionUrl = () => {
+  return `/api/settings/test-ai`;
+};
+
+export const testAiConnection = async (
+  options?: RequestInit,
+): Promise<TestAiResponse> => {
+  return customFetch<TestAiResponse>(getTestAiConnectionUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getTestAiConnectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testAiConnection>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testAiConnection>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["testAiConnection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testAiConnection>>,
+    void
+  > = () => {
+    return testAiConnection(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestAiConnectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testAiConnection>>
+>;
+
+export type TestAiConnectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Test AI provider connection
+ */
+export const useTestAiConnection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testAiConnection>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof testAiConnection>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getTestAiConnectionMutationOptions(options));
 };

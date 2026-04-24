@@ -18,9 +18,12 @@ import {
   X,
   ChevronRight,
   CalendarDays,
+  Brain,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useGetSettings } from "@workspace/api-client-react";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -36,6 +39,14 @@ const navItems = [
   { path: "/media", label: "Media Library", icon: ImageIcon },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
+
+const PROVIDER_SHORT: Record<string, string> = {
+  replit: "Replit",
+  openai: "OpenAI",
+  anthropic: "Claude",
+  perplexity: "Perplexity",
+  gemini: "Gemini",
+};
 
 function useTheme() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -63,6 +74,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { theme, toggleTheme } = useTheme();
+  const { data: settings } = useGetSettings();
+
+  const aiEnabled = settings?.aiEnabled ?? true;
+  const aiProvider = settings?.aiProvider ?? "replit";
+  const providerLabel = PROVIDER_SHORT[aiProvider] ?? aiProvider;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -115,6 +131,31 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        {/* AI status badge */}
+        {sidebarOpen && settings !== undefined && (
+          <div className="px-3 pb-2">
+            <Link href="/settings">
+              <div
+                data-testid="ai-provider-badge"
+                className={cn(
+                  "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs cursor-pointer transition-colors",
+                  aiEnabled
+                    ? "bg-sidebar-accent/60 text-sidebar-foreground hover:bg-sidebar-accent"
+                    : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                )}
+              >
+                {aiEnabled
+                  ? <Brain className="h-3.5 w-3.5 shrink-0" />
+                  : <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                }
+                <span className="truncate font-medium">
+                  {aiEnabled ? `AI: ${providerLabel}` : "AI: Disabled"}
+                </span>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* Theme toggle */}
         <div className="p-2 border-t border-sidebar-border">

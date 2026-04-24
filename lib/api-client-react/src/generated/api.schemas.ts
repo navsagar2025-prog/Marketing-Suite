@@ -656,6 +656,8 @@ export interface EmailProviderSettings {
   smtpUser: string;
   apiKeyConfigured: boolean;
   smtpPassConfigured: boolean;
+  /** Mailchimp audience/list ID for syncing leads to a Mailchimp audience (optional) */
+  audienceId: string;
 }
 
 export interface UpdateEmailProviderBody {
@@ -667,6 +669,8 @@ export interface UpdateEmailProviderBody {
   smtpPort?: number;
   smtpUser?: string;
   smtpPass?: string;
+  /** Mailchimp audience/list ID for syncing leads to a Mailchimp audience */
+  audienceId?: string;
 }
 
 export interface TestEmailBody {

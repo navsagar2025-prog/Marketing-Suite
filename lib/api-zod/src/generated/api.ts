@@ -971,6 +971,11 @@ export const GetEmailProviderSettingsResponse = zod.object({
   smtpUser: zod.string(),
   apiKeyConfigured: zod.boolean(),
   smtpPassConfigured: zod.boolean(),
+  audienceId: zod
+    .string()
+    .describe(
+      "Mailchimp audience\/list ID for syncing leads to a Mailchimp audience (optional)",
+    ),
 });
 
 /**
@@ -985,6 +990,12 @@ export const UpdateEmailProviderSettingsBody = zod.object({
   smtpPort: zod.number().optional(),
   smtpUser: zod.string().optional(),
   smtpPass: zod.string().optional(),
+  audienceId: zod
+    .string()
+    .optional()
+    .describe(
+      "Mailchimp audience\/list ID for syncing leads to a Mailchimp audience",
+    ),
 });
 
 export const UpdateEmailProviderSettingsResponse = zod.object({
@@ -999,6 +1010,11 @@ export const UpdateEmailProviderSettingsResponse = zod.object({
   smtpUser: zod.string(),
   apiKeyConfigured: zod.boolean(),
   smtpPassConfigured: zod.boolean(),
+  audienceId: zod
+    .string()
+    .describe(
+      "Mailchimp audience\/list ID for syncing leads to a Mailchimp audience (optional)",
+    ),
 });
 
 /**

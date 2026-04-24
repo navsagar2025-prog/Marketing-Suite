@@ -15,4 +15,6 @@ export interface UpdateEmailProviderBody {
   smtpPort?: number;
   smtpUser?: string;
   smtpPass?: string;
+  /** Mailchimp audience/list ID for syncing leads to a Mailchimp audience */
+  audienceId?: string;
 }

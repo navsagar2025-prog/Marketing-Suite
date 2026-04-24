@@ -1,8 +1,10 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, count, sum, countDistinct, and, gte } from "drizzle-orm";
 import { db, staffUsersTable, ipRateLimitsTable, ipAllowlistTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth.js";
+
+const DAILY_LIMIT = 2;
 
 const router: IRouter = Router();
 
@@ -12,9 +14,82 @@ router.get("/admin/audit-requests", async (_req, res): Promise<void> => {
   const requests = await db
     .select()
     .from(ipRateLimitsTable)
+    .where(eq(ipRateLimitsTable.feature, "public_audit"))
     .orderBy(desc(ipRateLimitsTable.lastRequestAt))
     .limit(200);
   res.json(requests);
+});
+
+router.get("/admin/visitor-stats", async (_req, res): Promise<void> => {
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Cutoff date for 14-day window
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 13);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+  const [todayStats] = await db
+    .select({
+      uniqueIpsToday: countDistinct(ipRateLimitsTable.ip),
+      totalRequestsToday: sum(ipRateLimitsTable.count),
+    })
+    .from(ipRateLimitsTable)
+    .where(and(
+      eq(ipRateLimitsTable.date, today),
+      eq(ipRateLimitsTable.feature, "public_audit"),
+    ));
+
+  const [allTimeStats] = await db
+    .select({
+      totalRequestsAllTime: sum(ipRateLimitsTable.count),
+    })
+    .from(ipRateLimitsTable)
+    .where(eq(ipRateLimitsTable.feature, "public_audit"));
+
+  const [limitedStats] = await db
+    .select({
+      ipsAtLimitToday: count(),
+    })
+    .from(ipRateLimitsTable)
+    .where(and(
+      eq(ipRateLimitsTable.date, today),
+      eq(ipRateLimitsTable.feature, "public_audit"),
+      gte(ipRateLimitsTable.count, DAILY_LIMIT),
+    ));
+
+  const dailyCounts = await db
+    .select({
+      date: ipRateLimitsTable.date,
+      requests: sum(ipRateLimitsTable.count),
+    })
+    .from(ipRateLimitsTable)
+    .where(and(
+      eq(ipRateLimitsTable.feature, "public_audit"),
+      gte(ipRateLimitsTable.date, cutoffDate),
+    ))
+    .groupBy(ipRateLimitsTable.date)
+    .orderBy(ipRateLimitsTable.date);
+
+  // Fill in missing dates with 0
+  const dailyMap: Record<string, number> = {};
+  for (const row of dailyCounts) {
+    dailyMap[row.date] = Number(row.requests ?? 0);
+  }
+  const dailyData: { date: string; requests: number }[] = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    dailyData.push({ date: dateStr, requests: dailyMap[dateStr] ?? 0 });
+  }
+
+  res.json({
+    uniqueIpsToday: Number(todayStats?.uniqueIpsToday ?? 0),
+    totalRequestsToday: Number(todayStats?.totalRequestsToday ?? 0),
+    totalRequestsAllTime: Number(allTimeStats?.totalRequestsAllTime ?? 0),
+    ipsAtLimitToday: Number(limitedStats?.ipsAtLimitToday ?? 0),
+    dailyData,
+  });
 });
 
 router.get("/admin/allowlist", async (_req, res): Promise<void> => {

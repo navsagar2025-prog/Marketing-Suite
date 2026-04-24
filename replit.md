@@ -47,6 +47,10 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET /api/media-assets` — List saved media assets (filter by websiteId/campaignId/type)
 - `POST /api/media-assets` — Save a media asset record
 - `DELETE /api/media-assets/:id` — Delete a media asset
+- `GET /api/admin/audit-requests` — List all public audit rate-limit records (admin only)
+- `GET /api/admin/visitor-stats` — Aggregated visitor stats: unique IPs today, total audits today/all-time, IPs at daily limit, 14-day daily volume (admin only)
+- `GET /api/admin/allowlist` — Manage IP allowlist (admin only)
+- `GET /api/admin/staff` — Manage staff accounts (admin only)
 - `GET /api/settings` — Get app settings (falApiKeyConfigured, aiProvider, aiModel, aiEnabled, aiApiKeyConfigured)
 - `PATCH /api/settings` — Update settings (falApiKey, aiProvider, aiModel, aiEnabled, aiApiKey)
 - `POST /api/settings/test-ai` — Test the configured AI provider connection

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,9 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Plus, ShieldCheck } from "lucide-react";
+import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+const DAILY_LIMIT = 2;
 
 interface AuditRequest {
   id: number;
@@ -33,6 +44,14 @@ interface StaffUser {
   createdAt: string;
 }
 
+interface VisitorStats {
+  uniqueIpsToday: number;
+  totalRequestsToday: number;
+  totalRequestsAllTime: number;
+  ipsAtLimitToday: number;
+  dailyData: { date: string; requests: number }[];
+}
+
 function useApiHeaders() {
   const { token } = useAuth();
   return { Authorization: `Bearer ${token}` };
@@ -51,49 +70,223 @@ function useAdminFetch<T>(queryKey: string[], path: string) {
   });
 }
 
-function AuditRequestsTab() {
-  const { data, isLoading } = useAdminFetch<AuditRequest[]>(["admin-audit-requests"], "/api/admin/audit-requests");
+type SortField = "ip" | "date" | "count" | "lastRequestAt";
+type SortDir = "asc" | "desc";
+
+function VisitorsTab() {
+  const { data: stats, isLoading: statsLoading } = useAdminFetch<VisitorStats>(
+    ["admin-visitor-stats"],
+    "/api/admin/visitor-stats"
+  );
+  const { data: requests, isLoading: requestsLoading } = useAdminFetch<AuditRequest[]>(
+    ["admin-audit-requests"],
+    "/api/admin/audit-requests"
+  );
+
+  const [dateFilter, setDateFilter] = useState("");
+  const [sortField, setSortField] = useState<SortField>("lastRequestAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  }
+
+  const filteredAndSorted = useMemo(() => {
+    if (!requests) return [];
+    let rows = [...requests];
+    if (dateFilter) {
+      rows = rows.filter(r => r.date === dateFilter);
+    }
+    rows.sort((a, b) => {
+      let av: string | number = a[sortField] ?? "";
+      let bv: string | number = b[sortField] ?? "";
+      if (sortField === "count") {
+        av = Number(av);
+        bv = Number(bv);
+      }
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+    return rows;
+  }, [requests, dateFilter, sortField, sortDir]);
+
+  const chartData = useMemo(() => {
+    if (!stats?.dailyData) return [];
+    return stats.dailyData.map(d => ({
+      ...d,
+      label: d.date.slice(5),
+    }));
+  }, [stats]);
+
+  const statCards = [
+    {
+      title: "Unique IPs Today",
+      value: stats?.uniqueIpsToday ?? 0,
+      icon: <Users className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      title: "Audits Today",
+      value: stats?.totalRequestsToday ?? 0,
+      icon: <Activity className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      title: "All-Time Audits",
+      value: stats?.totalRequestsAllTime ?? 0,
+      icon: <BarChart2 className="h-4 w-4 text-muted-foreground" />,
+    },
+    {
+      title: "IPs at Limit Today",
+      value: stats?.ipsAtLimitToday ?? 0,
+      icon: <AlertTriangle className="h-4 w-4 text-muted-foreground" />,
+      highlight: (stats?.ipsAtLimitToday ?? 0) > 0,
+    },
+  ];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Recent Public Audit Requests</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
-        ) : !data?.length ? (
-          <p className="text-sm text-muted-foreground text-center py-4">No audit requests yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-muted-foreground border-b">
-                  <th className="text-left py-2 font-medium">IP</th>
-                  <th className="text-left py-2 font-medium">URL</th>
-                  <th className="text-left py-2 font-medium">Date</th>
-                  <th className="text-right py-2 font-medium">Count</th>
-                  <th className="text-left py-2 font-medium">Last Request</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map(r => (
-                  <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
-                    <td className="py-2 font-mono">{r.ip}</td>
-                    <td className="py-2 max-w-[200px] truncate text-muted-foreground">{r.url ?? "—"}</td>
-                    <td className="py-2">{r.date}</td>
-                    <td className="py-2 text-right">
-                      <Badge variant={r.count >= 2 ? "destructive" : "secondary"} className="text-xs">{r.count}</Badge>
-                    </td>
-                    <td className="py-2 text-muted-foreground">{new Date(r.lastRequestAt).toLocaleString()}</td>
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {statCards.map(card => (
+          <Card key={card.title} className={card.highlight ? "border-destructive/50" : ""}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-xs font-medium text-muted-foreground">{card.title}</CardTitle>
+              {card.icon}
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <p className={`text-2xl font-bold ${card.highlight ? "text-destructive" : ""}`}>
+                  {card.value.toLocaleString()}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Audit Volume — Last 14 Days</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {statsLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11 }}
+                  className="text-muted-foreground"
+                />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip
+                  contentStyle={{ fontSize: 12 }}
+                  formatter={(v: number) => [v, "Audits"]}
+                  labelFormatter={label => `Date: ${label}`}
+                />
+                <Bar dataKey="requests" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-base">Recent Visitor Activity</CardTitle>
+          <Input
+            type="date"
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)}
+            className="w-auto text-xs h-8"
+          />
+        </CardHeader>
+        <CardContent>
+          {requestsLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-muted-foreground border-b">
+                    <th className="text-left py-2 font-medium">
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground"
+                        onClick={() => handleSort("ip")}
+                      >
+                        IP <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-left py-2 font-medium">Last Audited URL</th>
+                    <th className="text-left py-2 font-medium">
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground"
+                        onClick={() => handleSort("date")}
+                      >
+                        Date <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-right py-2 font-medium">
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground ml-auto"
+                        onClick={() => handleSort("count")}
+                      >
+                        Requests <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-left py-2 font-medium">
+                      <button
+                        className="flex items-center gap-1 hover:text-foreground"
+                        onClick={() => handleSort("lastRequestAt")}
+                      >
+                        Last Seen <ArrowUpDown className="h-3 w-3" />
+                      </button>
+                    </th>
+                    <th className="text-left py-2 font-medium">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                </thead>
+                <tbody>
+                  {filteredAndSorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-muted-foreground">No records found.</td>
+                    </tr>
+                  ) : filteredAndSorted.map(r => {
+                    const hitLimit = r.count >= DAILY_LIMIT;
+                    return (
+                      <tr
+                        key={r.id}
+                        className={`border-b last:border-0 hover:bg-muted/30 ${hitLimit ? "bg-destructive/5" : ""}`}
+                      >
+                        <td className="py-2 font-mono">{r.ip}</td>
+                        <td className="py-2 max-w-[180px] truncate text-muted-foreground">{r.url ?? "—"}</td>
+                        <td className="py-2">{r.date}</td>
+                        <td className="py-2 text-right">{r.count}</td>
+                        <td className="py-2 text-muted-foreground">{new Date(r.lastRequestAt).toLocaleString()}</td>
+                        <td className="py-2">
+                          {hitLimit ? (
+                            <Badge variant="destructive" className="text-xs">Limit Hit</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Active</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -346,14 +539,14 @@ export default function AdminPage() {
         <h1 className="text-2xl font-bold font-display">Admin Panel</h1>
       </div>
 
-      <Tabs defaultValue="requests">
+      <Tabs defaultValue="visitors">
         <TabsList>
-          <TabsTrigger value="requests">Audit Requests</TabsTrigger>
+          <TabsTrigger value="visitors">Visitors</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="staff">Staff Accounts</TabsTrigger>
         </TabsList>
-        <TabsContent value="requests" className="mt-4">
-          <AuditRequestsTab />
+        <TabsContent value="visitors" className="mt-4">
+          <VisitorsTab />
         </TabsContent>
         <TabsContent value="allowlist" className="mt-4">
           <AllowlistTab />

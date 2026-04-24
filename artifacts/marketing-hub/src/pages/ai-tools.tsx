@@ -36,7 +36,10 @@ function ResultBox({ content, label }: { content: string; label?: string }) {
 export default function AiTools() {
   const { toast } = useToast();
   const { data: settings } = useGetSettings();
-  const aiDisabled = settings !== undefined && settings.aiEnabled === false;
+  const aiProvider = settings?.aiProvider ?? "replit";
+  const aiEnabled = settings?.aiEnabled ?? true;
+  const aiKeyMissing = aiProvider !== "replit" && !settings?.aiApiKeyConfigured;
+  const aiDisabled = settings !== undefined && (!aiEnabled || aiKeyMissing);
 
   // Keyword Suggester state
   const [kwNiche, setKwNiche] = useState("");
@@ -124,8 +127,14 @@ export default function AiTools() {
         <div className="flex items-start gap-3 p-4 rounded-md border border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300" data-testid="banner-ai-disabled">
           <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-medium text-sm">AI features are disabled</p>
-            <p className="text-xs mt-0.5 opacity-80">Enable AI in Settings to use content generation tools.</p>
+            <p className="font-medium text-sm">
+              {!aiEnabled ? "AI features are disabled" : "API key not configured"}
+            </p>
+            <p className="text-xs mt-0.5 opacity-80">
+              {!aiEnabled
+                ? "Enable AI in Settings to use content generation tools."
+                : "Add an API key for the selected provider in Settings to use AI tools."}
+            </p>
           </div>
           <Link href="/settings">
             <Button variant="outline" size="sm" className="shrink-0 border-amber-300 dark:border-amber-700">

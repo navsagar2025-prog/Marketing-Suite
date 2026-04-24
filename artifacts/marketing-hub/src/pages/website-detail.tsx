@@ -78,7 +78,8 @@ function FixPanel({ issue, websiteUrl, websiteName }: { issue: SeoAuditIssue; we
   const [copied, setCopied] = useState(false);
   const fixMutation = useFixSeoIssue();
   const { data: aiSettings } = useGetSettings();
-  const aiDisabled = aiSettings !== undefined && aiSettings.aiEnabled === false;
+  const aiProvider = aiSettings?.aiProvider ?? "replit";
+  const aiDisabled = aiSettings !== undefined && (!aiSettings.aiEnabled || (aiProvider !== "replit" && !aiSettings.aiApiKeyConfigured));
 
   const handleFix = () => {
     fixMutation.mutate({

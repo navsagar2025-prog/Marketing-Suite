@@ -20,6 +20,7 @@ import {
   useDeleteCampaign,
   useGenerateCampaignCopy,
   useListWebsites,
+  useGetSettings,
   getListCampaignsQueryKey,
 } from "@workspace/api-client-react";
 import { AiMediaDialog } from "@/components/AiMediaDialog";
@@ -69,6 +70,9 @@ export default function Campaigns() {
   const createMutation = useCreateCampaign();
   const deleteMutation = useDeleteCampaign();
   const generateMutation = useGenerateCampaignCopy();
+  const { data: settings } = useGetSettings();
+  const aiProvider = settings?.aiProvider ?? "replit";
+  const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -114,12 +118,23 @@ export default function Campaigns() {
           <p className="text-sm text-muted-foreground mt-0.5">Manage and track all marketing campaigns</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" data-testid="button-ai-generate-image" onClick={() => setAiMediaOpen(true)}>
+          <Button
+            variant="outline" size="sm"
+            data-testid="button-ai-generate-image"
+            onClick={() => setAiMediaOpen(true)}
+            disabled={aiDisabled}
+            title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+          >
             <ImageIcon className="h-4 w-4 mr-1" /> Generate Media
           </Button>
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" data-testid="button-ai-campaign-copy">
+              <Button
+                variant="outline" size="sm"
+                data-testid="button-ai-campaign-copy"
+                disabled={aiDisabled}
+                title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+              >
                 <Sparkles className="h-4 w-4 mr-1" /> AI Copy
               </Button>
             </DialogTrigger>

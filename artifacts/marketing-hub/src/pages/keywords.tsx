@@ -50,7 +50,8 @@ export default function Keywords() {
   const deleteMutation = useDeleteKeyword();
   const suggestMutation = useSuggestKeywords();
   const { data: settings } = useGetSettings();
-  const aiDisabled = settings !== undefined && settings.aiEnabled === false;
+  const aiProvider = settings?.aiProvider ?? "replit";
+  const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),

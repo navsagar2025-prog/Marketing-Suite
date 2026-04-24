@@ -1,0 +1,86 @@
+Core website tasks
+The application can create and optimize core website pages, landing pages, blog drafts, product descriptions, metadata, internal links, schema suggestions, and conversion-focused copy. It can also personalize page content based on visitor behavior or predicted interests and trigger different journeys depending on what the user does on the site.
+
+It can also manage forms, chat widgets, popups, sticky CTAs, appointment requests, callback forms, and multilingual content generation. For operational work, it can validate assets, clean imported lists, and support website content workflows using AI assistance.
+
+SEO tasks
+An AI-enabled app can perform keyword research, cluster keywords by intent, map topics to pages, build content calendars, optimize existing pages, and generate briefs for bottom-of-funnel content. It can also monitor rankings, identify content gaps, recommend internal links, suggest schema improvements, and discover backlink opportunities or outreach targets.
+
+It can further run technical SEO checks such as crawl monitoring, indexing issue detection, speed recommendations, image optimization suggestions, metadata gaps, and on-page quality audits. Some systems also automate parts of the remediation workflow, such as optimizing assets or generating schema markup.
+
+Lead generation tasks
+The app can capture leads through forms, chat, quizzes, gated downloads, webinar registrations, and event RSVPs, then qualify those leads using AI conversation analysis and scoring. It can push qualified leads into a CRM, assign lifecycle stages, alert sales teams, create tasks or tickets, and trigger follow-up campaigns automatically.
+
+It can also score leads based on behavior, source, engagement, and predicted conversion probability, then route them into different sales or nurture paths. AI marketing automation platforms explicitly support customer segmentation, lead scoring, and sales notifications when a lead crosses a high-intent threshold.
+
+Email and CRM tasks
+The application can generate subject lines, email copy, drip sequences, newsletters, abandoned-flow emails, reactivation campaigns, and personalized recommendations. It can segment audiences, adapt journeys in real time, and send different messages based on user actions, lead score, lifecycle stage, or churn risk.
+
+On the CRM side, it can update contact records, enrich profiles, deduplicate lists, enforce data governance rules, and log interactions from chat, forms, events, and campaigns. It can also coordinate multitouch journeys and maintain cleaner downstream sales data.
+
+Social media tasks
+An AI application can generate post ideas, captions, hashtag suggestions, carousels, short-form video scripts, reply drafts, publishing schedules, and content repurposing from blogs or campaigns. It can also assist with moderation, engagement routing, event promotion, lead capture from social conversations, and syncing captured leads back to the CRM.
+
+It can monitor response patterns and help optimize posting frequency, message angle, and creative variations across channels. AI social systems are increasingly used for automation of engagement, moderation, and campaign support workflows.
+
+Ads and campaign tasks
+The app can support ad copy generation, creative testing ideas, audience segmentation, bid adjustments, budget optimization, and performance monitoring across paid channels. AI marketing automation sources describe real-time optimization workflows such as adjusting bids, focusing spend on higher-value audiences, and improving targeting based on incoming data.
+
+It can also create channel-specific campaigns, launch retargeting flows, build custom audience triggers, and connect ad activity to lead outcomes in the CRM. That makes the system useful not just for traffic generation, but for pipeline and revenue attribution.
+
+Analytics tasks
+The application can collect data from multiple platforms, generate dashboards, summarize campaign performance, detect anomalies, run attribution analysis, and produce recommendations in natural language. AI is already used for customer segmentation, sentiment analysis, campaign performance tracking, predictive analytics, churn prediction, and real-time reporting.
+
+It can also answer operator questions like “which landing page is underperforming,” “which source brings the best leads,” or “which segment is likely to churn.” Some platforms even support goal-based data extraction using natural-language instructions instead of manual connector setup.
+
+Support and commerce tasks
+The app can run an AI chatbot for FAQs, technical support, troubleshooting, product recommendations, order-status responses, booking assistance, and account guidance. It can also handle support triage, create tickets, escalate complex cases, and provide contextual responses based on previous interactions.
+
+For commerce or service businesses, it can recommend products or plans, recover abandoned carts or incomplete inquiries, and send follow-ups after purchases, demos, or consultations. It can also support upsell, cross-sell, and post-event nurturing flows.
+
+Full task list
+Here is a practical list of tasks such an application can do with AI:
+
+Keyword research and keyword clustering.
+
+Competitor content and gap analysis.
+
+SEO content briefs and editorial calendar generation.
+
+Blog, landing page, and product copy drafting.
+
+Title tags, meta descriptions, FAQs, and schema suggestions.
+
+Internal-link recommendations.
+
+Technical SEO audits and issue detection.
+
+Image and page optimization suggestions.
+
+Lead capture through forms, chat, downloads, and events.
+
+Conversational lead qualification.
+
+Predictive lead scoring.
+
+CRM sync, enrichment, deduplication, and workflow triggers.
+
+Email campaign creation and nurture automation.
+
+Customer segmentation and journey personalization.
+
+Social post generation and scheduling.
+
+Social reply drafting and moderation support.
+
+Ad copy support, audience targeting, and bid optimization.
+
+Reporting, anomaly detection, and performance summaries.
+
+Churn prediction and re-engagement triggers.
+
+Event promotion, RSVP handling, reminders, and follow-up.
+
+Support chatbot, ticket creation, and escalation routing.
+
+Product recommendations and upsell/cross-sell suggestions

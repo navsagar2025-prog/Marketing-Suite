@@ -13,6 +13,7 @@ import settingsRouter from "./settings";
 import authRouter from "./auth";
 import adminRouter from "./admin";
 import publicAuditRouter from "./public-audit";
+import publicContactRouter from "./public-contact";
 import usageRouter from "./usage";
 import { requireAuth } from "../lib/auth";
 
@@ -23,6 +24,7 @@ router.use(healthRouter);
 router.use(authRouter);
 
 router.use(publicAuditRouter);
+router.use(publicContactRouter);
 
 router.use(requireAuth);
 

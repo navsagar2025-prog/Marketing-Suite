@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   BarChart3,
   Globe,
   TrendingUp,
+  Send,
 } from "lucide-react";
 
 interface AuditIssue {
@@ -186,6 +188,37 @@ export default function PublicReportPage() {
   const [rateLimited, setRateLimited] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setContactError(null);
+    setContactLoading(true);
+    try {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const res = await fetch(`${base}/api/contact/public`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: contactName, email: contactEmail, message: contactMessage }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setContactError(data.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+      setContactSent(true);
+    } catch {
+      setContactError("Network error. Please try again.");
+    } finally {
+      setContactLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -297,10 +330,61 @@ export default function PublicReportPage() {
       <div className="max-w-2xl mx-auto px-4 py-10">
 
         {rateLimited && (
-          <Card className="mb-6">
-            <CardContent className="py-10 text-center">
-              <p className="text-lg font-semibold mb-2">Free report limit reached.</p>
-              <p className="text-muted-foreground text-sm">You have used your 2 free reports for today. Contact us to unlock unlimited access.</p>
+          <Card className="mb-6" data-testid="rate-limit-card">
+            <CardContent className="py-8 px-6">
+              <div className="text-center mb-6">
+                <p className="text-lg font-semibold mb-1">Free report limit reached</p>
+                <p className="text-muted-foreground text-sm">
+                  You've used your 2 free reports for today. Drop us a message and we'll get back to you about unlimited access.
+                </p>
+              </div>
+
+              {contactSent ? (
+                <div className="flex flex-col items-center gap-2 py-4" data-testid="contact-success">
+                  <CheckCircle2 className="h-8 w-8 text-green-500" />
+                  <p className="font-medium">Message received!</p>
+                  <p className="text-sm text-muted-foreground">We'll be in touch soon.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleContactSubmit} className="space-y-3 max-w-sm mx-auto" data-testid="contact-form">
+                  <div>
+                    <Input
+                      placeholder="Your name"
+                      value={contactName}
+                      onChange={(e) => setContactName(e.target.value)}
+                      required
+                      data-testid="contact-name"
+                    />
+                  </div>
+                  <div>
+                    <Input
+                      type="email"
+                      placeholder="Your email"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      required
+                      data-testid="contact-email"
+                    />
+                  </div>
+                  <div>
+                    <Textarea
+                      placeholder="Anything you'd like us to know? (optional)"
+                      value={contactMessage}
+                      onChange={(e) => setContactMessage(e.target.value)}
+                      rows={3}
+                      data-testid="contact-message"
+                    />
+                  </div>
+                  {contactError && (
+                    <p className="text-destructive text-xs text-center">{contactError}</p>
+                  )}
+                  <Button type="submit" className="w-full" disabled={contactLoading} data-testid="contact-submit">
+                    {contactLoading
+                      ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending…</>
+                      : <><Send className="h-4 w-4 mr-2" /> Send message</>}
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </Card>
         )}

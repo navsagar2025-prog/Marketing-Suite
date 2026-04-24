@@ -81,7 +81,7 @@ export default function SettingsPage() {
   const [emailFromName, setEmailFromName] = useState("");
   const [emailApiKey, setEmailApiKey] = useState("");
   const [emailAudienceId, setEmailAudienceId] = useState("");
-  const [emailMailchimpSendMode, setEmailMailchimpSendMode] = useState<"direct" | "sync_and_send" | "sync_only">("direct");
+  const [emailMailchimpSendMode, setEmailMailchimpSendMode] = useState<"direct" | "sync_and_send" | "sync_only" | null>(null);
   const [emailSmtpHost, setEmailSmtpHost] = useState("");
   const [emailSmtpPort, setEmailSmtpPort] = useState("587");
   const [emailSmtpUser, setEmailSmtpUser] = useState("");
@@ -259,7 +259,7 @@ export default function SettingsPage() {
     if (emailFromName.trim()) body.fromName = emailFromName.trim();
     if (emailApiKey.trim()) body.apiKey = emailApiKey.trim();
     if (emailAudienceId.trim()) body.audienceId = emailAudienceId.trim();
-    if (activeEmailProvider === "mailchimp") body.mailchimpSendMode = emailMailchimpSendMode;
+    if (activeEmailProvider === "mailchimp") body.mailchimpSendMode = emailMailchimpSendMode ?? emailSettings?.mailchimpSendMode ?? "direct";
     if (emailSmtpHost.trim()) body.smtpHost = emailSmtpHost.trim();
     if (emailSmtpPort.trim()) body.smtpPort = parseInt(emailSmtpPort.trim(), 10);
     if (emailSmtpUser.trim()) body.smtpUser = emailSmtpUser.trim();
@@ -755,7 +755,7 @@ export default function SettingsPage() {
                         type="radio"
                         name="mailchimp-send-mode"
                         value={opt.value}
-                        checked={(emailMailchimpSendMode || emailSettings?.mailchimpSendMode || "direct") === opt.value}
+                        checked={(emailMailchimpSendMode ?? emailSettings?.mailchimpSendMode ?? "direct") === opt.value}
                         onChange={() => { setEmailMailchimpSendMode(opt.value as "direct" | "sync_and_send" | "sync_only"); setEmailDirty(true); }}
                         className="mt-0.5 shrink-0"
                       />
@@ -766,7 +766,7 @@ export default function SettingsPage() {
                     </label>
                   ))}
                 </div>
-                {(emailMailchimpSendMode === "sync_only" || (!emailMailchimpSendMode && emailSettings?.mailchimpSendMode === "sync_only")) && !emailAudienceId && !emailSettings?.audienceId && (
+                {(emailMailchimpSendMode ?? emailSettings?.mailchimpSendMode ?? "direct") === "sync_only" && !emailAudienceId && !emailSettings?.audienceId && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">An Audience List ID is required for Sync to list only mode.</p>
                 )}
               </div>

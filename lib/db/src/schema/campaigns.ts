@@ -18,6 +18,8 @@ export const campaignsTable = pgTable("campaigns", {
   clicks: integer("clicks"),
   conversions: integer("conversions"),
   spend: numeric("spend", { precision: 10, scale: 2 }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  sentCount: integer("sent_count"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db, campaignsTable } from "@workspace/db";
+import { leadsTable } from "@workspace/db/schema";
 import {
   ListCampaignsQueryParams,
   ListCampaignsResponse,
@@ -12,6 +13,7 @@ import {
   UpdateCampaignResponse,
   DeleteCampaignParams,
 } from "@workspace/api-zod";
+import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
 
 const router: IRouter = Router();
 
@@ -99,6 +101,76 @@ router.delete("/campaigns/:id", async (req, res): Promise<void> => {
     return;
   }
   res.sendStatus(204);
+});
+
+router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
+
+  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+
+  const { subject, body, recipientStatuses } = req.body ?? {};
+  if (!subject || typeof subject !== "string" || !subject.trim()) {
+    res.status(400).json({ error: "subject is required" }); return;
+  }
+  if (!body || typeof body !== "string" || !body.trim()) {
+    res.status(400).json({ error: "body is required" }); return;
+  }
+
+  const emailConfig = await getEmailProviderConfig();
+  if (!emailConfig) {
+    res.status(422).json({ error: "No email provider configured. Set one up in Settings." }); return;
+  }
+
+  const conditions = [eq(leadsTable.websiteId, campaign.websiteId)];
+  const validStatuses = ["new", "contacted", "qualified"];
+  const statuses: string[] = Array.isArray(recipientStatuses) && recipientStatuses.length > 0
+    ? recipientStatuses.filter((s: string) => validStatuses.includes(s))
+    : validStatuses;
+  conditions.push(inArray(leadsTable.status, statuses));
+
+  const leads = await db.select({ email: leadsTable.email }).from(leadsTable).where(and(...conditions));
+  const to = leads.map(l => l.email).filter((e): e is string => !!e && e.includes("@"));
+
+  if (to.length === 0) {
+    res.status(422).json({ error: "No leads with valid email addresses match the selected filters." }); return;
+  }
+
+  const { sent } = await sendEmails(emailConfig, { to, subject: subject.trim(), body: body.trim() });
+
+  await db.update(campaignsTable).set({
+    status: "active",
+    sentAt: new Date(),
+    sentCount: sent,
+    impressions: (campaign.impressions ?? 0) + sent,
+  }).where(eq(campaignsTable.id, id));
+
+  const [updated] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  res.json({
+    ...updated,
+    budget: updated.budget != null ? parseFloat(String(updated.budget)) : null,
+    spend: updated.spend != null ? parseFloat(String(updated.spend)) : null,
+    sent,
+  });
+});
+
+router.get("/campaigns/:id/recipients", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
+
+  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
+
+  const { statuses } = req.query;
+  const statusList = typeof statuses === "string" ? statuses.split(",") : ["new", "contacted", "qualified"];
+  const validStatuses = statusList.filter(s => ["new", "contacted", "qualified", "converted", "lost"].includes(s));
+
+  const leads = await db.select({ email: leadsTable.email, name: leadsTable.name }).from(leadsTable)
+    .where(and(eq(leadsTable.websiteId, campaign.websiteId), inArray(leadsTable.status, validStatuses)));
+
+  const count = leads.filter(l => l.email && l.email.includes("@")).length;
+  res.json({ count, total: leads.length });
 });
 
 export default router;

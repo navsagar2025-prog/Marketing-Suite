@@ -392,6 +392,57 @@ paths:
         "204":
           description: Deleted
 
+  /campaigns/{id}/send:
+    post:
+      operationId: sendCampaignEmail
+      tags: [campaigns]
+      summary: Send campaign email to leads
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendCampaignEmailBody"
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendCampaignEmailResponse"
+        "422":
+          description: No email provider configured or no matching recipients
+
+  /campaigns/{id}/recipients:
+    get:
+      operationId: getCampaignRecipients
+      tags: [campaigns]
+      summary: Preview recipient count for a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: statuses
+          in: query
+          schema:
+            type: string
+          description: Comma-separated lead statuses to include
+      responses:
+        "200":
+          description: Recipient preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignRecipientsResponse"
+
   # ─── Backlinks ────────────────────────────────────────────────────────────────
   /backlinks:
     get:
@@ -947,6 +998,55 @@ paths:
               schema:
                 $ref: "#/components/schemas/TestAiResponse"
 
+  /settings/email-provider:
+    get:
+      operationId: getEmailProviderSettings
+      tags: [settings]
+      summary: Get email provider configuration
+      responses:
+        "200":
+          description: Email provider config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailProviderSettings"
+    patch:
+      operationId: updateEmailProviderSettings
+      tags: [settings]
+      summary: Update email provider configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailProviderBody"
+      responses:
+        "200":
+          description: Updated email provider config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailProviderSettings"
+
+  /settings/test-email:
+    post:
+      operationId: testEmailConnection
+      tags: [settings]
+      summary: Send a test email to verify the provider connection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestEmailBody"
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestEmailResponse"
+
   # ─── Usage ────────────────────────────────────────────────────────────────
   /usage/me:
     get:
@@ -1294,6 +1394,11 @@ components:
           type: ["integer", "null"]
         spend:
           type: ["number", "null"]
+        sentAt:
+          type: ["string", "null"]
+          format: date-time
+        sentCount:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -2131,3 +2236,124 @@ components:
         type:
           type: string
       required: [userId, type]
+
+    # ─── Email Provider ────────────────────────────────────────────────────────
+    EmailProviderSettings:
+      type: object
+      properties:
+        provider:
+          type: ["string", "null"]
+          description: smtp | sendgrid | mailgun | resend | mailchimp
+        fromAddress:
+          type: string
+        fromName:
+          type: string
+        smtpHost:
+          type: string
+        smtpPort:
+          type: integer
+        smtpUser:
+          type: string
+        apiKeyConfigured:
+          type: boolean
+        smtpPassConfigured:
+          type: boolean
+      required:
+        - fromAddress
+        - fromName
+        - smtpHost
+        - smtpPort
+        - smtpUser
+        - apiKeyConfigured
+        - smtpPassConfigured
+
+    UpdateEmailProviderBody:
+      type: object
+      properties:
+        provider:
+          type: string
+        apiKey:
+          type: string
+        fromAddress:
+          type: string
+        fromName:
+          type: string
+        smtpHost:
+          type: string
+        smtpPort:
+          type: integer
+        smtpUser:
+          type: string
+        smtpPass:
+          type: string
+
+    TestEmailBody:
+      type: object
+      properties:
+        testTo:
+          type: string
+      required:
+        - testTo
+
+    TestEmailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+        - message
+
+    # ─── Campaign Email Send ───────────────────────────────────────────────────
+    SendCampaignEmailBody:
+      type: object
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        recipientStatuses:
+          type: array
+          items:
+            type: string
+          description: Filter leads by status (new, contacted, qualified). Defaults to all three.
+      required:
+        - subject
+        - body
+
+    SendCampaignEmailResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+        sentAt:
+          type: ["string", "null"]
+          format: date-time
+        sentCount:
+          type: ["integer", "null"]
+        sent:
+          type: integer
+      required:
+        - id
+        - name
+        - status
+        - sent
+
+    CampaignRecipientsResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Number of leads with valid email addresses
+        total:
+          type: integer
+          description: Total number of matching leads
+      required:
+        - count
+        - total

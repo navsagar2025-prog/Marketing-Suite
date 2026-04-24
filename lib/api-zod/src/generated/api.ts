@@ -274,6 +274,8 @@ export const ListCampaignsResponseItem = zod.object({
   clicks: zod.number().nullish(),
   conversions: zod.number().nullish(),
   spend: zod.number().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentCount: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -320,6 +322,8 @@ export const GetCampaignResponse = zod.object({
   clicks: zod.number().nullish(),
   conversions: zod.number().nullish(),
   spend: zod.number().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentCount: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -361,6 +365,8 @@ export const UpdateCampaignResponse = zod.object({
   clicks: zod.number().nullish(),
   conversions: zod.number().nullish(),
   spend: zod.number().nullish(),
+  sentAt: zod.coerce.date().nullish(),
+  sentCount: zod.number().nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -370,6 +376,52 @@ export const UpdateCampaignResponse = zod.object({
  */
 export const DeleteCampaignParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Send campaign email to leads
+ */
+export const SendCampaignEmailParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SendCampaignEmailBody = zod.object({
+  subject: zod.string(),
+  body: zod.string(),
+  recipientStatuses: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Filter leads by status (new, contacted, qualified). Defaults to all three.",
+    ),
+});
+
+export const SendCampaignEmailResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  status: zod.string(),
+  sentAt: zod.coerce.date().nullish(),
+  sentCount: zod.number().nullish(),
+  sent: zod.number(),
+});
+
+/**
+ * @summary Preview recipient count for a campaign
+ */
+export const GetCampaignRecipientsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetCampaignRecipientsQueryParams = zod.object({
+  statuses: zod.coerce
+    .string()
+    .optional()
+    .describe("Comma-separated lead statuses to include"),
+});
+
+export const GetCampaignRecipientsResponse = zod.object({
+  count: zod.number().describe("Number of leads with valid email addresses"),
+  total: zod.number().describe("Total number of matching leads"),
 });
 
 /**
@@ -902,6 +954,63 @@ export const TestAiConnectionResponse = zod.object({
   message: zod.string(),
   provider: zod.string(),
   model: zod.string(),
+});
+
+/**
+ * @summary Get email provider configuration
+ */
+export const GetEmailProviderSettingsResponse = zod.object({
+  provider: zod
+    .string()
+    .nullish()
+    .describe("smtp | sendgrid | mailgun | resend | mailchimp"),
+  fromAddress: zod.string(),
+  fromName: zod.string(),
+  smtpHost: zod.string(),
+  smtpPort: zod.number(),
+  smtpUser: zod.string(),
+  apiKeyConfigured: zod.boolean(),
+  smtpPassConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Update email provider configuration
+ */
+export const UpdateEmailProviderSettingsBody = zod.object({
+  provider: zod.string().optional(),
+  apiKey: zod.string().optional(),
+  fromAddress: zod.string().optional(),
+  fromName: zod.string().optional(),
+  smtpHost: zod.string().optional(),
+  smtpPort: zod.number().optional(),
+  smtpUser: zod.string().optional(),
+  smtpPass: zod.string().optional(),
+});
+
+export const UpdateEmailProviderSettingsResponse = zod.object({
+  provider: zod
+    .string()
+    .nullish()
+    .describe("smtp | sendgrid | mailgun | resend | mailchimp"),
+  fromAddress: zod.string(),
+  fromName: zod.string(),
+  smtpHost: zod.string(),
+  smtpPort: zod.number(),
+  smtpUser: zod.string(),
+  apiKeyConfigured: zod.boolean(),
+  smtpPassConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Send a test email to verify the provider connection
+ */
+export const TestEmailConnectionBody = zod.object({
+  testTo: zod.string(),
+});
+
+export const TestEmailConnectionResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
 });
 
 /**

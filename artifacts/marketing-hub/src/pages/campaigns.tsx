@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon } from "lucide-react";
+import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,9 +21,14 @@ import {
   useGenerateCampaignCopy,
   useListWebsites,
   useGetSettings,
+  useGetEmailProviderSettings,
+  useSendCampaignEmail,
+  useGetCampaignRecipients,
+  getGetCampaignRecipientsQueryKey,
   getListCampaignsQueryKey,
 } from "@workspace/api-client-react";
 import { AiMediaDialog } from "@/components/AiMediaDialog";
+import { Link } from "wouter";
 
 const createSchema = z.object({
   websiteId: z.coerce.number().min(1, "Website is required"),
@@ -63,6 +68,13 @@ export default function Campaigns() {
   const [aiGoal, setAiGoal] = useState("");
   const [aiProduct, setAiProduct] = useState("");
   const [aiResult, setAiResult] = useState("");
+
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeCampaignId, setComposeCampaignId] = useState<number | null>(null);
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeBody, setComposeBody] = useState("");
+  const [composeStatuses, setComposeStatuses] = useState<string[]>(["new", "contacted", "qualified"]);
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: campaigns, isLoading } = useListCampaigns();
@@ -71,9 +83,18 @@ export default function Campaigns() {
   const deleteMutation = useDeleteCampaign();
   const generateMutation = useGenerateCampaignCopy();
   const { data: settings } = useGetSettings();
+  const { data: emailProviderSettings } = useGetEmailProviderSettings();
+  const sendMutation = useSendCampaignEmail();
+  const recipientParams = { statuses: composeStatuses.join(",") };
+  const { data: recipientPreview } = useGetCampaignRecipients(
+    composeCampaignId ?? 0,
+    recipientParams,
+    { query: { enabled: !!composeCampaignId && composeOpen, queryKey: getGetCampaignRecipientsQueryKey(composeCampaignId ?? 0, recipientParams) } }
+  );
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
   const falDisabled = settings !== undefined && !settings.falApiKeyConfigured;
+  const emailConfigured = !!emailProviderSettings?.provider;
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -105,6 +126,39 @@ export default function Campaigns() {
       onSuccess: (r) => setAiResult(r.content),
       onError: () => toast({ title: "Generation failed", variant: "destructive" }),
     });
+  };
+
+  const openCompose = (campaignId: number) => {
+    setComposeCampaignId(campaignId);
+    setComposeSubject("");
+    setComposeBody("");
+    setComposeStatuses(["new", "contacted", "qualified"]);
+    setComposeOpen(true);
+  };
+
+  const handleSend = () => {
+    if (!composeCampaignId || !composeSubject.trim() || !composeBody.trim()) return;
+    sendMutation.mutate(
+      {
+        id: composeCampaignId,
+        data: { subject: composeSubject.trim(), body: composeBody.trim(), recipientStatuses: composeStatuses },
+      },
+      {
+        onSuccess: (r) => {
+          toast({ title: `Sent to ${r.sent} recipient${r.sent !== 1 ? "s" : ""}` });
+          queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
+          setComposeOpen(false);
+        },
+        onError: (err) => {
+          const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Failed to send";
+          toast({ title: msg, variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const toggleStatus = (s: string) => {
+    setComposeStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
   const filtered = (campaigns ?? []).filter(c =>
@@ -274,14 +328,34 @@ export default function Campaigns() {
                       <Badge variant={statusVariant(c.status)} className="text-xs">{c.status}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{c.goal}</p>
-                    <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                    <div className="flex gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
                       {c.budget && <span>Budget: <span className="font-medium text-foreground">${parseFloat(String(c.budget)).toLocaleString()}</span></span>}
                       {c.impressions && <span>Impressions: <span className="font-medium text-foreground">{c.impressions.toLocaleString()}</span></span>}
                       {c.clicks && <span>Clicks: <span className="font-medium text-foreground">{c.clicks.toLocaleString()}</span></span>}
                       {c.conversions && <span>Conversions: <span className="font-medium text-foreground">{c.conversions.toLocaleString()}</span></span>}
+                      {c.sentCount != null && c.sentCount > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Send className="h-3 w-3" />
+                          Sent: <span className="font-medium text-foreground">{c.sentCount.toLocaleString()}</span>
+                          {c.sentAt && <span className="text-muted-foreground/60">({new Date(c.sentAt).toLocaleDateString()})</span>}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    {c.type === "email" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 opacity-0 group-hover:opacity-100 text-xs"
+                        data-testid={`button-send-campaign-${c.id}`}
+                        title={emailConfigured ? "Compose & send email" : "Configure email provider in Settings first"}
+                        disabled={!emailConfigured}
+                        onClick={() => openCompose(c.id)}
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1" /> Send
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -315,6 +389,82 @@ export default function Campaigns() {
           });
         }}
       />
+
+      {/* Compose & Send Dialog */}
+      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Compose Email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Recipient filter */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Send to leads with status</label>
+                {recipientPreview !== undefined && (
+                  <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid="text-recipient-count">
+                    <Users className="h-3.5 w-3.5" />
+                    {recipientPreview.count} recipient{recipientPreview.count !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {["new", "contacted", "qualified", "converted", "lost"].map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    data-testid={`button-status-filter-${s}`}
+                    onClick={() => toggleStatus(s)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      composeStatuses.includes(s)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-border hover:border-muted-foreground/40"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Subject */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Subject</label>
+              <Input
+                data-testid="input-compose-subject"
+                placeholder="Your email subject..."
+                value={composeSubject}
+                onChange={e => setComposeSubject(e.target.value)}
+              />
+            </div>
+
+            {/* Body */}
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Message</label>
+              <Textarea
+                data-testid="input-compose-body"
+                placeholder="Write your email message here..."
+                value={composeBody}
+                onChange={e => setComposeBody(e.target.value)}
+                rows={8}
+              />
+              <p className="text-xs text-muted-foreground">Plain text. HTML is supported.</p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setComposeOpen(false)}>Cancel</Button>
+              <Button
+                data-testid="button-confirm-send"
+                onClick={handleSend}
+                disabled={!composeSubject.trim() || !composeBody.trim() || composeStatuses.length === 0 || sendMutation.isPending}
+              >
+                <Send className="h-4 w-4 mr-1" />
+                {sendMutation.isPending ? "Sending..." : `Send${recipientPreview ? ` to ${recipientPreview.count}` : ""}`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

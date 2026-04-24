@@ -171,6 +171,10 @@ export interface Campaign {
   conversions?: number | null;
   /** @nullable */
   spend?: number | null;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  sentCount?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -639,6 +643,66 @@ export interface ResetUsageBody {
   type: string;
 }
 
+export interface EmailProviderSettings {
+  /**
+   * smtp | sendgrid | mailgun | resend | mailchimp
+   * @nullable
+   */
+  provider?: string | null;
+  fromAddress: string;
+  fromName: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  apiKeyConfigured: boolean;
+  smtpPassConfigured: boolean;
+}
+
+export interface UpdateEmailProviderBody {
+  provider?: string;
+  apiKey?: string;
+  fromAddress?: string;
+  fromName?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+}
+
+export interface TestEmailBody {
+  testTo: string;
+}
+
+export interface TestEmailResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface SendCampaignEmailBody {
+  subject: string;
+  body: string;
+  /** Filter leads by status (new, contacted, qualified). Defaults to all three. */
+  recipientStatuses?: string[];
+}
+
+export interface SendCampaignEmailResponse {
+  id: number;
+  name: string;
+  status: string;
+  /** @nullable */
+  sentAt?: string | null;
+  /** @nullable */
+  sentCount?: number | null;
+  sent: number;
+}
+
+export interface CampaignRecipientsResponse {
+  /** Number of leads with valid email addresses */
+  count: number;
+  /** Total number of matching leads */
+  total: number;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };
@@ -652,6 +716,13 @@ export type ListSocialPostsParams = {
 export type ListCampaignsParams = {
   websiteId?: number;
   status?: string;
+};
+
+export type GetCampaignRecipientsParams = {
+  /**
+   * Comma-separated lead statuses to include
+   */
+  statuses?: string;
 };
 
 export type ListBacklinksParams = {

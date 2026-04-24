@@ -31,6 +31,10 @@ export interface Campaign {
   conversions?: number | null;
   /** @nullable */
   spend?: number | null;
+  /** @nullable */
+  sentAt?: Date | null;
+  /** @nullable */
+  sentCount?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

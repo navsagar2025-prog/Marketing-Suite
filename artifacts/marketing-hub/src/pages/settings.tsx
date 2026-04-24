@@ -1,13 +1,24 @@
 import { useState } from "react";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, useUpdateUsageLimits, useResetUserUsage } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+
+type EmailProvider = "smtp" | "sendgrid" | "mailgun" | "resend" | "mailchimp";
+
+const EMAIL_PROVIDERS: { value: EmailProvider; label: string; usesApiKey: boolean; description: string }[] = [
+  { value: "smtp", label: "SMTP (Generic)", usesApiKey: false, description: "Any SMTP server — Gmail, Outlook, custom." },
+  { value: "sendgrid", label: "SendGrid", usesApiKey: true, description: "Twilio SendGrid API." },
+  { value: "mailgun", label: "Mailgun", usesApiKey: true, description: "Mailgun sending API." },
+  { value: "resend", label: "Resend", usesApiKey: true, description: "Resend.com — modern email API." },
+  { value: "mailchimp", label: "Mailchimp Transactional (Mandrill)", usesApiKey: true, description: "Mailchimp Mandrill API for transactional email." },
+];
 
 type AiProvider = "replit" | "openai" | "anthropic" | "perplexity" | "gemini";
 
@@ -64,12 +75,31 @@ export default function SettingsPage() {
   // Usage limit editing state
   const [limitEdits, setLimitEdits] = useState<{ text?: string; image?: string; video?: string }>({});
 
+  // Email provider state
+  const [emailProvider, setEmailProvider] = useState<EmailProvider | null>(null);
+  const [emailFromAddress, setEmailFromAddress] = useState("");
+  const [emailFromName, setEmailFromName] = useState("");
+  const [emailApiKey, setEmailApiKey] = useState("");
+  const [emailSmtpHost, setEmailSmtpHost] = useState("");
+  const [emailSmtpPort, setEmailSmtpPort] = useState("587");
+  const [emailSmtpUser, setEmailSmtpUser] = useState("");
+  const [emailSmtpPass, setEmailSmtpPass] = useState("");
+  const [testEmailTo, setTestEmailTo] = useState("");
+  const [emailTestResult, setEmailTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [emailDirty, setEmailDirty] = useState(false);
+
   const { data: settings, isLoading, refetch } = useGetSettings();
   const updateMutation = useUpdateSettings();
   const testMutation = useTestAiConnection();
-  const { data: adminUsage, refetch: refetchAdminUsage } = useGetAdminUsage({ query: { enabled: isAdmin } });
+  const { data: adminUsage, refetch: refetchAdminUsage } = useGetAdminUsage({ query: { enabled: isAdmin, queryKey: getGetAdminUsageQueryKey() } });
   const updateLimitsMutation = useUpdateUsageLimits();
   const resetUsageMutation = useResetUserUsage();
+  const { data: emailSettings, refetch: refetchEmailSettings } = useGetEmailProviderSettings();
+  const updateEmailMutation = useUpdateEmailProviderSettings();
+  const testEmailMutation = useTestEmailConnection();
+
+  const activeEmailProvider = (emailProvider ?? emailSettings?.provider ?? null) as EmailProvider | null;
+  const activeProviderInfo = EMAIL_PROVIDERS.find(p => p.value === activeEmailProvider);
 
   const isFalConfigured = settings?.falApiKeyConfigured === true;
   const currentImageModel = selectedImageModel ?? settings?.falImageModel ?? FAL_IMAGE_MODELS[0].value;
@@ -215,6 +245,44 @@ export default function SettingsPage() {
           refetchAdminUsage();
         },
         onError: () => toast({ title: "Failed to reset usage", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleSaveEmailProvider = () => {
+    const body: Record<string, unknown> = {};
+    if (emailProvider) body.provider = emailProvider;
+    const from = emailFromAddress.trim() || emailSettings?.fromAddress;
+    if (from) body.fromAddress = from;
+    if (emailFromName.trim()) body.fromName = emailFromName.trim();
+    if (emailApiKey.trim()) body.apiKey = emailApiKey.trim();
+    if (emailSmtpHost.trim()) body.smtpHost = emailSmtpHost.trim();
+    if (emailSmtpPort.trim()) body.smtpPort = parseInt(emailSmtpPort.trim(), 10);
+    if (emailSmtpUser.trim()) body.smtpUser = emailSmtpUser.trim();
+    if (emailSmtpPass.trim()) body.smtpPass = emailSmtpPass.trim();
+    if (Object.keys(body).length === 0) return;
+    updateEmailMutation.mutate(
+      { data: body as Parameters<typeof updateEmailMutation.mutate>[0]["data"] },
+      {
+        onSuccess: () => {
+          toast({ title: "Email provider saved" });
+          setEmailApiKey("");
+          setEmailSmtpPass("");
+          setEmailDirty(false);
+          refetchEmailSettings();
+        },
+        onError: () => toast({ title: "Failed to save email provider", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleTestEmail = () => {
+    setEmailTestResult(null);
+    testEmailMutation.mutate(
+      { data: { testTo: testEmailTo.trim() } },
+      {
+        onSuccess: (r) => setEmailTestResult({ success: r.success, message: r.message }),
+        onError: () => setEmailTestResult({ success: false, message: "Request failed" }),
       }
     );
   };
@@ -558,6 +626,197 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-muted-foreground font-mono">{currentVideoModel}</p>
             </div>
+        </CardContent>
+      </Card>
+
+      {/* Email Provider */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-md bg-primary/10">
+              <Mail className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-base">Email Provider</CardTitle>
+                {emailSettings?.provider ? (
+                  <Badge variant="default" className="text-xs gap-1">
+                    <CheckCircle className="h-3 w-3" /> {EMAIL_PROVIDERS.find(p => p.value === emailSettings.provider)?.label ?? emailSettings.provider}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">Not configured</Badge>
+                )}
+              </div>
+              <CardDescription className="mt-1">Connect an email service to send campaigns directly to your leads</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Provider selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Provider</label>
+            <div className="grid gap-2">
+              {EMAIL_PROVIDERS.map(p => (
+                <button
+                  key={p.value}
+                  type="button"
+                  data-testid={`button-email-provider-${p.value}`}
+                  onClick={() => { setEmailProvider(p.value); setEmailDirty(true); setEmailTestResult(null); }}
+                  className={`flex items-center gap-3 p-3 rounded-md border text-left transition-colors ${
+                    activeEmailProvider === p.value
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-muted-foreground/40 hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{p.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.description}</p>
+                  </div>
+                  {activeEmailProvider === p.value && <CheckCircle className="h-4 w-4 text-primary shrink-0" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* From address */}
+          {activeEmailProvider && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">From Address</label>
+                <Input
+                  data-testid="input-email-from-address"
+                  type="email"
+                  placeholder={emailSettings?.fromAddress || "hello@yourdomain.com"}
+                  value={emailFromAddress}
+                  onChange={e => { setEmailFromAddress(e.target.value); setEmailDirty(true); }}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">From Name (optional)</label>
+                <Input
+                  data-testid="input-email-from-name"
+                  placeholder={emailSettings?.fromName || "Your Company"}
+                  value={emailFromName}
+                  onChange={e => { setEmailFromName(e.target.value); setEmailDirty(true); }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* API key fields for non-SMTP */}
+          {activeEmailProvider && activeProviderInfo?.usesApiKey && (
+            <div className="space-y-1">
+              <label className="text-sm font-medium">API Key</label>
+              {emailSettings?.apiKeyConfigured && !emailApiKey && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground p-2 rounded-md bg-muted border mb-1">
+                  <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                  A key is saved. Enter a new one to replace it.
+                </div>
+              )}
+              <Input
+                data-testid="input-email-api-key"
+                type="password"
+                placeholder={emailSettings?.apiKeyConfigured ? "Enter new key to replace" : "Paste your API key"}
+                value={emailApiKey}
+                onChange={e => { setEmailApiKey(e.target.value); setEmailDirty(true); }}
+              />
+            </div>
+          )}
+
+          {/* SMTP fields */}
+          {activeEmailProvider === "smtp" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2 space-y-1">
+                  <label className="text-sm font-medium">SMTP Host</label>
+                  <Input
+                    data-testid="input-email-smtp-host"
+                    placeholder={emailSettings?.smtpHost || "smtp.gmail.com"}
+                    value={emailSmtpHost}
+                    onChange={e => { setEmailSmtpHost(e.target.value); setEmailDirty(true); }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Port</label>
+                  <Input
+                    data-testid="input-email-smtp-port"
+                    type="number"
+                    placeholder={String(emailSettings?.smtpPort ?? 587)}
+                    value={emailSmtpPort}
+                    onChange={e => { setEmailSmtpPort(e.target.value); setEmailDirty(true); }}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Username</label>
+                  <Input
+                    data-testid="input-email-smtp-user"
+                    placeholder={emailSettings?.smtpUser || "your@email.com"}
+                    value={emailSmtpUser}
+                    onChange={e => { setEmailSmtpUser(e.target.value); setEmailDirty(true); }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Password / App Password</label>
+                  {emailSettings?.smtpPassConfigured && !emailSmtpPass && (
+                    <p className="text-xs text-muted-foreground">Password is saved.</p>
+                  )}
+                  <Input
+                    data-testid="input-email-smtp-pass"
+                    type="password"
+                    placeholder={emailSettings?.smtpPassConfigured ? "Enter new password to replace" : "SMTP password"}
+                    value={emailSmtpPass}
+                    onChange={e => { setEmailSmtpPass(e.target.value); setEmailDirty(true); }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Save button */}
+          {activeEmailProvider && (
+            <Button
+              data-testid="button-save-email-provider"
+              onClick={handleSaveEmailProvider}
+              disabled={!emailDirty || updateEmailMutation.isPending}
+            >
+              <Save className="h-4 w-4 mr-1" />
+              {updateEmailMutation.isPending ? "Saving..." : "Save Email Provider"}
+            </Button>
+          )}
+
+          {/* Test email */}
+          {emailSettings?.provider && (
+            <div className="space-y-3 pt-2 border-t">
+              <p className="text-sm font-medium">Test Connection</p>
+              <div className="flex gap-2">
+                <Input
+                  data-testid="input-test-email-to"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={testEmailTo}
+                  onChange={e => setTestEmailTo(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  data-testid="button-test-email"
+                  variant="outline"
+                  onClick={handleTestEmail}
+                  disabled={!testEmailTo.trim() || testEmailMutation.isPending}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${testEmailMutation.isPending ? "animate-spin" : ""}`} />
+                  {testEmailMutation.isPending ? "Sending..." : "Send Test"}
+                </Button>
+              </div>
+              {emailTestResult && (
+                <div className={`flex items-start gap-2 p-3 rounded-md text-sm border ${emailTestResult.success ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-300" : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-300"}`} data-testid="text-email-test-result">
+                  {emailTestResult.success ? <CheckCircle className="h-4 w-4 shrink-0 mt-0.5" /> : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />}
+                  <span>{emailTestResult.message}</span>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

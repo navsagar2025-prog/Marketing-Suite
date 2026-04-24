@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getAiConfig, setDbSetting, callAI, getDbSetting, PROVIDER_MODELS, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS, type AiProvider } from "../lib/ai-provider.js";
+import { getEmailProviderConfig, testEmailConnection, type EmailProvider } from "../lib/email-sender.js";
 
 const router: IRouter = Router();
 
@@ -126,6 +127,69 @@ router.post("/settings/test-ai", async (_req, res): Promise<void> => {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Connection test failed";
     res.json({ success: false, message, provider: aiConfig.provider, model: aiConfig.model });
+  }
+});
+
+const VALID_EMAIL_PROVIDERS: EmailProvider[] = ["smtp", "sendgrid", "mailgun", "resend", "mailchimp"];
+
+router.get("/settings/email-provider", async (_req, res): Promise<void> => {
+  const provider = (await getDbSetting("email_provider")) as EmailProvider | null;
+  const fromAddress = await getDbSetting("email_from_address") ?? "";
+  const fromName = await getDbSetting("email_from_name") ?? "";
+  const smtpHost = await getDbSetting("email_smtp_host") ?? "";
+  const smtpPort = await getDbSetting("email_smtp_port") ?? "587";
+  const smtpUser = await getDbSetting("email_smtp_user") ?? "";
+  const apiKeyConfigured = !!(await getDbSetting("email_api_key"));
+  const smtpPassConfigured = !!(await getDbSetting("email_smtp_pass"));
+  res.json({ provider, fromAddress, fromName, smtpHost, smtpPort: parseInt(smtpPort, 10), smtpUser, apiKeyConfigured, smtpPassConfigured });
+});
+
+router.patch("/settings/email-provider", async (req, res): Promise<void> => {
+  const { provider, apiKey, fromAddress, fromName, smtpHost, smtpPort, smtpUser, smtpPass } = req.body ?? {};
+
+  if (provider !== undefined) {
+    if (!VALID_EMAIL_PROVIDERS.includes(provider)) {
+      res.status(400).json({ error: `Invalid provider. Valid: ${VALID_EMAIL_PROVIDERS.join(", ")}` });
+      return;
+    }
+    await setDbSetting("email_provider", provider);
+  }
+  if (fromAddress !== undefined && typeof fromAddress === "string") await setDbSetting("email_from_address", fromAddress);
+  if (fromName !== undefined && typeof fromName === "string") await setDbSetting("email_from_name", fromName);
+  if (apiKey !== undefined && typeof apiKey === "string" && apiKey.trim()) await setDbSetting("email_api_key", apiKey.trim());
+  if (smtpHost !== undefined && typeof smtpHost === "string") await setDbSetting("email_smtp_host", smtpHost);
+  if (smtpPort !== undefined) await setDbSetting("email_smtp_port", String(smtpPort));
+  if (smtpUser !== undefined && typeof smtpUser === "string") await setDbSetting("email_smtp_user", smtpUser);
+  if (smtpPass !== undefined && typeof smtpPass === "string" && smtpPass.trim()) await setDbSetting("email_smtp_pass", smtpPass.trim());
+
+  const savedProvider = (await getDbSetting("email_provider")) as EmailProvider | null;
+  const savedFromAddress = await getDbSetting("email_from_address") ?? "";
+  const savedFromName = await getDbSetting("email_from_name") ?? "";
+  const savedSmtpHost = await getDbSetting("email_smtp_host") ?? "";
+  const savedSmtpPort = await getDbSetting("email_smtp_port") ?? "587";
+  const savedSmtpUser = await getDbSetting("email_smtp_user") ?? "";
+  const apiKeyConfigured = !!(await getDbSetting("email_api_key"));
+  const smtpPassConfigured = !!(await getDbSetting("email_smtp_pass"));
+  res.json({ provider: savedProvider, fromAddress: savedFromAddress, fromName: savedFromName, smtpHost: savedSmtpHost, smtpPort: parseInt(savedSmtpPort, 10), smtpUser: savedSmtpUser, apiKeyConfigured, smtpPassConfigured });
+});
+
+router.post("/settings/test-email", async (req, res): Promise<void> => {
+  const { testTo } = req.body ?? {};
+  if (!testTo || typeof testTo !== "string") {
+    res.status(400).json({ error: "testTo email address is required" });
+    return;
+  }
+  const config = await getEmailProviderConfig();
+  if (!config) {
+    res.json({ success: false, message: "No email provider configured. Please set up an email provider first." });
+    return;
+  }
+  try {
+    await testEmailConnection(config, testTo);
+    res.json({ success: true, message: `Test email sent to ${testTo} via ${config.provider}.` });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Send failed";
+    res.json({ success: false, message });
   }
 });
 

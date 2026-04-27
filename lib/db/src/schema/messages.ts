@@ -9,7 +9,7 @@ export const messages = pgTable("messages", {
   conversationId: integer("conversation_id")
     .notNull()
     .references(() => conversations.id, { onDelete: "cascade" }),
-  role: text("role").notNull(),
+  role: text("role").$type<"user" | "assistant">().notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

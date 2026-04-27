@@ -725,7 +725,7 @@ paths:
     post:
       operationId: createConversation
       tags: [conversations]
-      summary: Create a new conversation
+      summary: Create or return existing conversation (idempotent by leadId)
       requestBody:
         required: true
         content:
@@ -733,8 +733,14 @@ paths:
             schema:
               $ref: "#/components/schemas/CreateConversationBody"
       responses:
+        "200":
+          description: Existing conversation returned (when leadId already has one)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
         "201":
-          description: Created
+          description: New conversation created
           content:
             application/json:
               schema:

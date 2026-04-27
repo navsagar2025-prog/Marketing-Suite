@@ -140,7 +140,7 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
     const aiReply = await callAI(bodyParsed.data.content, {
       systemPrompt,
       maxTokens: 1024,
-      history: history.map(h => ({ role: h.role as "user" | "assistant", content: h.content })),
+      history: history.map(h => ({ role: h.role, content: h.content })),
     });
 
     const [assistantMsg] = await db.insert(messages).values({

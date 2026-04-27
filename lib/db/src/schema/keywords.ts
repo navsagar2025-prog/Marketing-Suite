@@ -12,6 +12,8 @@ export const keywordsTable = pgTable("keywords", {
   difficulty: integer("difficulty"),
   status: text("status").notNull().default("tracking"),
   notes: text("notes"),
+  cluster: text("cluster"),
+  intent: text("intent"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

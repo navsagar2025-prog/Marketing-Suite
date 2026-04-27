@@ -17,4 +17,8 @@ export interface UpdateKeywordBody {
   status?: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  cluster?: string | null;
+  /** @nullable */
+  intent?: string | null;
 }

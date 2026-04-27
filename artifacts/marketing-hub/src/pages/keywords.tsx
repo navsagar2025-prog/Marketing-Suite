@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
+import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,7 +23,9 @@ import {
   useListKeywords,
   useCreateKeyword,
   useDeleteKeyword,
+  useUpdateKeyword,
   useSuggestKeywords,
+  useClusterKeywords,
   useListWebsites,
   useGetSettings,
   useGetKeywordRankHistory,
@@ -44,6 +46,23 @@ const createSchema = z.object({
 });
 
 type CreateForm = z.infer<typeof createSchema>;
+
+const INTENT_COLORS: Record<string, string> = {
+  informational: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  commercial: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  navigational: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  transactional: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+};
+
+function IntentBadge({ intent }: { intent: string | null | undefined }) {
+  if (!intent) return null;
+  const cls = INTENT_COLORS[intent] ?? "bg-muted text-muted-foreground";
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {intent}
+    </span>
+  );
+}
 
 function Sparkline({ history }: { history: KeywordRankHistory[] }) {
   const pts = history
@@ -115,11 +134,15 @@ function KeywordRowWithHistory({
   onSelect,
   onDelete,
   deleteIsPending,
+  allClusters,
+  onClusterChange,
 }: {
   kw: Keyword;
   onSelect: (kw: Keyword) => void;
   onDelete: (id: number) => void;
   deleteIsPending: boolean;
+  allClusters: string[];
+  onClusterChange: (id: number, cluster: string | null) => void;
 }) {
   const { data: history30 } = useGetKeywordRankHistory(kw.id, { days: 30 });
   const movement = history30 ? getMovementBadge(history30) : null;
@@ -157,6 +180,22 @@ function KeywordRowWithHistory({
       <td className={`px-4 py-3 text-right font-semibold ${difficultyColor(kw.difficulty)}`}>{kw.difficulty ?? "—"}</td>
       <td className="px-4 py-3 text-center">
         <Badge variant={kw.status === "tracking" ? "default" : "secondary"} className="text-xs">{kw.status}</Badge>
+      </td>
+      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+        <Select
+          value={kw.cluster ?? "__none__"}
+          onValueChange={(v) => onClusterChange(kw.id, v === "__none__" ? null : v)}
+        >
+          <SelectTrigger className="h-7 text-xs min-w-[110px] w-fit border-dashed">
+            <SelectValue placeholder="No cluster" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No cluster</SelectItem>
+            {allClusters.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2">
@@ -294,11 +333,150 @@ function KeywordDetailPanel({
             <div className="flex justify-between"><span>Search volume</span><span>{keyword.searchVolume?.toLocaleString() ?? "—"}</span></div>
             <div className="flex justify-between"><span>Difficulty</span><span>{keyword.difficulty ?? "—"}</span></div>
             <div className="flex justify-between"><span>Status</span><span className="capitalize">{keyword.status}</span></div>
+            {keyword.cluster && <div className="flex justify-between"><span>Cluster</span><span>{keyword.cluster}</span></div>}
+            {keyword.intent && <div className="flex justify-between"><span>Intent</span><span className="capitalize">{keyword.intent}</span></div>}
             {keyword.notes && <div className="pt-1"><span className="font-medium">Notes:</span> {keyword.notes}</div>}
           </div>
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function ClustersView({
+  keywords,
+  websiteId,
+  aiDisabled,
+  onClusterChange,
+}: {
+  keywords: Keyword[];
+  websiteId: number | null;
+  aiDisabled: boolean;
+  onClusterChange: (id: number, cluster: string | null, intent?: string | null) => void;
+}) {
+  const { toast } = useToast();
+  const clusterMutation = useClusterKeywords();
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, { intent: string | null; keywords: Keyword[] }>();
+    for (const kw of keywords) {
+      const key = kw.cluster ?? "__unclustered__";
+      const existing = map.get(key);
+      if (existing) {
+        existing.keywords.push(kw);
+      } else {
+        map.set(key, { intent: kw.intent ?? null, keywords: [kw] });
+      }
+    }
+    return map;
+  }, [keywords]);
+
+  const handleAiCluster = () => {
+    if (!websiteId) {
+      toast({ title: "Select a website filter first to cluster its keywords", variant: "destructive" });
+      return;
+    }
+    const kwStrings = keywords.map((k) => k.keyword);
+    if (kwStrings.length === 0) {
+      toast({ title: "No keywords to cluster", variant: "destructive" });
+      return;
+    }
+    clusterMutation.mutate(
+      { data: { websiteId, keywords: kwStrings } },
+      {
+        onSuccess: (result) => {
+          const updates: Promise<unknown>[] = [];
+          for (const cluster of result.clusters) {
+            for (const kwStr of cluster.keywords) {
+              const match = keywords.find((k) => k.keyword.toLowerCase() === kwStr.toLowerCase());
+              if (match) {
+                updates.push(Promise.resolve(onClusterChange(match.id, cluster.name, cluster.intent)));
+              }
+            }
+          }
+          toast({ title: `Clustered ${kwStrings.length} keywords into ${result.clusters.length} groups` });
+        },
+        onError: () => toast({ title: "AI clustering failed", variant: "destructive" }),
+      },
+    );
+  };
+
+  const clusters = Array.from(grouped.entries());
+  const unclustered = clusters.find(([k]) => k === "__unclustered__");
+  const named = clusters.filter(([k]) => k !== "__unclustered__");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {named.length > 0
+            ? `${named.length} cluster${named.length !== 1 ? "s" : ""} — ${keywords.length} keywords total`
+            : "No clusters yet. Use AI Cluster to group your keywords automatically."}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          data-testid="button-ai-cluster"
+          onClick={handleAiCluster}
+          disabled={clusterMutation.isPending || aiDisabled || !websiteId}
+          title={aiDisabled ? "AI is disabled — enable in Settings" : !websiteId ? "Filter by a website first" : undefined}
+        >
+          <Sparkles className="h-4 w-4 mr-1.5" />
+          {clusterMutation.isPending ? "Clustering..." : "AI Cluster"}
+        </Button>
+      </div>
+
+      {named.length === 0 && !unclustered && keywords.length === 0 && (
+        <div className="text-center py-16 text-muted-foreground">
+          <Layers className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No keywords tracked yet</p>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {named.map(([clusterName, { intent, keywords: kwList }]) => (
+          <Card key={clusterName} data-testid={`cluster-card-${clusterName}`}>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-2 mb-3">
+                <div>
+                  <h3 className="font-semibold text-sm leading-tight">{clusterName}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">{kwList.length} keyword{kwList.length !== 1 ? "s" : ""}</p>
+                </div>
+                <IntentBadge intent={intent} />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {kwList.map((kw) => (
+                  <span
+                    key={kw.id}
+                    className="inline-flex items-center px-2 py-0.5 rounded bg-muted text-xs text-muted-foreground"
+                  >
+                    {kw.keyword}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {unclustered && unclustered[1].keywords.length > 0 && (
+        <div>
+          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+            Unclustered ({unclustered[1].keywords.length})
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {unclustered[1].keywords.map((kw) => (
+              <span
+                key={kw.id}
+                className="inline-flex items-center px-2 py-0.5 rounded border text-xs text-muted-foreground"
+              >
+                {kw.keyword}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -309,6 +487,9 @@ export default function Keywords() {
   const [aiNiche, setAiNiche] = useState("");
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
+  const [activeTab, setActiveTab] = useState<"table" | "clusters">("table");
+  const [clusterFilter, setClusterFilter] = useState<string>("__all__");
+  const [websiteFilter, setWebsiteFilter] = useState<number | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -317,6 +498,7 @@ export default function Keywords() {
   const { data: websites } = useListWebsites();
   const createMutation = useCreateKeyword();
   const deleteMutation = useDeleteKeyword();
+  const updateMutation = useUpdateKeyword();
   const suggestMutation = useSuggestKeywords();
   const snapshotMutation = useSnapshotKeywordRanks();
   const { data: settings } = useGetSettings();
@@ -370,9 +552,41 @@ export default function Keywords() {
     });
   };
 
-  const filtered = (keywords ?? []).filter(k =>
-    !search || k.keyword.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleClusterChange = (id: number, cluster: string | null, intent?: string | null) => {
+    const updateData: Record<string, unknown> = { cluster };
+    if (intent !== undefined) updateData.intent = intent;
+    updateMutation.mutate(
+      { id, data: updateData as Parameters<typeof updateMutation.mutate>[0]["data"] },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey() }),
+        onError: () => toast({ title: "Failed to update cluster", variant: "destructive" }),
+      },
+    );
+  };
+
+  const allClusters = useMemo(() => {
+    const names = new Set<string>();
+    for (const kw of keywords ?? []) {
+      if (kw.cluster) names.add(kw.cluster);
+    }
+    return Array.from(names).sort();
+  }, [keywords]);
+
+  const websiteFiltered = useMemo(() => {
+    if (!websiteFilter) return keywords ?? [];
+    return (keywords ?? []).filter((k) => k.websiteId === websiteFilter);
+  }, [keywords, websiteFilter]);
+
+  const filtered = useMemo(() => {
+    return websiteFiltered.filter((k) => {
+      if (search && !k.keyword.toLowerCase().includes(search.toLowerCase())) return false;
+      if (clusterFilter !== "__all__") {
+        if (clusterFilter === "__none__") return !k.cluster;
+        return k.cluster === clusterFilter;
+      }
+      return true;
+    });
+  }, [websiteFiltered, search, clusterFilter]);
 
   return (
     <div className="p-6 space-y-6">
@@ -520,49 +734,123 @@ export default function Keywords() {
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input data-testid="input-search-keywords" className="pl-8" placeholder="Search keywords..." value={search} onChange={e => setSearch(e.target.value)} />
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input data-testid="input-search-keywords" className="pl-8 w-56" placeholder="Search keywords..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
+        {(websites ?? []).length > 1 && (
+          <Select value={websiteFilter ? String(websiteFilter) : "__all__"} onValueChange={(v) => setWebsiteFilter(v === "__all__" ? null : parseInt(v))}>
+            <SelectTrigger className="w-44" data-testid="select-filter-website">
+              <SelectValue placeholder="All websites" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All websites</SelectItem>
+              {(websites ?? []).map((w) => (
+                <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {activeTab === "table" && allClusters.length > 0 && (
+          <Select value={clusterFilter} onValueChange={setClusterFilter}>
+            <SelectTrigger className="w-44" data-testid="select-filter-cluster">
+              <SelectValue placeholder="All clusters" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All clusters</SelectItem>
+              <SelectItem value="__none__">Unclustered</SelectItem>
+              {allClusters.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-4 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">{search ? "No keywords match" : "No keywords tracked yet"}</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Keyword</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Rank</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Volume</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Difficulty</th>
-                    <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
-                    <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">30-day trend</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(kw => (
-                    <KeywordRowWithHistory
-                      key={kw.id}
-                      kw={kw}
-                      onSelect={setSelectedKeyword}
-                      onDelete={handleDelete}
-                      deleteIsPending={deleteMutation.isPending}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Tab switcher */}
+      <div className="flex gap-1 border-b">
+        <button
+          data-testid="tab-table"
+          onClick={() => setActiveTab("table")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "table"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <TableProperties className="h-3.5 w-3.5" />
+          Table
+        </button>
+        <button
+          data-testid="tab-clusters"
+          onClick={() => setActiveTab("clusters")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "clusters"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          Clusters
+        </button>
+      </div>
+
+      {activeTab === "table" && (
+        <Card>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="p-4 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">{search ? "No keywords match" : "No keywords tracked yet"}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Keyword</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Rank</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Volume</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Difficulty</th>
+                      <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Cluster</th>
+                      <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">30-day trend</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(kw => (
+                      <KeywordRowWithHistory
+                        key={kw.id}
+                        kw={kw}
+                        onSelect={setSelectedKeyword}
+                        onDelete={handleDelete}
+                        deleteIsPending={deleteMutation.isPending}
+                        allClusters={allClusters}
+                        onClusterChange={handleClusterChange}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === "clusters" && (
+        <ClustersView
+          keywords={websiteFiltered}
+          websiteId={websiteFilter ?? (websites && websites.length === 1 ? websites[0].id : null)}
+          aiDisabled={aiDisabled}
+          onClusterChange={handleClusterChange}
+        />
+      )}
 
       <KeywordDetailPanel
         keyword={selectedKeyword}

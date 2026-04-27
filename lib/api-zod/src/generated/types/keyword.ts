@@ -20,6 +20,16 @@ export interface Keyword {
   status: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Topic cluster name assigned to this keyword
+   * @nullable
+   */
+  cluster?: string | null;
+  /**
+   * Search intent: informational | commercial | navigational | transactional
+   * @nullable
+   */
+  intent?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

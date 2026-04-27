@@ -24,6 +24,8 @@ import type {
   Campaign,
   CampaignAnalytics,
   CampaignRecipientsResponse,
+  ClusterKeywordsBody,
+  ClusterKeywordsResponse,
   CreateBacklinkBody,
   CreateCampaignBody,
   CreateKeywordBody,
@@ -3818,6 +3820,92 @@ export const useSuggestKeywords = <
   TContext
 > => {
   return useMutation(getSuggestKeywordsMutationOptions(options));
+};
+
+/**
+ * @summary AI keyword clustering by topic and intent
+ */
+export const getClusterKeywordsUrl = () => {
+  return `/api/ai/cluster-keywords`;
+};
+
+export const clusterKeywords = async (
+  clusterKeywordsBody: ClusterKeywordsBody,
+  options?: RequestInit,
+): Promise<ClusterKeywordsResponse> => {
+  return customFetch<ClusterKeywordsResponse>(getClusterKeywordsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(clusterKeywordsBody),
+  });
+};
+
+export const getClusterKeywordsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clusterKeywords>>,
+    TError,
+    { data: BodyType<ClusterKeywordsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clusterKeywords>>,
+  TError,
+  { data: BodyType<ClusterKeywordsBody> },
+  TContext
+> => {
+  const mutationKey = ["clusterKeywords"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clusterKeywords>>,
+    { data: BodyType<ClusterKeywordsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return clusterKeywords(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClusterKeywordsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clusterKeywords>>
+>;
+export type ClusterKeywordsMutationBody = BodyType<ClusterKeywordsBody>;
+export type ClusterKeywordsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary AI keyword clustering by topic and intent
+ */
+export const useClusterKeywords = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clusterKeywords>>,
+    TError,
+    { data: BodyType<ClusterKeywordsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clusterKeywords>>,
+  TError,
+  { data: BodyType<ClusterKeywordsBody> },
+  TContext
+> => {
+  return useMutation(getClusterKeywordsMutationOptions(options));
 };
 
 /**

@@ -68,6 +68,16 @@ export interface Keyword {
   status: string;
   /** @nullable */
   notes?: string | null;
+  /**
+   * Topic cluster name assigned to this keyword
+   * @nullable
+   */
+  cluster?: string | null;
+  /**
+   * Search intent: informational | commercial | navigational | transactional
+   * @nullable
+   */
+  intent?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -97,6 +107,10 @@ export interface UpdateKeywordBody {
   status?: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  cluster?: string | null;
+  /** @nullable */
+  intent?: string | null;
 }
 
 export interface KeywordRankHistory {
@@ -540,6 +554,22 @@ export type KeywordSuggestionsKeywordsItem = {
 
 export interface KeywordSuggestions {
   keywords: KeywordSuggestionsKeywordsItem[];
+}
+
+export interface ClusterKeywordsBody {
+  websiteId: number;
+  keywords: string[];
+}
+
+export type ClusterKeywordsResponseClustersItem = {
+  name: string;
+  /** informational | commercial | navigational | transactional */
+  intent: string;
+  keywords: string[];
+};
+
+export interface ClusterKeywordsResponse {
+  clusters: ClusterKeywordsResponseClustersItem[];
 }
 
 export interface GeneratePostBody {

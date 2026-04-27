@@ -118,6 +118,16 @@ export const ListKeywordsResponseItem = zod.object({
   difficulty: zod.number().nullish(),
   status: zod.string().describe("tracking | paused"),
   notes: zod.string().nullish(),
+  cluster: zod
+    .string()
+    .nullish()
+    .describe("Topic cluster name assigned to this keyword"),
+  intent: zod
+    .string()
+    .nullish()
+    .describe(
+      "Search intent: informational | commercial | navigational | transactional",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -150,6 +160,8 @@ export const UpdateKeywordBody = zod.object({
   difficulty: zod.number().nullish(),
   status: zod.string().optional(),
   notes: zod.string().nullish(),
+  cluster: zod.string().nullish(),
+  intent: zod.string().nullish(),
 });
 
 export const UpdateKeywordResponse = zod.object({
@@ -161,6 +173,16 @@ export const UpdateKeywordResponse = zod.object({
   difficulty: zod.number().nullish(),
   status: zod.string().describe("tracking | paused"),
   notes: zod.string().nullish(),
+  cluster: zod
+    .string()
+    .nullish()
+    .describe("Topic cluster name assigned to this keyword"),
+  intent: zod
+    .string()
+    .nullish()
+    .describe(
+      "Search intent: informational | commercial | navigational | transactional",
+    ),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -929,6 +951,26 @@ export const SuggestKeywordsResponse = zod.object({
       intent: zod.string(),
       estimatedDifficulty: zod.string(),
       notes: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary AI keyword clustering by topic and intent
+ */
+export const ClusterKeywordsBody = zod.object({
+  websiteId: zod.number(),
+  keywords: zod.array(zod.string()),
+});
+
+export const ClusterKeywordsResponse = zod.object({
+  clusters: zod.array(
+    zod.object({
+      name: zod.string(),
+      intent: zod
+        .string()
+        .describe("informational | commercial | navigational | transactional"),
+      keywords: zod.array(zod.string()),
     }),
   ),
 });

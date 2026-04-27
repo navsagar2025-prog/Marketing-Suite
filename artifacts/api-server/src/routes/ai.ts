@@ -12,6 +12,8 @@ import {
   GenerateSeoBriefResponse,
   GenerateAiImageBody,
   GenerateAiVideoBody,
+  ClusterKeywordsBody,
+  ClusterKeywordsResponse,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import { mediaAssetsTable } from "@workspace/db/schema";
@@ -162,6 +164,64 @@ Return ONLY valid JSON, no markdown.`;
       parsedResult = { keywords: [] };
     }
     res.json(SuggestKeywordsResponse.parse(parsedResult));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
+});
+
+router.post("/ai/cluster-keywords", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+  const parsed = ClusterKeywordsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { keywords } = parsed.data;
+  if (keywords.length === 0) {
+    res.json(ClusterKeywordsResponse.parse({ clusters: [] }));
+    return;
+  }
+
+  const prompt = `You are an SEO expert. Group the following keywords into named topic clusters. For each cluster, assign a search intent label.
+
+Keywords to cluster:
+${keywords.map((k, i) => `${i + 1}. ${k}`).join("\n")}
+
+Rules:
+- Group semantically related keywords together
+- Cluster names should be short and descriptive (2-5 words max)
+- Intent must be one of: informational, commercial, navigational, transactional
+- Every keyword must appear in exactly one cluster
+- Aim for 2-6 clusters depending on keyword count and diversity
+
+Return ONLY valid JSON in this exact format:
+{
+  "clusters": [
+    {
+      "name": "Cluster Name",
+      "intent": "informational",
+      "keywords": ["keyword one", "keyword two"]
+    }
+  ]
+}`;
+
+  try {
+    const content = await callAI(prompt, { maxTokens: 2048 });
+    let result: { clusters: Array<{ name: string; intent: string; keywords: string[] }> } = { clusters: [] };
+    try {
+      result = JSON.parse(content);
+    } catch {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { result = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
+      }
+    }
+    res.json(ClusterKeywordsResponse.parse(result));
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI generation failed";
     res.status(503).json({ error: message });

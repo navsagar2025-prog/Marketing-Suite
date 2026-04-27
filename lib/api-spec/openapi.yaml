@@ -871,6 +871,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/KeywordSuggestions"
 
+  /ai/cluster-keywords:
+    post:
+      operationId: clusterKeywords
+      tags: [ai]
+      summary: AI keyword clustering by topic and intent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClusterKeywordsBody"
+      responses:
+        "200":
+          description: Keyword cluster groupings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClusterKeywordsResponse"
+
   /ai/generate-post:
     post:
       operationId: generateSocialPost
@@ -1324,6 +1343,12 @@ components:
           description: tracking | paused
         notes:
           type: ["string", "null"]
+        cluster:
+          type: ["string", "null"]
+          description: Topic cluster name assigned to this keyword
+        intent:
+          type: ["string", "null"]
+          description: "Search intent: informational | commercial | navigational | transactional"
         createdAt:
           type: string
           format: date-time
@@ -1374,6 +1399,10 @@ components:
         status:
           type: string
         notes:
+          type: ["string", "null"]
+        cluster:
+          type: ["string", "null"]
+        intent:
           type: ["string", "null"]
 
     KeywordRankHistory:
@@ -2129,6 +2158,43 @@ components:
               - notes
       required:
         - keywords
+
+    ClusterKeywordsBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        keywords:
+          type: array
+          items:
+            type: string
+      required:
+        - websiteId
+        - keywords
+
+    ClusterKeywordsResponse:
+      type: object
+      properties:
+        clusters:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              intent:
+                type: string
+                description: "informational | commercial | navigational | transactional"
+              keywords:
+                type: array
+                items:
+                  type: string
+            required:
+              - name
+              - intent
+              - keywords
+      required:
+        - clusters
 
     GeneratePostBody:
       type: object

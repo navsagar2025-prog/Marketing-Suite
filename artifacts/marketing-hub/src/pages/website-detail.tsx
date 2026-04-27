@@ -209,7 +209,7 @@ function LinkSuggestionCard({ suggestion }: { suggestion: LinkSuggestion }) {
 function InternalLinksTab({ websiteId, websiteUrl, onSwitchToAudit }: { websiteId: number; websiteUrl: string; onSwitchToAudit: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: audits } = useListSeoAudits(websiteId, {
+  const { data: audits, isLoading: auditsLoading } = useListSeoAudits(websiteId, {
     query: { queryKey: getListSeoAuditsQueryKey(websiteId) }
   });
   const { data: suggestions, isLoading } = useListLinkSuggestions(websiteId, {
@@ -234,6 +234,10 @@ function InternalLinksTab({ websiteId, websiteUrl, onSwitchToAudit }: { websiteI
       },
     });
   };
+
+  if (auditsLoading) {
+    return <Skeleton className="h-40 w-full" />;
+  }
 
   if (!hasAudit) {
     return (

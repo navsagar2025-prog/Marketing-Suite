@@ -433,28 +433,42 @@ Return ONLY valid JSON in this format:
         try { parsed = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
       }
     }
-    suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+    const raw = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+    const seen = new Set<string>();
+    suggestions = raw.filter((s): s is { sourcePage: string; targetPage: string; anchorText: string; reason: string } => {
+      if (
+        typeof s !== "object" || s === null ||
+        typeof s.sourcePage !== "string" || !s.sourcePage.trim() ||
+        typeof s.targetPage !== "string" || !s.targetPage.trim() ||
+        typeof s.anchorText !== "string" || !s.anchorText.trim() ||
+        typeof s.reason !== "string" || !s.reason.trim()
+      ) return false;
+      const key = `${s.sourcePage.trim()}|${s.targetPage.trim()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI generation failed";
     res.status(503).json({ error: message });
     return;
   }
 
+  await db.delete(linkSuggestionsTable).where(eq(linkSuggestionsTable.websiteId, id));
+
   if (suggestions.length === 0) {
     res.json([]);
     return;
   }
 
-  await db.delete(linkSuggestionsTable).where(eq(linkSuggestionsTable.websiteId, id));
-
   const inserted = await db
     .insert(linkSuggestionsTable)
     .values(suggestions.map(s => ({
       websiteId: id,
-      sourcePage: s.sourcePage,
-      targetPage: s.targetPage,
-      anchorText: s.anchorText,
-      reason: s.reason,
+      sourcePage: s.sourcePage.trim(),
+      targetPage: s.targetPage.trim(),
+      anchorText: s.anchorText.trim(),
+      reason: s.reason.trim(),
     })))
     .returning();
 

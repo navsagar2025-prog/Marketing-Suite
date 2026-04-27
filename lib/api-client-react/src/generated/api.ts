@@ -77,6 +77,7 @@ import type {
   SnapshotKeywordsResponse,
   SocialPost,
   SuggestKeywordsBody,
+  SummarizeConversationResponse,
   TestAiResponse,
   TestEmailBody,
   TestEmailResponse,
@@ -3421,6 +3422,93 @@ export const useSendMessage = <
   TContext
 > => {
   return useMutation(getSendMessageMutationOptions(options));
+};
+
+/**
+ * @summary Summarize conversation and save qualification notes to lead
+ */
+export const getSummarizeConversationUrl = (id: number) => {
+  return `/api/conversations/${id}/summarize`;
+};
+
+export const summarizeConversation = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SummarizeConversationResponse> => {
+  return customFetch<SummarizeConversationResponse>(
+    getSummarizeConversationUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSummarizeConversationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof summarizeConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof summarizeConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["summarizeConversation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof summarizeConversation>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return summarizeConversation(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SummarizeConversationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof summarizeConversation>>
+>;
+
+export type SummarizeConversationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Summarize conversation and save qualification notes to lead
+ */
+export const useSummarizeConversation = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof summarizeConversation>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof summarizeConversation>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getSummarizeConversationMutationOptions(options));
 };
 
 /**

@@ -900,6 +900,10 @@ export interface Conversation {
   title: string;
   /** @nullable */
   leadId?: number | null;
+  /** @nullable */
+  leadName?: string | null;
+  /** @nullable */
+  lastMessageAt?: string | null;
   createdAt: string;
 }
 
@@ -924,6 +928,11 @@ export interface SendMessageBody {
 export interface SendMessageResponse {
   userMessage: ConversationMessage;
   assistantMessage: ConversationMessage;
+}
+
+export interface SummarizeConversationResponse {
+  summary: string;
+  notesSaved: boolean;
 }
 
 export type ListKeywordsParams = {

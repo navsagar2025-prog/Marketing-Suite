@@ -11,5 +11,9 @@ export interface Conversation {
   title: string;
   /** @nullable */
   leadId?: number | null;
+  /** @nullable */
+  leadName?: string | null;
+  /** @nullable */
+  lastMessageAt?: Date | null;
   createdAt: Date;
 }

@@ -78,6 +78,7 @@ export * from "./seoAuditIssue";
 export * from "./snapshotKeywordsResponse";
 export * from "./socialPost";
 export * from "./suggestKeywordsBody";
+export * from "./summarizeConversationResponse";
 export * from "./testAiResponse";
 export * from "./testEmailBody";
 export * from "./testEmailResponse";

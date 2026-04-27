@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare, Send, X, Loader2 } from "lucide-react";
+import { MessageSquare, Send, X, Loader2, BookCheck } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useCreateConversation,
   useGetConversationMessages,
   useSendMessage,
+  useSummarizeConversation,
   getGetConversationMessagesQueryKey,
+  getListLeadsQueryKey,
 } from "@workspace/api-client-react";
 import type { Conversation, ConversationMessage } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -64,6 +66,7 @@ export default function ConversationDrawer({
 
   const createConversation = useCreateConversation();
   const sendMessage = useSendMessage();
+  const summarize = useSummarizeConversation();
 
   const { data: msgs, isLoading: msgsLoading } = useGetConversationMessages(
     conversationId ?? 0,
@@ -125,6 +128,27 @@ export default function ConversationDrawer({
     }
   };
 
+  const handleSaveToLead = () => {
+    if (!conversationId) return;
+    summarize.mutate(
+      { id: conversationId },
+      {
+        onSuccess: (data) => {
+          if (data.notesSaved) {
+            queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
+            toast({ title: "Qualification notes saved to lead" });
+          } else {
+            toast({ title: "No linked lead — notes not saved", description: data.summary, variant: "destructive" });
+          }
+        },
+        onError: (err) => {
+          const msg = err instanceof Error ? err.message : "Failed to summarize conversation";
+          toast({ title: msg, variant: "destructive" });
+        },
+      }
+    );
+  };
+
   const isLoading = initializing || msgsLoading;
   const messages: ConversationMessage[] = msgs ?? [];
 
@@ -135,9 +159,29 @@ export default function ConversationDrawer({
           <p className="font-semibold text-sm">Qualify Lead</p>
           <p className="text-xs text-muted-foreground">{leadName}</p>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          {messages.length > 0 && leadId > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={handleSaveToLead}
+              disabled={summarize.isPending}
+              data-testid="button-save-to-lead"
+              title="Generate AI summary and save to lead notes"
+            >
+              {summarize.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <BookCheck className="h-3 w-3" />
+              )}
+              Save to Lead
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4">

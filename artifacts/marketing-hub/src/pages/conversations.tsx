@@ -1,15 +1,24 @@
 import { useState } from "react";
-import { MessageSquare, Users } from "lucide-react";
-import { useListConversations } from "@workspace/api-client-react";
+import { MessageSquare, Users, Clock } from "lucide-react";
+import { useListConversations, getListConversationsQueryKey } from "@workspace/api-client-react";
 import type { Conversation } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import ConversationDrawer from "@/components/ConversationDrawer";
-import { getListConversationsQueryKey } from "@workspace/api-client-react";
 
-function formatDate(dateStr: string) {
+function formatRelativeTime(dateStr: string | null | undefined) {
+  if (!dateStr) return null;
   const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -39,31 +48,41 @@ export default function Conversations() {
             </div>
           ) : (
             <div className="divide-y">
-              {conversations.map((conv: Conversation) => (
-                <button
-                  key={conv.id}
-                  data-testid={`row-conversation-${conv.id}`}
-                  onClick={() => setActiveConversation(conv)}
-                  className="w-full flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
-                >
-                  <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{conv.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {conv.leadId ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Users className="h-3 w-3" /> Lead #{conv.leadId}
-                        </span>
-                      ) : (
-                        "No lead linked"
-                      )}
-                    </p>
-                  </div>
-                  <span className="text-xs text-muted-foreground flex-shrink-0">{formatDate(conv.createdAt)}</span>
-                </button>
-              ))}
+              {conversations.map((conv: Conversation) => {
+                const lastActivity = conv.lastMessageAt ?? conv.createdAt;
+                const relativeTime = formatRelativeTime(lastActivity);
+                return (
+                  <button
+                    key={conv.id}
+                    data-testid={`row-conversation-${conv.id}`}
+                    onClick={() => setActiveConversation(conv)}
+                    className="w-full flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+                  >
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{conv.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {conv.leadName ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {conv.leadName}
+                          </span>
+                        ) : (
+                          "No lead linked"
+                        )}
+                      </p>
+                    </div>
+                    {relativeTime && (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
+                        <Clock className="h-3 w-3" />
+                        {relativeTime}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -72,7 +91,7 @@ export default function Conversations() {
       {activeConversation && (
         <ConversationDrawer
           leadId={activeConversation.leadId ?? 0}
-          leadName={activeConversation.title}
+          leadName={activeConversation.leadName ?? activeConversation.title}
           existingConversation={activeConversation}
           onClose={() => setActiveConversation(null)}
           onConversationCreated={() => {

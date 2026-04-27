@@ -784,6 +784,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/SendMessageResponse"
 
+  /conversations/{id}/summarize:
+    post:
+      operationId: summarizeConversation
+      tags: [conversations]
+      summary: Summarize conversation and save qualification notes to lead
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary and updated lead notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SummarizeConversationResponse"
+
   # ─── Analytics / Dashboard ────────────────────────────────────────────────────
   /analytics/summary:
     get:
@@ -2739,6 +2758,11 @@ components:
           type: string
         leadId:
           type: ["integer", "null"]
+        leadName:
+          type: ["string", "null"]
+        lastMessageAt:
+          type: ["string", "null"]
+          format: date-time
         createdAt:
           type: string
           format: date-time
@@ -2796,3 +2820,14 @@ components:
       required:
         - userMessage
         - assistantMessage
+
+    SummarizeConversationResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+        notesSaved:
+          type: boolean
+      required:
+        - summary
+        - notesSaved

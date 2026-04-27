@@ -28,6 +28,7 @@ import {
   useListConversations,
   getListLeadsQueryKey,
   getGetLeadsFunnelQueryKey,
+  getListConversationsQueryKey,
 } from "@workspace/api-client-react";
 import type { Conversation } from "@workspace/api-client-react";
 import ConversationDrawer from "@/components/ConversationDrawer";
@@ -446,7 +447,7 @@ export default function Leads() {
           }
           onClose={() => setQualifyingLead(null)}
           onConversationCreated={() => {
-            queryClient.invalidateQueries({ queryKey: ["listConversations"] });
+            queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
           }}
         />
       )}

@@ -809,6 +809,8 @@ export const ListConversationsResponseItem = zod.object({
   id: zod.number(),
   title: zod.string(),
   leadId: zod.number().nullish(),
+  leadName: zod.string().nullish(),
+  lastMessageAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListConversationsResponse = zod.array(
@@ -850,6 +852,18 @@ export const SendMessageParams = zod.object({
 
 export const SendMessageBody = zod.object({
   content: zod.string(),
+});
+
+/**
+ * @summary Summarize conversation and save qualification notes to lead
+ */
+export const SummarizeConversationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SummarizeConversationResponse = zod.object({
+  summary: zod.string(),
+  notesSaved: zod.boolean(),
 });
 
 /**

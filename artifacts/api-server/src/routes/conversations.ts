@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, max, sql } from "drizzle-orm";
 import { db, conversations, messages, leadsTable } from "@workspace/db";
 import {
   CreateConversationBody,
   SendMessageBody,
   GetConversationMessagesParams,
   SendMessageParams,
+  SummarizeConversationParams,
 } from "@workspace/api-zod";
 import { callAI } from "../lib/ai-provider.js";
 import { checkAndIncrementUsage } from "../lib/ai-usage.js";
@@ -19,10 +20,26 @@ router.get("/conversations", async (req, res): Promise<void> => {
       title: conversations.title,
       leadId: conversations.leadId,
       createdAt: conversations.createdAt,
+      leadName: leadsTable.name,
+      lastMessageAt: max(messages.createdAt).as("lastMessageAt"),
     })
     .from(conversations)
+    .leftJoin(leadsTable, eq(conversations.leadId, leadsTable.id))
+    .leftJoin(messages, eq(messages.conversationId, conversations.id))
+    .groupBy(
+      conversations.id,
+      conversations.title,
+      conversations.leadId,
+      conversations.createdAt,
+      leadsTable.name,
+    )
     .orderBy(asc(conversations.createdAt));
-  res.json(rows);
+
+  res.json(rows.map(r => ({
+    ...r,
+    leadName: r.leadName ?? null,
+    lastMessageAt: r.lastMessageAt ? r.lastMessageAt.toISOString() : null,
+  })));
 });
 
 router.post("/conversations", async (req, res): Promise<void> => {
@@ -32,7 +49,7 @@ router.post("/conversations", async (req, res): Promise<void> => {
     return;
   }
   const [row] = await db.insert(conversations).values(parsed.data).returning();
-  res.status(201).json(row);
+  res.status(201).json({ ...row, leadName: null, lastMessageAt: null });
 });
 
 router.get("/conversations/:id/messages", async (req, res): Promise<void> => {
@@ -123,6 +140,76 @@ router.post("/conversations/:id/messages", async (req, res): Promise<void> => {
   } catch (err) {
     await db.delete(messages).where(eq(messages.id, userMsg.id));
     const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
+});
+
+router.post("/conversations/:id/summarize", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+
+  const params = SummarizeConversationParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [conv] = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, params.data.id));
+  if (!conv) {
+    res.status(404).json({ error: "Conversation not found" });
+    return;
+  }
+
+  const msgs = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, params.data.id))
+    .orderBy(asc(messages.createdAt));
+
+  if (msgs.length === 0) {
+    res.status(400).json({ error: "No messages to summarize" });
+    return;
+  }
+
+  const transcript = msgs
+    .map(m => `${m.role === "user" ? "Lead" : "AI"}: ${m.content}`)
+    .join("\n");
+
+  const prompt = `Summarize this lead qualification conversation in a concise, actionable format for a CRM note. Focus on: the lead's needs, budget/timeline mentioned, key objections or concerns, and overall qualification status.
+
+Conversation:
+${transcript}
+
+Write 2-5 bullet points, each starting with "• ". Be specific and factual. Do not add markdown headers.`;
+
+  try {
+    const summary = await callAI(prompt, { maxTokens: 512 });
+
+    let notesSaved = false;
+    if (conv.leadId) {
+      const [lead] = await db.select().from(leadsTable).where(eq(leadsTable.id, conv.leadId));
+      if (lead) {
+        const timestamp = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const noteEntry = `[AI Qualification Summary – ${timestamp}]\n${summary}`;
+        const updatedNotes = lead.notes
+          ? `${lead.notes}\n\n${noteEntry}`
+          : noteEntry;
+        await db.update(leadsTable)
+          .set({ notes: updatedNotes })
+          .where(eq(leadsTable.id, conv.leadId));
+        notesSaved = true;
+      }
+    }
+
+    res.json({ summary, notesSaved });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI summarization failed";
     res.status(503).json({ error: message });
   }
 });

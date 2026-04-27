@@ -199,7 +199,7 @@ function LinkSuggestionCard({ suggestion }: { suggestion: LinkSuggestion }) {
           <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
         </div>
         <Button size="sm" variant="ghost" className="text-xs h-7 px-2 shrink-0" onClick={handleCopy}>
-          {copied ? <><Check className="h-3 w-3 mr-1" /> Copied!</> : <><Copy className="h-3 w-3 mr-1" /> Copy</>}
+          {copied ? <><Check className="h-3 w-3 mr-1" /> Copied!</> : <><Copy className="h-3 w-3 mr-1" /> Copy suggestion</>}
         </Button>
       </div>
     </div>

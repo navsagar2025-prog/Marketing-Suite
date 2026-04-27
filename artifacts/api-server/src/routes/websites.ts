@@ -454,9 +454,18 @@ Return ONLY valid JSON in this format:
     return;
   }
 
+  if (suggestions.length === 0) {
+    const existing = await db
+      .select()
+      .from(linkSuggestionsTable)
+      .where(eq(linkSuggestionsTable.websiteId, id))
+      .orderBy(desc(linkSuggestionsTable.createdAt));
+    res.json(existing);
+    return;
+  }
+
   const inserted = await db.transaction(async (tx) => {
     await tx.delete(linkSuggestionsTable).where(eq(linkSuggestionsTable.websiteId, id));
-    if (suggestions.length === 0) return [];
     return tx
       .insert(linkSuggestionsTable)
       .values(suggestions.map(s => ({

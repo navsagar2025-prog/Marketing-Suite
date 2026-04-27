@@ -5,6 +5,7 @@
  * SEO & Marketing Hub API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { KeywordIntent } from "./keywordIntent";
 
 export interface Keyword {
   id: number;
@@ -29,7 +30,7 @@ export interface Keyword {
    * Search intent: informational | commercial | navigational | transactional
    * @nullable
    */
-  intent?: string | null;
+  intent?: KeywordIntent;
   createdAt: Date;
   updatedAt: Date;
 }

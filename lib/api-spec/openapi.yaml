@@ -1348,6 +1348,7 @@ components:
           description: Topic cluster name assigned to this keyword
         intent:
           type: ["string", "null"]
+          enum: ["informational", "commercial", "navigational", "transactional", null]
           description: "Search intent: informational | commercial | navigational | transactional"
         createdAt:
           type: string
@@ -1404,6 +1405,7 @@ components:
           type: ["string", "null"]
         intent:
           type: ["string", "null"]
+          enum: ["informational", "commercial", "navigational", "transactional", null]
 
     KeywordRankHistory:
       type: object
@@ -2184,6 +2186,7 @@ components:
                 type: string
               intent:
                 type: string
+                enum: ["informational", "commercial", "navigational", "transactional"]
                 description: "informational | commercial | navigational | transactional"
               keywords:
                 type: array

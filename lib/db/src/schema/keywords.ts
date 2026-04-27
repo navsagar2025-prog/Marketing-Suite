@@ -1,7 +1,9 @@
-import { pgTable, text, serial, timestamp, integer, date, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, date, unique, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { websitesTable } from "./websites";
+
+export const keywordIntentEnum = pgEnum("keyword_intent", ["informational", "commercial", "navigational", "transactional"]);
 
 export const keywordsTable = pgTable("keywords", {
   id: serial("id").primaryKey(),
@@ -13,7 +15,7 @@ export const keywordsTable = pgTable("keywords", {
   status: text("status").notNull().default("tracking"),
   notes: text("notes"),
   cluster: text("cluster"),
-  intent: text("intent"),
+  intent: keywordIntentEnum("intent"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

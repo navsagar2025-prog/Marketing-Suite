@@ -5,10 +5,11 @@
  * SEO & Marketing Hub API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ClusterKeywordsResponseClustersItemIntent } from "./clusterKeywordsResponseClustersItemIntent";
 
 export type ClusterKeywordsResponseClustersItem = {
   name: string;
   /** informational | commercial | navigational | transactional */
-  intent: string;
+  intent: ClusterKeywordsResponseClustersItemIntent;
   keywords: string[];
 };

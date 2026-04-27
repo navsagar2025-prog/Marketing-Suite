@@ -123,7 +123,13 @@ export const ListKeywordsResponseItem = zod.object({
     .nullish()
     .describe("Topic cluster name assigned to this keyword"),
   intent: zod
-    .string()
+    .union([
+      zod.literal("informational"),
+      zod.literal("commercial"),
+      zod.literal("navigational"),
+      zod.literal("transactional"),
+      zod.literal(null),
+    ])
     .nullish()
     .describe(
       "Search intent: informational | commercial | navigational | transactional",
@@ -161,7 +167,15 @@ export const UpdateKeywordBody = zod.object({
   status: zod.string().optional(),
   notes: zod.string().nullish(),
   cluster: zod.string().nullish(),
-  intent: zod.string().nullish(),
+  intent: zod
+    .union([
+      zod.literal("informational"),
+      zod.literal("commercial"),
+      zod.literal("navigational"),
+      zod.literal("transactional"),
+      zod.literal(null),
+    ])
+    .nullish(),
 });
 
 export const UpdateKeywordResponse = zod.object({
@@ -178,7 +192,13 @@ export const UpdateKeywordResponse = zod.object({
     .nullish()
     .describe("Topic cluster name assigned to this keyword"),
   intent: zod
-    .string()
+    .union([
+      zod.literal("informational"),
+      zod.literal("commercial"),
+      zod.literal("navigational"),
+      zod.literal("transactional"),
+      zod.literal(null),
+    ])
     .nullish()
     .describe(
       "Search intent: informational | commercial | navigational | transactional",
@@ -968,7 +988,7 @@ export const ClusterKeywordsResponse = zod.object({
     zod.object({
       name: zod.string(),
       intent: zod
-        .string()
+        .enum(["informational", "commercial", "navigational", "transactional"])
         .describe("informational | commercial | navigational | transactional"),
       keywords: zod.array(zod.string()),
     }),

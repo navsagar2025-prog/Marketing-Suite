@@ -5,6 +5,7 @@
  * SEO & Marketing Hub API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateKeywordBodyIntent } from "./updateKeywordBodyIntent";
 
 export interface UpdateKeywordBody {
   keyword?: string;
@@ -20,5 +21,5 @@ export interface UpdateKeywordBody {
   /** @nullable */
   cluster?: string | null;
   /** @nullable */
-  intent?: string | null;
+  intent?: UpdateKeywordBodyIntent;
 }

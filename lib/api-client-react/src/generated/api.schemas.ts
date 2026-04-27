@@ -54,6 +54,21 @@ export interface UpdateWebsiteBody {
   notes?: string | null;
 }
 
+/**
+ * Search intent: informational | commercial | navigational | transactional
+ * @nullable
+ */
+export type KeywordIntent =
+  | (typeof KeywordIntent)[keyof typeof KeywordIntent]
+  | null;
+
+export const KeywordIntent = {
+  informational: "informational",
+  commercial: "commercial",
+  navigational: "navigational",
+  transactional: "transactional",
+} as const;
+
 export interface Keyword {
   id: number;
   websiteId: number;
@@ -77,7 +92,7 @@ export interface Keyword {
    * Search intent: informational | commercial | navigational | transactional
    * @nullable
    */
-  intent?: string | null;
+  intent?: KeywordIntent;
   createdAt: string;
   updatedAt: string;
 }
@@ -96,6 +111,20 @@ export interface CreateKeywordBody {
   notes?: string | null;
 }
 
+/**
+ * @nullable
+ */
+export type UpdateKeywordBodyIntent =
+  | (typeof UpdateKeywordBodyIntent)[keyof typeof UpdateKeywordBodyIntent]
+  | null;
+
+export const UpdateKeywordBodyIntent = {
+  informational: "informational",
+  commercial: "commercial",
+  navigational: "navigational",
+  transactional: "transactional",
+} as const;
+
 export interface UpdateKeywordBody {
   keyword?: string;
   /** @nullable */
@@ -110,7 +139,7 @@ export interface UpdateKeywordBody {
   /** @nullable */
   cluster?: string | null;
   /** @nullable */
-  intent?: string | null;
+  intent?: UpdateKeywordBodyIntent;
 }
 
 export interface KeywordRankHistory {
@@ -561,10 +590,23 @@ export interface ClusterKeywordsBody {
   keywords: string[];
 }
 
+/**
+ * informational | commercial | navigational | transactional
+ */
+export type ClusterKeywordsResponseClustersItemIntent =
+  (typeof ClusterKeywordsResponseClustersItemIntent)[keyof typeof ClusterKeywordsResponseClustersItemIntent];
+
+export const ClusterKeywordsResponseClustersItemIntent = {
+  informational: "informational",
+  commercial: "commercial",
+  navigational: "navigational",
+  transactional: "transactional",
+} as const;
+
 export type ClusterKeywordsResponseClustersItem = {
   name: string;
   /** informational | commercial | navigational | transactional */
-  intent: string;
+  intent: ClusterKeywordsResponseClustersItemIntent;
   keywords: string[];
 };
 

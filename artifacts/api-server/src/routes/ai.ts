@@ -15,8 +15,9 @@ import {
   ClusterKeywordsBody,
   ClusterKeywordsResponse,
 } from "@workspace/api-zod";
-import { db } from "@workspace/db";
-import { mediaAssetsTable } from "@workspace/db/schema";
+import { db, keywordsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { mediaAssetsTable, websitesTable } from "@workspace/db/schema";
 import { getSetting } from "./settings.js";
 import { callAI, getDbSetting, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS } from "../lib/ai-provider.js";
 import { checkAndIncrementUsage } from "../lib/ai-usage.js";
@@ -181,21 +182,32 @@ router.post("/ai/cluster-keywords", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { keywords } = parsed.data;
+  const { websiteId, keywords } = parsed.data;
+
+  const [website] = await db.select().from(websitesTable).where(eq(websitesTable.id, websiteId));
+  if (!website) {
+    res.status(404).json({ error: "Website not found" });
+    return;
+  }
+
   if (keywords.length === 0) {
     res.json(ClusterKeywordsResponse.parse({ clusters: [] }));
     return;
   }
 
-  const prompt = `You are an SEO expert. Group the following keywords into named topic clusters. For each cluster, assign a search intent label.
+  const websiteContext = `Website: ${website.name}${website.url ? ` (${website.url})` : ""}`;
+
+  const prompt = `You are an SEO expert. Group the following keywords into named topic clusters for a specific website. For each cluster, assign a search intent label.
+
+${websiteContext}
 
 Keywords to cluster:
 ${keywords.map((k, i) => `${i + 1}. ${k}`).join("\n")}
 
 Rules:
-- Group semantically related keywords together
+- Group semantically related keywords together, informed by the website's niche
 - Cluster names should be short and descriptive (2-5 words max)
-- Intent must be one of: informational, commercial, navigational, transactional
+- Intent must be EXACTLY one of: informational, commercial, navigational, transactional
 - Every keyword must appear in exactly one cluster
 - Aim for 2-6 clusters depending on keyword count and diversity
 

@@ -915,6 +915,52 @@ paths:
                 items:
                   $ref: "#/components/schemas/SeoAudit"
 
+  /websites/{id}/link-suggestions:
+    get:
+      operationId: listLinkSuggestions
+      tags: [websites]
+      summary: List saved internal link suggestions for a website
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of link suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkSuggestion"
+        "404":
+          description: Website not found
+    post:
+      operationId: generateLinkSuggestions
+      tags: [websites]
+      summary: Generate AI-powered internal link suggestions from latest audit data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Generated link suggestions (saved to DB)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LinkSuggestion"
+        "404":
+          description: Website not found or no audit data available
+        "503":
+          description: AI provider error
+
   /websites/detect:
     post:
       operationId: detectWebsite
@@ -2211,6 +2257,33 @@ components:
         - score
         - issues
         - crawledAt
+
+    LinkSuggestion:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        sourcePage:
+          type: string
+        targetPage:
+          type: string
+        anchorText:
+          type: string
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - sourcePage
+        - targetPage
+        - anchorText
+        - reason
+        - createdAt
 
     DetectWebsiteBody:
       type: object

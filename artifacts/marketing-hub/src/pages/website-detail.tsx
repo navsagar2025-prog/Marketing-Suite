@@ -18,14 +18,17 @@ import {
   useListSeoAudits,
   useFixSeoIssue,
   useGetSettings,
+  useListLinkSuggestions,
+  useGenerateLinkSuggestions,
   getGetWebsiteQueryKey,
   getGetWebsiteAnalyticsQueryKey,
   getListKeywordsQueryKey,
   getListCampaignsQueryKey,
   getListLeadsQueryKey,
   getListSeoAuditsQueryKey,
+  getListLinkSuggestionsQueryKey,
 } from "@workspace/api-client-react";
-import type { SeoAudit, SeoAuditIssue } from "@workspace/api-client-react";
+import type { SeoAudit, SeoAuditIssue, LinkSuggestion } from "@workspace/api-client-react";
 
 function severityIcon(severity: string) {
   if (severity === "critical") return <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />;
@@ -162,6 +165,140 @@ function IssueCard({ issue, websiteUrl, websiteName }: { issue: SeoAuditIssue; w
           <FixPanel issue={issue} websiteUrl={websiteUrl} websiteName={websiteName} />
         )}
       </div>
+    </div>
+  );
+}
+
+function LinkSuggestionCard({ suggestion }: { suggestion: LinkSuggestion }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = `Add a link on ${suggestion.sourcePage} to ${suggestion.targetPage} using anchor: "${suggestion.anchorText}"`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="border rounded-md p-4 space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground truncate max-w-[200px]" title={suggestion.sourcePage}>
+              {suggestion.sourcePage}
+            </span>
+            <span className="text-muted-foreground">→</span>
+            <span className="text-xs font-medium text-muted-foreground truncate max-w-[200px]" title={suggestion.targetPage}>
+              {suggestion.targetPage}
+            </span>
+          </div>
+          <p className="text-sm font-medium">
+            Anchor: <span className="text-primary">"{suggestion.anchorText}"</span>
+          </p>
+          <p className="text-xs text-muted-foreground">{suggestion.reason}</p>
+        </div>
+        <Button size="sm" variant="ghost" className="text-xs h-7 px-2 shrink-0" onClick={handleCopy}>
+          {copied ? <><Check className="h-3 w-3 mr-1" /> Copied!</> : <><Copy className="h-3 w-3 mr-1" /> Copy</>}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function InternalLinksTab({ websiteId, websiteUrl }: { websiteId: number; websiteUrl: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: audits } = useListSeoAudits(websiteId, {
+    query: { queryKey: getListSeoAuditsQueryKey(websiteId) }
+  });
+  const { data: suggestions, isLoading } = useListLinkSuggestions(websiteId, {
+    query: { queryKey: getListLinkSuggestionsQueryKey(websiteId) }
+  });
+  const generateMutation = useGenerateLinkSuggestions();
+  const { data: aiSettings } = useGetSettings();
+  const aiProvider = aiSettings?.aiProvider ?? "replit";
+  const aiDisabled = aiSettings !== undefined && (!aiSettings.aiEnabled || (aiProvider !== "replit" && !aiSettings.aiApiKeyConfigured));
+
+  const hasAudit = audits && audits.length > 0;
+
+  const handleGenerate = () => {
+    generateMutation.mutate({ id: websiteId }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListLinkSuggestionsQueryKey(websiteId) });
+        toast({ title: "Link suggestions refreshed" });
+      },
+      onError: (err) => {
+        const msg = (err as { message?: string })?.message ?? "Generation failed";
+        toast({ title: "Failed to generate suggestions", description: msg, variant: "destructive" });
+      },
+    });
+  };
+
+  if (!hasAudit) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <Link2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm font-medium">No audit data yet</p>
+          <p className="text-xs text-muted-foreground mt-1 mb-4">
+            Run an SEO audit first to enable AI-powered internal link recommendations.
+          </p>
+          <Button size="sm" variant="outline" asChild>
+            <a href="#" onClick={(e) => { e.preventDefault(); }}>Go to SEO Audit tab</a>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Internal Link Recommendations</h2>
+          <p className="text-xs text-muted-foreground">
+            AI-suggested links based on your crawled page data
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={handleGenerate}
+          disabled={generateMutation.isPending || aiDisabled}
+          title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+        >
+          {generateMutation.isPending ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analyzing...</>
+          ) : (
+            <><RefreshCw className="h-4 w-4 mr-2" /> {suggestions && suggestions.length > 0 ? "Refresh" : "Generate"} Recommendations</>
+          )}
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        </div>
+      ) : !suggestions || suggestions.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Link2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm text-muted-foreground">No recommendations yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Click "Generate Recommendations" to analyze your site's crawl data.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {suggestions.map((s) => (
+            <LinkSuggestionCard key={s.id} suggestion={s} />
+          ))}
+          <p className="text-xs text-muted-foreground text-center pt-2">
+            {suggestions.length} recommendation{suggestions.length !== 1 ? "s" : ""} — generated from crawl data for <a href={websiteUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">{websiteUrl}</a>
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -409,6 +546,7 @@ export default function WebsiteDetail() {
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-seo-audit">SEO Audit</TabsTrigger>
+          <TabsTrigger value="internal-links" data-testid="tab-internal-links">Internal Links</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
@@ -522,6 +660,10 @@ export default function WebsiteDetail() {
 
         <TabsContent value="audit" className="mt-4">
           <AuditTab websiteId={id} websiteUrl={website.url} websiteName={website.name} />
+        </TabsContent>
+
+        <TabsContent value="internal-links" className="mt-4">
+          <InternalLinksTab websiteId={id} websiteUrl={website.url} />
         </TabsContent>
       </Tabs>
     </div>

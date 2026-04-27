@@ -62,6 +62,7 @@ import type {
   Lead,
   LeadScoringConfig,
   LeadsFunnel,
+  LinkSuggestion,
   ListBacklinksParams,
   ListCampaignsParams,
   ListKeywordsParams,
@@ -3997,6 +3998,177 @@ export function useListSeoAudits<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List saved internal link suggestions for a website
+ */
+export const getListLinkSuggestionsUrl = (id: number) => {
+  return `/api/websites/${id}/link-suggestions`;
+};
+
+export const listLinkSuggestions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LinkSuggestion[]> => {
+  return customFetch<LinkSuggestion[]>(getListLinkSuggestionsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLinkSuggestionsQueryKey = (id: number) => {
+  return [`/api/websites/${id}/link-suggestions`] as const;
+};
+
+export const getListLinkSuggestionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLinkSuggestions>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLinkSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLinkSuggestionsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listLinkSuggestions>>
+  > = ({ signal }) => listLinkSuggestions(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLinkSuggestions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLinkSuggestionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLinkSuggestions>>
+>;
+export type ListLinkSuggestionsQueryError = ErrorType<void>;
+
+/**
+ * @summary List saved internal link suggestions for a website
+ */
+
+export function useListLinkSuggestions<
+  TData = Awaited<ReturnType<typeof listLinkSuggestions>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLinkSuggestions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLinkSuggestionsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Generate AI-powered internal link suggestions from latest audit data
+ */
+export const getGenerateLinkSuggestionsUrl = (id: number) => {
+  return `/api/websites/${id}/link-suggestions`;
+};
+
+export const generateLinkSuggestions = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LinkSuggestion[]> => {
+  return customFetch<LinkSuggestion[]>(getGenerateLinkSuggestionsUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getGenerateLinkSuggestionsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateLinkSuggestions>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateLinkSuggestions>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["generateLinkSuggestions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateLinkSuggestions>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return generateLinkSuggestions(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateLinkSuggestionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateLinkSuggestions>>
+>;
+
+export type GenerateLinkSuggestionsMutationError = ErrorType<void>;
+
+/**
+ * @summary Generate AI-powered internal link suggestions from latest audit data
+ */
+export const useGenerateLinkSuggestions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateLinkSuggestions>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateLinkSuggestions>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getGenerateLinkSuggestionsMutationOptions(options));
+};
 
 /**
  * @summary Auto-detect niche and SEO score from a URL

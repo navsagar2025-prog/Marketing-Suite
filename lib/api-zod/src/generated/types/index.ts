@@ -65,6 +65,7 @@ export * from "./leadScoringConfigSource";
 export * from "./leadScoringConfigStatus";
 export * from "./leadScoringConfigValueTier";
 export * from "./leadsFunnel";
+export * from "./linkSuggestion";
 export * from "./listBacklinksParams";
 export * from "./listCampaignsParams";
 export * from "./listKeywordsParams";

@@ -538,6 +538,16 @@ export interface SeoAudit {
   crawledAt: string;
 }
 
+export interface LinkSuggestion {
+  id: number;
+  websiteId: number;
+  sourcePage: string;
+  targetPage: string;
+  anchorText: string;
+  reason: string;
+  createdAt: string;
+}
+
 export interface DetectWebsiteBody {
   url: string;
 }

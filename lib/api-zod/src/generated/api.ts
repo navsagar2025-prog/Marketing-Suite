@@ -999,6 +999,46 @@ export const ListSeoAuditsResponseItem = zod.object({
 export const ListSeoAuditsResponse = zod.array(ListSeoAuditsResponseItem);
 
 /**
+ * @summary List saved internal link suggestions for a website
+ */
+export const ListLinkSuggestionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListLinkSuggestionsResponseItem = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  sourcePage: zod.string(),
+  targetPage: zod.string(),
+  anchorText: zod.string(),
+  reason: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const ListLinkSuggestionsResponse = zod.array(
+  ListLinkSuggestionsResponseItem,
+);
+
+/**
+ * @summary Generate AI-powered internal link suggestions from latest audit data
+ */
+export const GenerateLinkSuggestionsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GenerateLinkSuggestionsResponseItem = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  sourcePage: zod.string(),
+  targetPage: zod.string(),
+  anchorText: zod.string(),
+  reason: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const GenerateLinkSuggestionsResponse = zod.array(
+  GenerateLinkSuggestionsResponseItem,
+);
+
+/**
  * @summary Auto-detect niche and SEO score from a URL
  */
 export const DetectWebsiteBody = zod.object({

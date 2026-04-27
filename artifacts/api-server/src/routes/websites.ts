@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, websitesTable, seoAuditsTable } from "@workspace/db";
+import { db, websitesTable, seoAuditsTable, linkSuggestionsTable } from "@workspace/db";
 import { callAI } from "../lib/ai-provider.js";
 import {
   ListWebsitesResponse,
@@ -287,6 +287,135 @@ Order issues by severity (critical first, then warning, then info).`;
     issues: audit.issuesJson,
     crawledAt: audit.crawledAt,
   });
+});
+
+router.get("/websites/:id/link-suggestions", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const suggestions = await db
+    .select()
+    .from(linkSuggestionsTable)
+    .where(eq(linkSuggestionsTable.websiteId, id))
+    .orderBy(desc(linkSuggestionsTable.createdAt));
+  res.json(suggestions);
+});
+
+router.post("/websites/:id/link-suggestions", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const [website] = await db.select().from(websitesTable).where(eq(websitesTable.id, id));
+  if (!website) {
+    res.status(404).json({ error: "Website not found" });
+    return;
+  }
+
+  const [latestAudit] = await db
+    .select()
+    .from(seoAuditsTable)
+    .where(eq(seoAuditsTable.websiteId, id))
+    .orderBy(desc(seoAuditsTable.crawledAt))
+    .limit(1);
+
+  if (!latestAudit || !latestAudit.crawledData) {
+    res.status(404).json({ error: "No audit data found. Please run an SEO audit first." });
+    return;
+  }
+
+  const crawled = latestAudit.crawledData as Record<string, unknown>;
+  const pages: Array<{ url: string; title?: string; metaDescription?: string; h1Tags?: string[] }> = [];
+
+  if (crawled.url) {
+    pages.push({
+      url: crawled.url as string,
+      title: crawled.title as string | undefined,
+      metaDescription: crawled.metaDescription as string | undefined,
+      h1Tags: crawled.h1Tags as string[] | undefined,
+    });
+  }
+
+  if (pages.length === 0) {
+    res.status(404).json({ error: "No crawled page data found in the latest audit." });
+    return;
+  }
+
+  const pagesText = pages.map((p, i) =>
+    `Page ${i + 1}:\n  URL: ${p.url}\n  Title: ${p.title ?? "No title"}\n  Meta: ${p.metaDescription ?? "No description"}\n  H1: ${(p.h1Tags ?? []).slice(0, 2).join(", ") || "None"}`
+  ).join("\n\n");
+
+  const websiteUrl = website.url;
+  const prompt = `You are an expert SEO consultant specializing in internal link strategy.
+
+Analyze the following page(s) from website "${website.name}" (${websiteUrl}) and produce internal link recommendations.
+Each recommendation should suggest a link from one page section/topic to another relevant page or section, with an exact anchor text phrase and a brief reason.
+
+Crawled pages:
+${pagesText}
+
+Based on the content and context of these pages, generate 6-10 specific internal link recommendations. 
+Consider:
+- Linking from introductory content to deeper topic pages
+- Connecting related content areas
+- Improving topical authority by cross-linking relevant sections
+- Using keyword-rich anchor text naturally
+
+Return ONLY valid JSON in this format:
+{
+  "suggestions": [
+    {
+      "sourcePage": "<URL or section of the page to add the link from>",
+      "targetPage": "<URL or section the link should point to>",
+      "anchorText": "<exact anchor text to use>",
+      "reason": "<brief 1-sentence explanation>"
+    }
+  ]
+}`;
+
+  let suggestions: Array<{ sourcePage: string; targetPage: string; anchorText: string; reason: string }> = [];
+
+  try {
+    const content = await callAI(prompt, { maxTokens: 2048 });
+    let parsed: { suggestions?: typeof suggestions } = { suggestions: [] };
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
+      }
+    }
+    suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+    return;
+  }
+
+  if (suggestions.length === 0) {
+    res.json([]);
+    return;
+  }
+
+  await db.delete(linkSuggestionsTable).where(eq(linkSuggestionsTable.websiteId, id));
+
+  const inserted = await db
+    .insert(linkSuggestionsTable)
+    .values(suggestions.map(s => ({
+      websiteId: id,
+      sourcePage: s.sourcePage,
+      targetPage: s.targetPage,
+      anchorText: s.anchorText,
+      reason: s.reason,
+    })))
+    .returning();
+
+  res.json(inserted);
 });
 
 export default router;

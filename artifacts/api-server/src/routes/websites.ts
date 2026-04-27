@@ -454,23 +454,20 @@ Return ONLY valid JSON in this format:
     return;
   }
 
-  await db.delete(linkSuggestionsTable).where(eq(linkSuggestionsTable.websiteId, id));
-
-  if (suggestions.length === 0) {
-    res.json([]);
-    return;
-  }
-
-  const inserted = await db
-    .insert(linkSuggestionsTable)
-    .values(suggestions.map(s => ({
-      websiteId: id,
-      sourcePage: s.sourcePage.trim(),
-      targetPage: s.targetPage.trim(),
-      anchorText: s.anchorText.trim(),
-      reason: s.reason.trim(),
-    })))
-    .returning();
+  const inserted = await db.transaction(async (tx) => {
+    await tx.delete(linkSuggestionsTable).where(eq(linkSuggestionsTable.websiteId, id));
+    if (suggestions.length === 0) return [];
+    return tx
+      .insert(linkSuggestionsTable)
+      .values(suggestions.map(s => ({
+        websiteId: id,
+        sourcePage: s.sourcePage.trim(),
+        targetPage: s.targetPage.trim(),
+        anchorText: s.anchorText.trim(),
+        reason: s.reason.trim(),
+      })))
+      .returning();
+  });
 
   res.json(inserted);
 });

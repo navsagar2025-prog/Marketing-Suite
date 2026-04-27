@@ -216,6 +216,7 @@ function InternalLinksTab({ websiteId, websiteUrl, onSwitchToAudit }: { websiteI
     query: { queryKey: getListLinkSuggestionsQueryKey(websiteId) }
   });
   const generateMutation = useGenerateLinkSuggestions();
+  const auditMutation = useRunSeoAudit();
   const { data: aiSettings } = useGetSettings();
   const aiProvider = aiSettings?.aiProvider ?? "replit";
   const aiDisabled = aiSettings !== undefined && (!aiSettings.aiEnabled || (aiProvider !== "replit" && !aiSettings.aiApiKeyConfigured));
@@ -240,6 +241,19 @@ function InternalLinksTab({ websiteId, websiteUrl, onSwitchToAudit }: { websiteI
   }
 
   if (!hasAudit) {
+    const handleRunAudit = () => {
+      auditMutation.mutate({ id: websiteId }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListSeoAuditsQueryKey(websiteId) });
+          toast({ title: "Audit complete — you can now generate link recommendations" });
+        },
+        onError: (err) => {
+          const msg = (err as { message?: string })?.message ?? "Audit failed";
+          toast({ title: "Audit failed", description: msg, variant: "destructive" });
+        },
+      });
+    };
+
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -248,9 +262,14 @@ function InternalLinksTab({ websiteId, websiteUrl, onSwitchToAudit }: { websiteI
           <p className="text-xs text-muted-foreground mt-1 mb-4">
             Run an SEO audit first to enable AI-powered internal link recommendations.
           </p>
-          <Button size="sm" variant="outline" onClick={onSwitchToAudit}>
-            Go to SEO Audit tab
-          </Button>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <Button size="sm" onClick={handleRunAudit} disabled={auditMutation.isPending}>
+              {auditMutation.isPending ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Auditing...</> : "Run Audit Now"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={onSwitchToAudit}>
+              Go to SEO Audit tab
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );

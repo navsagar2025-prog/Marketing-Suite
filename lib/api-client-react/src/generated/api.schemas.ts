@@ -661,6 +661,57 @@ export interface GenerateSeoBriefBody {
   websiteUrl?: string | null;
 }
 
+export interface GenerateFaqBody {
+  /** The topic or subject to generate FAQ questions about */
+  topic: string;
+  /**
+   * Optional URL for additional context
+   * @nullable
+   */
+  url?: string | null;
+  /** Number of FAQ pairs to generate (default 7) */
+  count?: number;
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+export interface GenerateFaqResponse {
+  faqs: FaqItem[];
+}
+
+/**
+ * The JSON-LD schema type to generate
+ */
+export type GenerateSchemaBodySchemaType =
+  (typeof GenerateSchemaBodySchemaType)[keyof typeof GenerateSchemaBodySchemaType];
+
+export const GenerateSchemaBodySchemaType = {
+  FAQ: "FAQ",
+  Article: "Article",
+  LocalBusiness: "LocalBusiness",
+  Product: "Product",
+} as const;
+
+/**
+ * Key-value fields specific to the schema type
+ */
+export type GenerateSchemaBodyFields = { [key: string]: string };
+
+export interface GenerateSchemaBody {
+  /** The JSON-LD schema type to generate */
+  schemaType: GenerateSchemaBodySchemaType;
+  /** Key-value fields specific to the schema type */
+  fields: GenerateSchemaBodyFields;
+}
+
+export interface GenerateSchemaResponse {
+  /** Ready-to-paste JSON-LD script block */
+  jsonLd: string;
+}
+
 export interface GenerateImageBody {
   prompt: string;
   /** 1:1, 16:9, 9:16, 4:3, 3:4 */

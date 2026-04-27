@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings } from "lucide-react";
+import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings, HelpCircle, Code2, Copy, Check, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
@@ -13,6 +14,8 @@ import {
   useGenerateMetaTags,
   useGenerateCampaignCopy,
   useGenerateSeoBrief,
+  useGenerateFaq,
+  useGenerateSchema,
   useGetSettings,
 } from "@workspace/api-client-react";
 
@@ -24,6 +27,67 @@ const PLATFORMS = [
   { value: "youtube", label: "YouTube" },
 ];
 
+const SCHEMA_TYPES = ["FAQ", "Article", "LocalBusiness", "Product"] as const;
+type SchemaType = typeof SCHEMA_TYPES[number];
+
+const SCHEMA_FIELDS: Record<SchemaType, Array<{ key: string; label: string; placeholder: string; required?: boolean }>> = {
+  FAQ: [
+    { key: "topic", label: "Topic", placeholder: "e.g. Online marketing for small businesses", required: true },
+    { key: "pageUrl", label: "Page URL", placeholder: "https://example.com/faq" },
+  ],
+  Article: [
+    { key: "name", label: "Article Title", placeholder: "10 SEO Tips for 2024", required: true },
+    { key: "description", label: "Description", placeholder: "A short summary of the article" },
+    { key: "author", label: "Author Name", placeholder: "Jane Smith" },
+    { key: "datePublished", label: "Date Published", placeholder: "2024-01-15" },
+    { key: "url", label: "Article URL", placeholder: "https://example.com/seo-tips" },
+  ],
+  LocalBusiness: [
+    { key: "name", label: "Business Name", placeholder: "Acme Digital Agency", required: true },
+    { key: "description", label: "Description", placeholder: "We help businesses grow online" },
+    { key: "address", label: "Address", placeholder: "123 Main St, New York, NY 10001" },
+    { key: "phone", label: "Phone", placeholder: "+1-555-123-4567" },
+    { key: "url", label: "Website URL", placeholder: "https://acmedigital.com" },
+    { key: "openingHours", label: "Opening Hours", placeholder: "Mon-Fri 9am-5pm" },
+  ],
+  Product: [
+    { key: "name", label: "Product Name", placeholder: "Premium SEO Tool Suite", required: true },
+    { key: "description", label: "Description", placeholder: "All-in-one SEO analysis and reporting" },
+    { key: "brand", label: "Brand", placeholder: "Acme Inc." },
+    { key: "price", label: "Price", placeholder: "49.99" },
+    { key: "currency", label: "Currency", placeholder: "USD" },
+    { key: "url", label: "Product URL", placeholder: "https://example.com/product" },
+  ],
+};
+
+function useCopyToClipboard() {
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copy = (text: string, key: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 2000);
+    });
+  };
+  return { copy, copiedKey };
+}
+
+function CopyButton({ text, copyKey, label = "Copy" }: { text: string; copyKey: string; label?: string }) {
+  const { copy, copiedKey } = useCopyToClipboard();
+  const copied = copiedKey === copyKey;
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-7 px-2 text-xs gap-1"
+      onClick={() => copy(text, copyKey)}
+      data-testid={`button-copy-${copyKey}`}
+    >
+      {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+      {copied ? "Copied!" : label}
+    </Button>
+  );
+}
+
 function ResultBox({ content, label }: { content: string; label?: string }) {
   return (
     <div className="mt-3 p-3 rounded-md bg-muted border text-sm whitespace-pre-wrap" data-testid="text-ai-result">
@@ -31,6 +95,22 @@ function ResultBox({ content, label }: { content: string; label?: string }) {
       {content}
     </div>
   );
+}
+
+function buildFaqJsonLd(faqs: Array<{ question: string; answer: string }>): string {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map(({ question, answer }) => ({
+      "@type": "Question",
+      name: question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: answer,
+      },
+    })),
+  };
+  return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>`;
 }
 
 export default function AiTools() {
@@ -73,6 +153,18 @@ export default function AiTools() {
   const [briefResult, setBriefResult] = useState("");
   const briefMutation = useGenerateSeoBrief();
 
+  // FAQ Generator state
+  const [faqTopic, setFaqTopic] = useState("");
+  const [faqUrl, setFaqUrl] = useState("");
+  const [faqResult, setFaqResult] = useState<Array<{ question: string; answer: string }>>([]);
+  const faqMutation = useGenerateFaq();
+
+  // Schema Markup state
+  const [schemaType, setSchemaType] = useState<SchemaType>("FAQ");
+  const [schemaFields, setSchemaFields] = useState<Record<string, string>>({});
+  const [schemaResult, setSchemaResult] = useState("");
+  const schemaMutation = useGenerateSchema();
+
   const handleSuggestKeywords = () => {
     if (!kwNiche.trim()) return;
     suggestMutation.mutate({ data: { niche: kwNiche, seedKeyword: kwSeed || undefined } }, {
@@ -112,6 +204,26 @@ export default function AiTools() {
       onError: () => toast({ title: "AI error", variant: "destructive" }),
     });
   };
+
+  const handleGenerateFaq = () => {
+    if (!faqTopic.trim()) return;
+    faqMutation.mutate({ data: { topic: faqTopic, url: faqUrl || undefined } }, {
+      onSuccess: (r) => setFaqResult(r.faqs),
+      onError: () => toast({ title: "AI error", variant: "destructive" }),
+    });
+  };
+
+  const handleGenerateSchema = () => {
+    const hasRequiredField = SCHEMA_FIELDS[schemaType].filter(f => f.required).every(f => schemaFields[f.key]?.trim());
+    if (!hasRequiredField) return;
+    const nonEmptyFields = Object.fromEntries(Object.entries(schemaFields).filter(([, v]) => v.trim()));
+    schemaMutation.mutate({ data: { schemaType, fields: nonEmptyFields } }, {
+      onSuccess: (r) => setSchemaResult(r.jsonLd),
+      onError: () => toast({ title: "AI error", variant: "destructive" }),
+    });
+  };
+
+  const faqJsonLd = faqResult.length > 0 ? buildFaqJsonLd(faqResult) : "";
 
   return (
     <div className="p-6 space-y-6">
@@ -191,7 +303,15 @@ export default function AiTools() {
             <Button data-testid="button-generate-post" onClick={handleGeneratePost} disabled={generatePostMutation.isPending || !postTopic.trim()} className="w-full">
               {generatePostMutation.isPending ? "Generating..." : "Generate Post"}
             </Button>
-            {postResult && <ResultBox content={postResult} label="Generated Post" />}
+            {postResult && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Generated Post</p>
+                  <CopyButton text={postResult} copyKey="post" />
+                </div>
+                <div className="p-3 rounded-md bg-muted border text-sm whitespace-pre-wrap" data-testid="text-ai-result">{postResult}</div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -210,12 +330,18 @@ export default function AiTools() {
             {metaResult && (
               <div className="space-y-2 mt-2">
                 <div className="p-2.5 border rounded-md bg-muted/30">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Title Tag</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title Tag</p>
+                    <CopyButton text={metaResult.title} copyKey="meta-title" />
+                  </div>
                   <p className="text-sm font-medium" data-testid="text-meta-title">{metaResult.title}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{metaResult.title.length} characters</p>
                 </div>
                 <div className="p-2.5 border rounded-md bg-muted/30">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Meta Description</p>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Meta Description</p>
+                    <CopyButton text={metaResult.description} copyKey="meta-desc" />
+                  </div>
                   <p className="text-sm" data-testid="text-meta-description">{metaResult.description}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{metaResult.description.length} characters</p>
                 </div>
@@ -237,7 +363,15 @@ export default function AiTools() {
             <Button data-testid="button-generate-copy" onClick={handleGenerateCopy} disabled={copyMutation.isPending || !copyGoal.trim() || !copyProduct.trim()} className="w-full">
               {copyMutation.isPending ? "Generating..." : "Generate Copy"}
             </Button>
-            {copyResult && <ResultBox content={copyResult} label="Campaign Copy" />}
+            {copyResult && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Campaign Copy</p>
+                  <CopyButton text={copyResult} copyKey="campaign-copy" />
+                </div>
+                <div className="p-3 rounded-md bg-muted border text-sm whitespace-pre-wrap" data-testid="text-ai-result">{copyResult}</div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -252,11 +386,155 @@ export default function AiTools() {
               <Input data-testid="input-brief-keyword" placeholder="Target keyword (e.g. best protein powder)" value={briefKeyword} onChange={e => setBriefKeyword(e.target.value)} />
               <Input data-testid="input-brief-niche" placeholder="Niche (optional)" value={briefNiche} onChange={e => setBriefNiche(e.target.value)} />
             </div>
-            <Button data-testid="button-generate-brief" onClick={handleGenerateBrief} disabled={briefMutation.isPending || !briefKeyword.trim()} className="w-full md:w-auto">
-              {briefMutation.isPending ? "Generating..." : "Generate SEO Brief"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button data-testid="button-generate-brief" onClick={handleGenerateBrief} disabled={briefMutation.isPending || !briefKeyword.trim()} className="w-full md:w-auto">
+                {briefMutation.isPending ? "Generating..." : "Generate SEO Brief"}
+              </Button>
+              {briefResult && <CopyButton text={briefResult} copyKey="seo-brief" label="Copy Brief" />}
+            </div>
             {briefResult && (
               <div className="p-4 border rounded-md bg-muted/30 text-sm whitespace-pre-wrap max-h-96 overflow-y-auto" data-testid="text-seo-brief">{briefResult}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 6. FAQ Generator — full width */}
+        <Card className="lg:col-span-2" data-testid="card-faq-generator">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><HelpCircle className="h-4 w-4 text-primary" /> FAQ Generator</CardTitle>
+            <CardDescription className="text-xs">Generate 5-8 FAQ question/answer pairs ready for your webpage — export as JSON-LD schema in one click</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Topic *</Label>
+                <Input
+                  data-testid="input-faq-topic"
+                  placeholder="e.g. SEO for small businesses, email marketing basics"
+                  value={faqTopic}
+                  onChange={e => setFaqTopic(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Reference URL (optional)</Label>
+                <Input
+                  data-testid="input-faq-url"
+                  placeholder="https://example.com/page"
+                  value={faqUrl}
+                  onChange={e => setFaqUrl(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                data-testid="button-generate-faq"
+                onClick={handleGenerateFaq}
+                disabled={faqMutation.isPending || !faqTopic.trim()}
+                className="w-full md:w-auto"
+              >
+                {faqMutation.isPending ? "Generating..." : "Generate FAQs"}
+              </Button>
+              {faqResult.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  data-testid="button-export-faq-jsonld"
+                  onClick={() => {
+                    navigator.clipboard.writeText(faqJsonLd);
+                    toast({ title: "FAQ JSON-LD copied to clipboard" });
+                  }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export as JSON-LD
+                </Button>
+              )}
+            </div>
+            {faqResult.length > 0 && (
+              <div className="space-y-2 max-h-[480px] overflow-y-auto" data-testid="container-faq-results">
+                {faqResult.map((faq, i) => (
+                  <div key={i} data-testid={`faq-item-${i}`} className="p-3 border rounded-md bg-muted/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold flex-1">
+                        <span className="text-muted-foreground mr-1.5">Q{i + 1}.</span>
+                        {faq.question}
+                      </p>
+                      <CopyButton text={`Q: ${faq.question}\nA: ${faq.answer}`} copyKey={`faq-${i}`} />
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1.5 ml-5">{faq.answer}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 7. Schema Markup Generator — full width */}
+        <Card className="lg:col-span-2" data-testid="card-schema-generator">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Code2 className="h-4 w-4 text-primary" /> Schema Markup Generator</CardTitle>
+            <CardDescription className="text-xs">Generate ready-to-paste JSON-LD structured data for FAQ, Article, LocalBusiness, or Product pages</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Schema Type</Label>
+              <Select
+                value={schemaType}
+                onValueChange={(v) => {
+                  setSchemaType(v as SchemaType);
+                  setSchemaFields({});
+                  setSchemaResult("");
+                }}
+              >
+                <SelectTrigger data-testid="select-schema-type" className="w-full md:w-64">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCHEMA_TYPES.map(t => (
+                    <SelectItem key={t} value={t} data-testid={`schema-type-option-${t.toLowerCase()}`}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {SCHEMA_FIELDS[schemaType].map(field => (
+                <div key={field.key} className="space-y-1">
+                  <Label className="text-xs">
+                    {field.label}
+                    {field.required && <span className="text-destructive ml-0.5">*</span>}
+                  </Label>
+                  <Input
+                    data-testid={`input-schema-${field.key}`}
+                    placeholder={field.placeholder}
+                    value={schemaFields[field.key] ?? ""}
+                    onChange={e => setSchemaFields(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                data-testid="button-generate-schema"
+                onClick={handleGenerateSchema}
+                disabled={
+                  schemaMutation.isPending ||
+                  !SCHEMA_FIELDS[schemaType].filter(f => f.required).every(f => schemaFields[f.key]?.trim())
+                }
+                className="w-full md:w-auto"
+              >
+                {schemaMutation.isPending ? "Generating..." : "Generate Schema Markup"}
+              </Button>
+              {schemaResult && <CopyButton text={schemaResult} copyKey="schema-result" label="Copy JSON-LD" />}
+            </div>
+
+            {schemaResult && (
+              <div className="relative" data-testid="container-schema-result">
+                <pre className="p-4 rounded-md bg-zinc-950 dark:bg-zinc-900 text-zinc-100 text-xs overflow-x-auto max-h-80 overflow-y-auto font-mono leading-relaxed whitespace-pre-wrap border border-zinc-800">
+                  {schemaResult}
+                </pre>
+              </div>
             )}
           </CardContent>
         </Card>

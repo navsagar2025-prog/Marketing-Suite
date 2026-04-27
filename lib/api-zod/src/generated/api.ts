@@ -818,11 +818,20 @@ export const ListConversationsResponse = zod.array(
 );
 
 /**
- * @summary Create a new conversation
+ * @summary Create or return existing conversation (idempotent by leadId)
  */
 export const CreateConversationBody = zod.object({
   title: zod.string(),
   leadId: zod.number().nullish(),
+});
+
+export const CreateConversationResponse = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  leadId: zod.number().nullish(),
+  leadName: zod.string().nullish(),
+  lastMessageAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
 });
 
 /**
@@ -1114,6 +1123,45 @@ export const GenerateSeoBriefBody = zod.object({
 
 export const GenerateSeoBriefResponse = zod.object({
   content: zod.string(),
+});
+
+/**
+ * @summary Generate FAQ question/answer pairs for a topic
+ */
+export const GenerateFaqBody = zod.object({
+  topic: zod
+    .string()
+    .describe("The topic or subject to generate FAQ questions about"),
+  url: zod.string().nullish().describe("Optional URL for additional context"),
+  count: zod
+    .number()
+    .optional()
+    .describe("Number of FAQ pairs to generate (default 7)"),
+});
+
+export const GenerateFaqResponse = zod.object({
+  faqs: zod.array(
+    zod.object({
+      question: zod.string(),
+      answer: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Generate JSON-LD schema markup for a given schema type
+ */
+export const GenerateSchemaBody = zod.object({
+  schemaType: zod
+    .enum(["FAQ", "Article", "LocalBusiness", "Product"])
+    .describe("The JSON-LD schema type to generate"),
+  fields: zod
+    .record(zod.string(), zod.string())
+    .describe("Key-value fields specific to the schema type"),
+});
+
+export const GenerateSchemaResponse = zod.object({
+  jsonLd: zod.string().describe("Ready-to-paste JSON-LD script block"),
 });
 
 /**

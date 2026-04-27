@@ -42,9 +42,13 @@ import type {
   FixSeoIssueBody,
   FixSeoIssueResponse,
   GenerateCampaignCopyBody,
+  GenerateFaqBody,
+  GenerateFaqResponse,
   GenerateImageBody,
   GenerateMetaBody,
   GeneratePostBody,
+  GenerateSchemaBody,
+  GenerateSchemaResponse,
   GenerateSeoBriefBody,
   GenerateVideoBody,
   GeneratedContent,
@@ -3163,7 +3167,7 @@ export function useListConversations<
 }
 
 /**
- * @summary Create a new conversation
+ * @summary Create or return existing conversation (idempotent by leadId)
  */
 export const getCreateConversationUrl = () => {
   return `/api/conversations`;
@@ -3226,7 +3230,7 @@ export type CreateConversationMutationBody = BodyType<CreateConversationBody>;
 export type CreateConversationMutationError = ErrorType<unknown>;
 
 /**
- * @summary Create a new conversation
+ * @summary Create or return existing conversation (idempotent by leadId)
  */
 export const useCreateConversation = <
   TError = ErrorType<unknown>,
@@ -4681,6 +4685,178 @@ export const useGenerateSeoBrief = <
   TContext
 > => {
   return useMutation(getGenerateSeoBriefMutationOptions(options));
+};
+
+/**
+ * @summary Generate FAQ question/answer pairs for a topic
+ */
+export const getGenerateFaqUrl = () => {
+  return `/api/ai/generate-faq`;
+};
+
+export const generateFaq = async (
+  generateFaqBody: GenerateFaqBody,
+  options?: RequestInit,
+): Promise<GenerateFaqResponse> => {
+  return customFetch<GenerateFaqResponse>(getGenerateFaqUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateFaqBody),
+  });
+};
+
+export const getGenerateFaqMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateFaq>>,
+    TError,
+    { data: BodyType<GenerateFaqBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateFaq>>,
+  TError,
+  { data: BodyType<GenerateFaqBody> },
+  TContext
+> => {
+  const mutationKey = ["generateFaq"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateFaq>>,
+    { data: BodyType<GenerateFaqBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateFaq(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateFaqMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateFaq>>
+>;
+export type GenerateFaqMutationBody = BodyType<GenerateFaqBody>;
+export type GenerateFaqMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate FAQ question/answer pairs for a topic
+ */
+export const useGenerateFaq = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateFaq>>,
+    TError,
+    { data: BodyType<GenerateFaqBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateFaq>>,
+  TError,
+  { data: BodyType<GenerateFaqBody> },
+  TContext
+> => {
+  return useMutation(getGenerateFaqMutationOptions(options));
+};
+
+/**
+ * @summary Generate JSON-LD schema markup for a given schema type
+ */
+export const getGenerateSchemaUrl = () => {
+  return `/api/ai/generate-schema`;
+};
+
+export const generateSchema = async (
+  generateSchemaBody: GenerateSchemaBody,
+  options?: RequestInit,
+): Promise<GenerateSchemaResponse> => {
+  return customFetch<GenerateSchemaResponse>(getGenerateSchemaUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateSchemaBody),
+  });
+};
+
+export const getGenerateSchemaMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateSchema>>,
+    TError,
+    { data: BodyType<GenerateSchemaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateSchema>>,
+  TError,
+  { data: BodyType<GenerateSchemaBody> },
+  TContext
+> => {
+  const mutationKey = ["generateSchema"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateSchema>>,
+    { data: BodyType<GenerateSchemaBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateSchema(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateSchemaMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateSchema>>
+>;
+export type GenerateSchemaMutationBody = BodyType<GenerateSchemaBody>;
+export type GenerateSchemaMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate JSON-LD schema markup for a given schema type
+ */
+export const useGenerateSchema = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateSchema>>,
+    TError,
+    { data: BodyType<GenerateSchemaBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateSchema>>,
+  TError,
+  { data: BodyType<GenerateSchemaBody> },
+  TContext
+> => {
+  return useMutation(getGenerateSchemaMutationOptions(options));
 };
 
 /**

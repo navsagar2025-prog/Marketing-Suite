@@ -14,6 +14,10 @@ import {
   GenerateAiVideoBody,
   ClusterKeywordsBody,
   ClusterKeywordsResponse,
+  GenerateFaqBody,
+  GenerateFaqResponse,
+  GenerateSchemaBody,
+  GenerateSchemaResponse,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -471,4 +475,87 @@ router.post("/ai/generate-video", async (req, res): Promise<void> => {
   }
 });
 
+router.post("/ai/generate-faq", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+  const parsed = GenerateFaqBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { topic, url, count } = parsed.data;
+  const faqCount = count ?? 7;
+  const prompt = `Generate ${faqCount} FAQ question-and-answer pairs for the following topic: "${topic}"${url ? `\nReference URL: ${url}` : ""}.
+
+Rules:
+- Questions should be natural, specific, and reflect what real users search for
+- Answers should be clear, concise (2-4 sentences), and informative
+- Cover a range of aspects: what, how, why, when, cost, benefits, etc.
+
+Return ONLY valid JSON in this exact format:
+{
+  "faqs": [
+    { "question": "...", "answer": "..." }
+  ]
+}`;
+
+  try {
+    const content = await callAI(prompt, { maxTokens: 2048 });
+    let result: { faqs: Array<{ question: string; answer: string }> } = { faqs: [] };
+    try {
+      result = JSON.parse(content);
+    } catch {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { result = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
+      }
+    }
+    res.json(GenerateFaqResponse.parse(result));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
+});
+
+router.post("/ai/generate-schema", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+  const parsed = GenerateSchemaBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { schemaType, fields } = parsed.data;
+
+  const fieldList = Object.entries(fields).map(([k, v]) => `${k}: ${v}`).join("\n");
+  const prompt = `Generate a valid JSON-LD schema markup block for a ${schemaType} schema type.
+
+Fields provided:
+${fieldList}
+
+Requirements:
+- Use correct schema.org types and properties for ${schemaType}
+- For FAQ: use FAQPage with mainEntity array of Question/Answer pairs
+- For Article: use Article or BlogPosting with author, datePublished, etc.
+- For LocalBusiness: include address, telephone, openingHours if provided
+- For Product: include offers with price and priceCurrency
+- Include @context ("https://schema.org") and @type
+- Return ONLY the complete <script type="application/ld+json"> ... </script> block, nothing else`;
+
+  try {
+    const jsonLd = await callAI(prompt, { maxTokens: 2048 });
+    res.json(GenerateSchemaResponse.parse({ jsonLd: jsonLd.trim() }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
+});
+
 export default router;
+

@@ -1068,6 +1068,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/GeneratedContent"
 
+  /ai/generate-faq:
+    post:
+      operationId: generateFaq
+      tags: [ai]
+      summary: Generate FAQ question/answer pairs for a topic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateFaqBody"
+      responses:
+        "200":
+          description: Generated FAQ pairs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateFaqResponse"
+
+  /ai/generate-schema:
+    post:
+      operationId: generateSchema
+      tags: [ai]
+      summary: Generate JSON-LD schema markup for a given schema type
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateSchemaBody"
+      responses:
+        "200":
+          description: Generated JSON-LD schema markup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateSchemaResponse"
+
   /ai/generate-image:
     post:
       operationId: generateAiImage
@@ -2377,6 +2415,68 @@ components:
           type: ["string", "null"]
       required:
         - keyword
+
+    # ─── AI FAQ & Schema Markup ───────────────────────────────────────────────
+    GenerateFaqBody:
+      type: object
+      properties:
+        topic:
+          type: string
+          description: The topic or subject to generate FAQ questions about
+        url:
+          type: ["string", "null"]
+          description: Optional URL for additional context
+        count:
+          type: integer
+          description: Number of FAQ pairs to generate (default 7)
+      required:
+        - topic
+
+    FaqItem:
+      type: object
+      properties:
+        question:
+          type: string
+        answer:
+          type: string
+      required:
+        - question
+        - answer
+
+    GenerateFaqResponse:
+      type: object
+      properties:
+        faqs:
+          type: array
+          items:
+            $ref: "#/components/schemas/FaqItem"
+      required:
+        - faqs
+
+    GenerateSchemaBody:
+      type: object
+      properties:
+        schemaType:
+          type: string
+          enum: [FAQ, Article, LocalBusiness, Product]
+          description: The JSON-LD schema type to generate
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+          description: Key-value fields specific to the schema type
+      required:
+        - schemaType
+        - fields
+
+    GenerateSchemaResponse:
+      type: object
+      properties:
+        jsonLd:
+          type: string
+          description: Ready-to-paste JSON-LD script block
+      required:
+        - jsonLd
 
     # ─── AI Media Generation ──────────────────────────────────────────────────
     GenerateImageBody:

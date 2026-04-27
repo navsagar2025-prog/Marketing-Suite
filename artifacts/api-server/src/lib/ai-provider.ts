@@ -92,18 +92,20 @@ export interface CallAIOptions {
   systemPrompt?: string;
   maxTokens?: number;
   jsonMode?: boolean;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 export async function callAI(userPrompt: string, options: CallAIOptions = {}): Promise<string> {
   const config = await getAiConfig();
-  const { systemPrompt, maxTokens = 2048, jsonMode = false } = options;
+  const { systemPrompt, maxTokens = 2048, jsonMode = false, history = [] } = options;
 
   if (!config.enabled) {
     throw new Error("AI features are disabled. Enable them in Settings.");
   }
 
-  const messages: Array<{ role: "system" | "user"; content: string }> = [];
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+  for (const h of history) messages.push({ role: h.role, content: h.content });
   messages.push({ role: "user", content: userPrompt });
 
   switch (config.provider) {

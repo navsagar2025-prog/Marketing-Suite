@@ -16,6 +16,7 @@ import publicAuditRouter from "./public-audit";
 import publicContactRouter from "./public-contact";
 import usageRouter from "./usage";
 import emailWebhooksRouter from "./email-webhooks";
+import conversationsRouter from "./conversations";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -42,5 +43,6 @@ router.use(mediaAssetsRouter);
 router.use(settingsRouter);
 router.use(adminRouter);
 router.use(usageRouter);
+router.use(conversationsRouter);
 
 export default router;

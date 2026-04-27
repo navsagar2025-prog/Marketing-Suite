@@ -895,6 +895,37 @@ export interface CampaignRecipientsResponse {
   total: number;
 }
 
+export interface Conversation {
+  id: number;
+  title: string;
+  /** @nullable */
+  leadId?: number | null;
+  createdAt: string;
+}
+
+export interface CreateConversationBody {
+  title: string;
+  /** @nullable */
+  leadId?: number | null;
+}
+
+export interface ConversationMessage {
+  id: number;
+  conversationId: number;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface SendMessageBody {
+  content: string;
+}
+
+export interface SendMessageResponse {
+  userMessage: ConversationMessage;
+  assistantMessage: ConversationMessage;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };

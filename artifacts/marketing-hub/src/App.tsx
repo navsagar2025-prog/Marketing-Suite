@@ -20,6 +20,7 @@ import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import ReportPage from "@/pages/report";
 import AdminPage from "@/pages/admin";
+import ConversationsPage from "@/pages/conversations";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
@@ -73,6 +74,7 @@ function ProtectedRouter() {
             <Route path="/campaigns" component={Campaigns} />
             <Route path="/backlinks" component={Backlinks} />
             <Route path="/leads" component={Leads} />
+            <Route path="/conversations" component={ConversationsPage} />
             <Route path="/analytics" component={Analytics} />
             <Route path="/ai" component={AiTools} />
             <Route path="/media" component={MediaAssets} />

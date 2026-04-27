@@ -803,6 +803,56 @@ export const DeleteLeadParams = zod.object({
 });
 
 /**
+ * @summary List all conversations
+ */
+export const ListConversationsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string(),
+  leadId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListConversationsResponse = zod.array(
+  ListConversationsResponseItem,
+);
+
+/**
+ * @summary Create a new conversation
+ */
+export const CreateConversationBody = zod.object({
+  title: zod.string(),
+  leadId: zod.number().nullish(),
+});
+
+/**
+ * @summary Get messages for a conversation
+ */
+export const GetConversationMessagesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetConversationMessagesResponseItem = zod.object({
+  id: zod.number(),
+  conversationId: zod.number(),
+  role: zod.string(),
+  content: zod.string(),
+  createdAt: zod.coerce.date(),
+});
+export const GetConversationMessagesResponse = zod.array(
+  GetConversationMessagesResponseItem,
+);
+
+/**
+ * @summary Send a user message and get AI reply
+ */
+export const SendMessageParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SendMessageBody = zod.object({
+  content: zod.string(),
+});
+
+/**
  * @summary Overall dashboard summary counts
  */
 export const GetAnalyticsSummaryResponse = zod.object({

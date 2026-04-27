@@ -36,6 +36,9 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET/POST/PATCH/DELETE /api/social-posts` — Social media posts
 - `GET/POST/PATCH/DELETE /api/backlinks` — Backlink tracking
 - `GET/POST/PATCH/DELETE /api/leads` — Lead management
+- `GET/POST /api/conversations` — Conversation management (AI lead qualification)
+- `GET /api/conversations/:id/messages` — Get messages for a conversation
+- `POST /api/conversations/:id/messages` — Send user message + get AI reply
 - `GET /api/analytics/summary` — Dashboard stats
 - `GET /api/analytics/website/:id` — Per-site analytics
 - `GET /api/analytics/campaigns` — Campaign performance

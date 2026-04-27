@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Users, Trash2, Search, TrendingUp, ArrowUpDown } from "lucide-react";
+import { Plus, Users, Trash2, Search, TrendingUp, ArrowUpDown, MessageSquare } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,9 +25,12 @@ import {
   useGetLeadsFunnel,
   useListWebsites,
   useGetAnalyticsSummary,
+  useListConversations,
   getListLeadsQueryKey,
   getGetLeadsFunnelQueryKey,
 } from "@workspace/api-client-react";
+import type { Conversation } from "@workspace/api-client-react";
+import ConversationDrawer from "@/components/ConversationDrawer";
 
 const STATUS_OPTIONS = ["new", "contacted", "qualified", "converted", "lost"];
 const SOURCE_OPTIONS = ["organic", "paid", "social", "direct", "referral"];
@@ -135,11 +138,13 @@ export default function Leads() {
   const [filterIntent, setFilterIntent] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [qualifyingLead, setQualifyingLead] = useState<{ id: number; name: string } | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: websites } = useListWebsites();
   const { data: funnel } = useGetLeadsFunnel();
   const { data: summary } = useGetAnalyticsSummary();
+  const { data: allConversations } = useListConversations();
   const { data: leads, isLoading } = useListLeads(filterStatus !== "all" ? { status: filterStatus } : undefined, {
     query: { queryKey: getListLeadsQueryKey(filterStatus !== "all" ? { status: filterStatus } : undefined) }
   });
@@ -408,9 +413,21 @@ export default function Leads() {
                         />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" data-testid={`button-delete-lead-${l.id}`} onClick={() => handleDelete(l.id)} disabled={deleteMutation.isPending}>
-                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                            data-testid={`button-qualify-lead-${l.id}`}
+                            title="Qualify with AI"
+                            onClick={() => setQualifyingLead({ id: l.id, name: l.name })}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" data-testid={`button-delete-lead-${l.id}`} onClick={() => handleDelete(l.id)} disabled={deleteMutation.isPending}>
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -420,6 +437,19 @@ export default function Leads() {
           )}
         </CardContent>
       </Card>
+      {qualifyingLead && (
+        <ConversationDrawer
+          leadId={qualifyingLead.id}
+          leadName={qualifyingLead.name}
+          existingConversation={
+            (allConversations ?? []).find((c: Conversation) => c.leadId === qualifyingLead.id) ?? null
+          }
+          onClose={() => setQualifyingLead(null)}
+          onConversationCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ["listConversations"] });
+          }}
+        />
+      )}
     </div>
   );
 }

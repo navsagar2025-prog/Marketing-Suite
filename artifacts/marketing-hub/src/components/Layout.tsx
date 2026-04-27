@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   LogOut,
   Gauge,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ const navItems = [
   { path: "/campaigns", label: "Campaigns", icon: Megaphone },
   { path: "/backlinks", label: "Backlinks", icon: Link2 },
   { path: "/leads", label: "Leads", icon: Users },
+  { path: "/conversations", label: "Conversations", icon: MessageSquare },
   { path: "/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/ai", label: "AI Tools", icon: Sparkles },
   { path: "/media", label: "Media Library", icon: ImageIcon },

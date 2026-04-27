@@ -15,7 +15,7 @@ import {
   ClusterKeywordsBody,
   ClusterKeywordsResponse,
 } from "@workspace/api-zod";
-import { db, keywordsTable } from "@workspace/db";
+import { db } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { mediaAssetsTable, websitesTable } from "@workspace/db/schema";
 import { getSetting } from "./settings.js";

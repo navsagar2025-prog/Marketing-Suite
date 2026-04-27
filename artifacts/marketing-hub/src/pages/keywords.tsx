@@ -352,7 +352,7 @@ function ClustersView({
   keywords: Keyword[];
   websiteId: number | null;
   aiDisabled: boolean;
-  onClusterChange: (id: number, cluster: string | null, intent?: string | null) => void;
+  onClusterChange: (id: number, cluster: string | null, intent?: string | null, callbacks?: { onSuccess?: () => void; onError?: () => void }) => void;
 }) {
   const { toast } = useToast();
   const clusterMutation = useClusterKeywords();
@@ -376,25 +376,50 @@ function ClustersView({
       toast({ title: "Select a website filter first to cluster its keywords", variant: "destructive" });
       return;
     }
-    const kwStrings = keywords.map((k) => k.keyword);
-    if (kwStrings.length === 0) {
+    if (keywords.length === 0) {
       toast({ title: "No keywords to cluster", variant: "destructive" });
       return;
     }
+    const kwStrings = keywords.map((k) => k.keyword);
     clusterMutation.mutate(
       { data: { websiteId, keywords: kwStrings } },
       {
-        onSuccess: (result) => {
-          const updates: Promise<unknown>[] = [];
+        onSuccess: async (result) => {
+          const kwByText = new Map<string, Keyword[]>();
+          for (const kw of keywords) {
+            const lower = kw.keyword.toLowerCase();
+            const existing = kwByText.get(lower);
+            if (existing) existing.push(kw);
+            else kwByText.set(lower, [kw]);
+          }
+
+          const updates: Array<{ id: number; cluster: string; intent: string }> = [];
           for (const cluster of result.clusters) {
             for (const kwStr of cluster.keywords) {
-              const match = keywords.find((k) => k.keyword.toLowerCase() === kwStr.toLowerCase());
-              if (match) {
-                updates.push(Promise.resolve(onClusterChange(match.id, cluster.name, cluster.intent)));
+              const matches = kwByText.get(kwStr.toLowerCase());
+              if (matches) {
+                for (const match of matches) {
+                  updates.push({ id: match.id, cluster: cluster.name, intent: cluster.intent });
+                  kwByText.delete(kwStr.toLowerCase());
+                }
               }
             }
           }
-          toast({ title: `Clustered ${kwStrings.length} keywords into ${result.clusters.length} groups` });
+
+          const results = await Promise.allSettled(
+            updates.map((u) =>
+              new Promise<void>((resolve, reject) =>
+                onClusterChange(u.id, u.cluster, u.intent, { onSuccess: resolve, onError: reject }),
+              ),
+            ),
+          );
+
+          const failed = results.filter((r) => r.status === "rejected").length;
+          if (failed > 0) {
+            toast({ title: `Clustered ${updates.length - failed} keywords (${failed} failed to save)`, variant: "destructive" });
+          } else {
+            toast({ title: `Clustered ${updates.length} keywords into ${result.clusters.length} groups` });
+          }
         },
         onError: () => toast({ title: "AI clustering failed", variant: "destructive" }),
       },
@@ -552,14 +577,20 @@ export default function Keywords() {
     });
   };
 
-  const handleClusterChange = (id: number, cluster: string | null, intent?: string | null) => {
+  const handleClusterChange = (id: number, cluster: string | null, intent?: string | null, callbacks?: { onSuccess?: () => void; onError?: () => void }) => {
     const updateData: Record<string, unknown> = { cluster };
     if (intent !== undefined) updateData.intent = intent;
     updateMutation.mutate(
       { id, data: updateData as Parameters<typeof updateMutation.mutate>[0]["data"] },
       {
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey() }),
-        onError: () => toast({ title: "Failed to update cluster", variant: "destructive" }),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey() });
+          callbacks?.onSuccess?.();
+        },
+        onError: () => {
+          toast({ title: "Failed to update cluster", variant: "destructive" });
+          callbacks?.onError?.();
+        },
       },
     );
   };

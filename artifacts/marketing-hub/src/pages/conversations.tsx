@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MessageSquare, Users, Clock } from "lucide-react";
+import { MessageSquare, Users, Clock, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { useListConversations, getListConversationsQueryKey } from "@workspace/api-client-react";
 import type { Conversation } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,35 +53,54 @@ export default function Conversations() {
                 const lastActivity = conv.lastMessageAt ?? conv.createdAt;
                 const relativeTime = formatRelativeTime(lastActivity);
                 return (
-                  <button
+                  <div
                     key={conv.id}
                     data-testid={`row-conversation-${conv.id}`}
-                    onClick={() => setActiveConversation(conv)}
-                    className="w-full flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors group"
                   >
-                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <button
+                      className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"
+                      onClick={() => setActiveConversation(conv)}
+                    >
                       <MessageSquare className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
+                    </button>
+                    <button
+                      className="flex-1 min-w-0 text-left"
+                      onClick={() => setActiveConversation(conv)}
+                    >
                       <p className="text-sm font-medium truncate">{conv.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5">
                         {conv.leadName ? (
-                          <span className="inline-flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
                             <Users className="h-3 w-3" />
                             {conv.leadName}
                           </span>
                         ) : (
-                          "No lead linked"
+                          <span className="text-xs text-muted-foreground">No lead linked</span>
                         )}
-                      </p>
+                      </div>
+                    </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {conv.leadId && (
+                        <Link
+                          to="/leads"
+                          data-testid={`link-conversation-lead-${conv.id}`}
+                          title="View lead in Leads page"
+                          className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Lead</span>
+                        </Link>
+                      )}
+                      {relativeTime && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {relativeTime}
+                        </span>
+                      )}
                     </div>
-                    {relativeTime && (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1 flex-shrink-0">
-                        <Clock className="h-3 w-3" />
-                        {relativeTime}
-                      </span>
-                    )}
-                  </button>
+                  </div>
                 );
               })}
             </div>

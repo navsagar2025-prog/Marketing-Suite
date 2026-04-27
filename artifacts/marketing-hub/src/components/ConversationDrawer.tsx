@@ -178,7 +178,7 @@ export default function ConversationDrawer({
               Save to Lead
             </Button>
           )}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose} data-testid="button-close-drawer" aria-label="Close">
             <X className="h-4 w-4" />
           </Button>
         </div>

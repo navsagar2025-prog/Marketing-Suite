@@ -48,6 +48,19 @@ router.post("/conversations", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  if (parsed.data.leadId != null) {
+    const [existing] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.leadId, parsed.data.leadId))
+      .limit(1);
+    if (existing) {
+      res.status(200).json({ ...existing, leadName: null, lastMessageAt: null });
+      return;
+    }
+  }
+
   const [row] = await db.insert(conversations).values(parsed.data).returning();
   res.status(201).json({ ...row, leadName: null, lastMessageAt: null });
 });

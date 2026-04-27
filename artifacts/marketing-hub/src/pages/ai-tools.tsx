@@ -60,6 +60,52 @@ const SCHEMA_FIELDS: Record<SchemaType, Array<{ key: string; label: string; plac
   ],
 };
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlightJsonLd(raw: string): string {
+  const scriptTagStart = '<script type="application/ld+json">';
+  const scriptTagEnd = '</script>';
+  let jsonPart = raw;
+  let prefix = "";
+  let suffix = "";
+
+  const startIdx = raw.indexOf(scriptTagStart);
+  const endIdx = raw.lastIndexOf(scriptTagEnd);
+  if (startIdx !== -1 && endIdx !== -1) {
+    prefix = raw.slice(0, startIdx + scriptTagStart.length);
+    jsonPart = raw.slice(startIdx + scriptTagStart.length, endIdx);
+    suffix = raw.slice(endIdx);
+  }
+
+  const escapedJson = escapeHtml(jsonPart);
+
+  const highlighted = escapedJson.replace(
+    /("(?:[^"\\]|\\.)*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    (match) => {
+      if (match.startsWith('"')) {
+        if (/"\s*:$/.test(match)) return `<span class="json-key">${match}</span>`;
+        return `<span class="json-string">${match}</span>`;
+      }
+      if (/true|false/.test(match)) return `<span class="json-boolean">${match}</span>`;
+      if (/null/.test(match)) return `<span class="json-null">${match}</span>`;
+      return `<span class="json-number">${match}</span>`;
+    }
+  );
+
+  return escapeHtml(prefix) + highlighted + escapeHtml(suffix);
+}
+
+function JsonLdHighlight({ code }: { code: string }) {
+  return (
+    <pre
+      className="p-4 rounded-md bg-zinc-950 dark:bg-zinc-900 text-zinc-100 text-xs overflow-x-auto max-h-80 overflow-y-auto font-mono leading-relaxed whitespace-pre-wrap border border-zinc-800 [&_.json-key]:text-sky-300 [&_.json-string]:text-emerald-300 [&_.json-boolean]:text-violet-300 [&_.json-null]:text-violet-300 [&_.json-number]:text-amber-300"
+      dangerouslySetInnerHTML={{ __html: highlightJsonLd(code) }}
+    />
+  );
+}
+
 function useCopyToClipboard() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const copy = (text: string, key: string) => {
@@ -531,9 +577,7 @@ export default function AiTools() {
 
             {schemaResult && (
               <div className="relative" data-testid="container-schema-result">
-                <pre className="p-4 rounded-md bg-zinc-950 dark:bg-zinc-900 text-zinc-100 text-xs overflow-x-auto max-h-80 overflow-y-auto font-mono leading-relaxed whitespace-pre-wrap border border-zinc-800">
-                  {schemaResult}
-                </pre>
+                <JsonLdHighlight code={schemaResult} />
               </div>
             )}
           </CardContent>

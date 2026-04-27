@@ -206,7 +206,7 @@ function LinkSuggestionCard({ suggestion }: { suggestion: LinkSuggestion }) {
   );
 }
 
-function InternalLinksTab({ websiteId, websiteUrl }: { websiteId: number; websiteUrl: string }) {
+function InternalLinksTab({ websiteId, websiteUrl, onSwitchToAudit }: { websiteId: number; websiteUrl: string; onSwitchToAudit: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: audits } = useListSeoAudits(websiteId, {
@@ -244,8 +244,8 @@ function InternalLinksTab({ websiteId, websiteUrl }: { websiteId: number; websit
           <p className="text-xs text-muted-foreground mt-1 mb-4">
             Run an SEO audit first to enable AI-powered internal link recommendations.
           </p>
-          <Button size="sm" variant="outline" asChild>
-            <a href="#" onClick={(e) => { e.preventDefault(); }}>Go to SEO Audit tab</a>
+          <Button size="sm" variant="outline" onClick={onSwitchToAudit}>
+            Go to SEO Audit tab
           </Button>
         </CardContent>
       </Card>
@@ -456,6 +456,7 @@ function AuditTab({ websiteId, websiteUrl, websiteName }: { websiteId: number; w
 export default function WebsiteDetail() {
   const [, params] = useRoute("/websites/:id");
   const id = params?.id ? parseInt(params.id) : 0;
+  const [activeTab, setActiveTab] = useState("overview");
 
   const { data: website, isLoading: websiteLoading } = useGetWebsite(id, {
     query: { enabled: !!id, queryKey: getGetWebsiteQueryKey(id) }
@@ -542,7 +543,7 @@ export default function WebsiteDetail() {
       )}
 
       {/* Tabs */}
-      <Tabs defaultValue="overview">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-seo-audit">SEO Audit</TabsTrigger>
@@ -663,7 +664,7 @@ export default function WebsiteDetail() {
         </TabsContent>
 
         <TabsContent value="internal-links" className="mt-4">
-          <InternalLinksTab websiteId={id} websiteUrl={website.url} />
+          <InternalLinksTab websiteId={id} websiteUrl={website.url} onSwitchToAudit={() => setActiveTab("audit")} />
         </TabsContent>
       </Tabs>
     </div>

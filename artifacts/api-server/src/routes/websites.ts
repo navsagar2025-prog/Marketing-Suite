@@ -295,6 +295,11 @@ router.get("/websites/:id/link-suggestions", async (req, res): Promise<void> => 
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  const [website] = await db.select().from(websitesTable).where(eq(websitesTable.id, id));
+  if (!website) {
+    res.status(404).json({ error: "Website not found" });
+    return;
+  }
   const suggestions = await db
     .select()
     .from(linkSuggestionsTable)
@@ -316,63 +321,101 @@ router.post("/websites/:id/link-suggestions", async (req, res): Promise<void> =>
     return;
   }
 
-  const [latestAudit] = await db
+  const allAudits = await db
     .select()
     .from(seoAuditsTable)
     .where(eq(seoAuditsTable.websiteId, id))
     .orderBy(desc(seoAuditsTable.crawledAt))
-    .limit(1);
+    .limit(10);
 
-  if (!latestAudit || !latestAudit.crawledData) {
+  if (allAudits.length === 0 || !allAudits.some(a => a.crawledData)) {
     res.status(404).json({ error: "No audit data found. Please run an SEO audit first." });
     return;
   }
 
-  const crawled = latestAudit.crawledData as Record<string, unknown>;
-  const pages: Array<{ url: string; title?: string; metaDescription?: string; h1Tags?: string[] }> = [];
+  type CrawledPage = {
+    url: string;
+    title?: string;
+    metaDescription?: string;
+    h1Tags?: string[];
+    h2Tags?: string[];
+    h3Tags?: string[];
+    wordCount?: number;
+    internalLinks?: number;
+  };
 
-  if (crawled.url) {
+  const seenUrls = new Set<string>();
+  const pages: CrawledPage[] = [];
+
+  for (const audit of allAudits) {
+    if (!audit.crawledData) continue;
+    const crawled = audit.crawledData as Record<string, unknown>;
+    const url = crawled.url as string | undefined;
+    if (!url || seenUrls.has(url)) continue;
+    seenUrls.add(url);
     pages.push({
-      url: crawled.url as string,
+      url,
       title: crawled.title as string | undefined,
       metaDescription: crawled.metaDescription as string | undefined,
       h1Tags: crawled.h1Tags as string[] | undefined,
+      h2Tags: crawled.h2Tags as string[] | undefined,
+      h3Tags: crawled.h3Tags as string[] | undefined,
+      wordCount: crawled.wordCount as number | undefined,
+      internalLinks: crawled.internalLinks as number | undefined,
     });
   }
 
   if (pages.length === 0) {
-    res.status(404).json({ error: "No crawled page data found in the latest audit." });
+    res.status(404).json({ error: "No crawled page data found in audit history." });
     return;
   }
 
-  const pagesText = pages.map((p, i) =>
-    `Page ${i + 1}:\n  URL: ${p.url}\n  Title: ${p.title ?? "No title"}\n  Meta: ${p.metaDescription ?? "No description"}\n  H1: ${(p.h1Tags ?? []).slice(0, 2).join(", ") || "None"}`
-  ).join("\n\n");
+  const pagesText = pages.map((p, i) => {
+    const h2s = (p.h2Tags ?? []).slice(0, 5);
+    const h3s = (p.h3Tags ?? []).slice(0, 5);
+    return [
+      `Page ${i + 1}:`,
+      `  URL: ${p.url}`,
+      `  Title: ${p.title ?? "No title"}`,
+      `  Meta Description: ${p.metaDescription ?? "None"}`,
+      `  H1: ${(p.h1Tags ?? []).slice(0, 2).join(" | ") || "None"}`,
+      h2s.length ? `  H2 Headings: ${h2s.join(" | ")}` : null,
+      h3s.length ? `  H3 Headings: ${h3s.join(" | ")}` : null,
+      p.wordCount ? `  Word Count: ${p.wordCount}` : null,
+      p.internalLinks !== undefined ? `  Existing Internal Links: ${p.internalLinks}` : null,
+    ].filter(Boolean).join("\n");
+  }).join("\n\n");
 
+  const niche = website.niche ?? "General";
   const websiteUrl = website.url;
-  const prompt = `You are an expert SEO consultant specializing in internal link strategy.
+  const prompt = `You are an expert SEO consultant specializing in internal link strategy for a "${niche}" website.
 
-Analyze the following page(s) from website "${website.name}" (${websiteUrl}) and produce internal link recommendations.
-Each recommendation should suggest a link from one page section/topic to another relevant page or section, with an exact anchor text phrase and a brief reason.
+Website: "${website.name}" (${websiteUrl})
+Crawled pages from SEO audit history (${pages.length} page${pages.length > 1 ? "s" : ""} crawled):
 
-Crawled pages:
 ${pagesText}
 
-Based on the content and context of these pages, generate 6-10 specific internal link recommendations. 
-Consider:
-- Linking from introductory content to deeper topic pages
-- Connecting related content areas
-- Improving topical authority by cross-linking relevant sections
-- Using keyword-rich anchor text naturally
+Your task: Generate 6-10 specific internal link recommendations. For each recommendation:
+- sourcePage: the URL (or section/topic area) where the link should be ADDED
+- targetPage: the URL (or section/topic area) the link should POINT TO  
+- anchorText: the exact text that should be hyperlinked (keyword-rich, natural)
+- reason: a concise 1-sentence explanation of the SEO benefit
+
+Rules:
+- If only one page was crawled, use the page's H2/H3 headings to identify distinct topic sections and suggest cross-linking between those sections and likely related pages on the site
+- Use the site's niche, headings, and meta description to infer what other pages likely exist (e.g., /blog, /services, /about, /contact, category pages)
+- Prioritize linking high-value pages to each other and from high-traffic sections to conversion pages
+- Use natural, keyword-rich anchor text — never "click here" or "read more"
+- Each source→target pair should be unique
 
 Return ONLY valid JSON in this format:
 {
   "suggestions": [
     {
-      "sourcePage": "<URL or section of the page to add the link from>",
-      "targetPage": "<URL or section the link should point to>",
-      "anchorText": "<exact anchor text to use>",
-      "reason": "<brief 1-sentence explanation>"
+      "sourcePage": "<URL or section>",
+      "targetPage": "<URL or section>",
+      "anchorText": "<exact anchor text>",
+      "reason": "<1-sentence SEO benefit>"
     }
   ]
 }`;

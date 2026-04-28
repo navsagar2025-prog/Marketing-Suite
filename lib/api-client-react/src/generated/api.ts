@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AddCompetitorBody,
   AdminUsageResponse,
   AnalyticsSummary,
   AppSettings,
@@ -26,6 +27,7 @@ import type {
   CampaignRecipientsResponse,
   ClusterKeywordsBody,
   ClusterKeywordsResponse,
+  CompetitorAnalysis,
   Conversation,
   ConversationMessage,
   CreateBacklinkBody,
@@ -4168,6 +4170,353 @@ export const useGenerateLinkSuggestions = <
   TContext
 > => {
   return useMutation(getGenerateLinkSuggestionsMutationOptions(options));
+};
+
+/**
+ * @summary List competitor analyses for a website
+ */
+export const getListCompetitorsUrl = (id: number) => {
+  return `/api/websites/${id}/competitors`;
+};
+
+export const listCompetitors = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CompetitorAnalysis[]> => {
+  return customFetch<CompetitorAnalysis[]>(getListCompetitorsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCompetitorsQueryKey = (id: number) => {
+  return [`/api/websites/${id}/competitors`] as const;
+};
+
+export const getListCompetitorsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCompetitors>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompetitors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCompetitorsQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCompetitors>>> = ({
+    signal,
+  }) => listCompetitors(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCompetitors>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCompetitorsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCompetitors>>
+>;
+export type ListCompetitorsQueryError = ErrorType<void>;
+
+/**
+ * @summary List competitor analyses for a website
+ */
+
+export function useListCompetitors<
+  TData = Awaited<ReturnType<typeof listCompetitors>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCompetitors>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCompetitorsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a competitor URL (max 3 per website)
+ */
+export const getAddCompetitorUrl = (id: number) => {
+  return `/api/websites/${id}/competitors`;
+};
+
+export const addCompetitor = async (
+  id: number,
+  addCompetitorBody: AddCompetitorBody,
+  options?: RequestInit,
+): Promise<CompetitorAnalysis> => {
+  return customFetch<CompetitorAnalysis>(getAddCompetitorUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(addCompetitorBody),
+  });
+};
+
+export const getAddCompetitorMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addCompetitor>>,
+    TError,
+    { id: number; data: BodyType<AddCompetitorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof addCompetitor>>,
+  TError,
+  { id: number; data: BodyType<AddCompetitorBody> },
+  TContext
+> => {
+  const mutationKey = ["addCompetitor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof addCompetitor>>,
+    { id: number; data: BodyType<AddCompetitorBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return addCompetitor(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AddCompetitorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof addCompetitor>>
+>;
+export type AddCompetitorMutationBody = BodyType<AddCompetitorBody>;
+export type AddCompetitorMutationError = ErrorType<void>;
+
+/**
+ * @summary Add a competitor URL (max 3 per website)
+ */
+export const useAddCompetitor = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof addCompetitor>>,
+    TError,
+    { id: number; data: BodyType<AddCompetitorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof addCompetitor>>,
+  TError,
+  { id: number; data: BodyType<AddCompetitorBody> },
+  TContext
+> => {
+  return useMutation(getAddCompetitorMutationOptions(options));
+};
+
+/**
+ * @summary Remove a competitor
+ */
+export const getDeleteCompetitorUrl = (id: number, competitorId: number) => {
+  return `/api/websites/${id}/competitors/${competitorId}`;
+};
+
+export const deleteCompetitor = async (
+  id: number,
+  competitorId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCompetitorUrl(id, competitorId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCompetitorMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompetitor>>,
+    TError,
+    { id: number; competitorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCompetitor>>,
+  TError,
+  { id: number; competitorId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCompetitor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCompetitor>>,
+    { id: number; competitorId: number }
+  > = (props) => {
+    const { id, competitorId } = props ?? {};
+
+    return deleteCompetitor(id, competitorId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCompetitorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCompetitor>>
+>;
+
+export type DeleteCompetitorMutationError = ErrorType<void>;
+
+/**
+ * @summary Remove a competitor
+ */
+export const useDeleteCompetitor = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCompetitor>>,
+    TError,
+    { id: number; competitorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCompetitor>>,
+  TError,
+  { id: number; competitorId: number },
+  TContext
+> => {
+  return useMutation(getDeleteCompetitorMutationOptions(options));
+};
+
+/**
+ * @summary Crawl competitor and run AI keyword gap analysis
+ */
+export const getAnalyseCompetitorUrl = (id: number, competitorId: number) => {
+  return `/api/websites/${id}/competitors/${competitorId}/analyse`;
+};
+
+export const analyseCompetitor = async (
+  id: number,
+  competitorId: number,
+  options?: RequestInit,
+): Promise<CompetitorAnalysis> => {
+  return customFetch<CompetitorAnalysis>(
+    getAnalyseCompetitorUrl(id, competitorId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAnalyseCompetitorMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyseCompetitor>>,
+    TError,
+    { id: number; competitorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof analyseCompetitor>>,
+  TError,
+  { id: number; competitorId: number },
+  TContext
+> => {
+  const mutationKey = ["analyseCompetitor"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof analyseCompetitor>>,
+    { id: number; competitorId: number }
+  > = (props) => {
+    const { id, competitorId } = props ?? {};
+
+    return analyseCompetitor(id, competitorId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AnalyseCompetitorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof analyseCompetitor>>
+>;
+
+export type AnalyseCompetitorMutationError = ErrorType<void>;
+
+/**
+ * @summary Crawl competitor and run AI keyword gap analysis
+ */
+export const useAnalyseCompetitor = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof analyseCompetitor>>,
+    TError,
+    { id: number; competitorId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof analyseCompetitor>>,
+  TError,
+  { id: number; competitorId: number },
+  TContext
+> => {
+  return useMutation(getAnalyseCompetitorMutationOptions(options));
 };
 
 /**

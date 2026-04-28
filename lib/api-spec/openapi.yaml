@@ -961,6 +961,106 @@ paths:
         "503":
           description: AI provider error
 
+  /websites/{id}/competitors:
+    get:
+      operationId: listCompetitors
+      tags: [websites]
+      summary: List competitor analyses for a website
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of competitor analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompetitorAnalysis"
+        "404":
+          description: Website not found
+    post:
+      operationId: addCompetitor
+      tags: [websites]
+      summary: Add a competitor URL (max 3 per website)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCompetitorBody"
+      responses:
+        "201":
+          description: Competitor added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetitorAnalysis"
+        "404":
+          description: Website not found
+        "409":
+          description: Maximum 3 competitors already added
+
+  /websites/{id}/competitors/{competitorId}:
+    delete:
+      operationId: deleteCompetitor
+      tags: [websites]
+      summary: Remove a competitor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: competitorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /websites/{id}/competitors/{competitorId}/analyse:
+    post:
+      operationId: analyseCompetitor
+      tags: [websites]
+      summary: Crawl competitor and run AI keyword gap analysis
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: competitorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated competitor analysis with gap keywords
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetitorAnalysis"
+        "404":
+          description: Website or competitor not found
+        "503":
+          description: AI provider error
+
   /websites/detect:
     post:
       operationId: detectWebsite
@@ -2284,6 +2384,60 @@ components:
         - anchorText
         - reason
         - createdAt
+
+    CompetitorGapKeyword:
+      type: object
+      properties:
+        keyword:
+          type: string
+        reason:
+          type: string
+      required:
+        - keyword
+        - reason
+
+    CompetitorAnalysisJson:
+      type: object
+      properties:
+        summary:
+          type: string
+        gapKeywords:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorGapKeyword"
+      required:
+        - summary
+        - gapKeywords
+
+    CompetitorAnalysis:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        competitorUrl:
+          type: string
+        analysisJson:
+          oneOf:
+            - $ref: "#/components/schemas/CompetitorAnalysisJson"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - competitorUrl
+        - createdAt
+
+    AddCompetitorBody:
+      type: object
+      properties:
+        competitorUrl:
+          type: string
+      required:
+        - competitorUrl
 
     DetectWebsiteBody:
       type: object

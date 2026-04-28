@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./addCompetitorBody";
 export * from "./adminUsageResponse";
 export * from "./adminUsageResponseLimits";
 export * from "./analyticsSummary";
@@ -18,6 +19,9 @@ export * from "./clusterKeywordsBody";
 export * from "./clusterKeywordsResponse";
 export * from "./clusterKeywordsResponseClustersItem";
 export * from "./clusterKeywordsResponseClustersItemIntent";
+export * from "./competitorAnalysis";
+export * from "./competitorAnalysisJson";
+export * from "./competitorGapKeyword";
 export * from "./conversation";
 export * from "./conversationMessage";
 export * from "./createBacklinkBody";

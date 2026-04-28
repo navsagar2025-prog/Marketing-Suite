@@ -548,6 +548,28 @@ export interface LinkSuggestion {
   createdAt: string;
 }
 
+export interface CompetitorGapKeyword {
+  keyword: string;
+  reason: string;
+}
+
+export interface CompetitorAnalysisJson {
+  summary: string;
+  gapKeywords: CompetitorGapKeyword[];
+}
+
+export interface CompetitorAnalysis {
+  id: number;
+  websiteId: number;
+  competitorUrl: string;
+  analysisJson?: CompetitorAnalysisJson | null;
+  createdAt: string;
+}
+
+export interface AddCompetitorBody {
+  competitorUrl: string;
+}
+
 export interface DetectWebsiteBody {
   url: string;
 }

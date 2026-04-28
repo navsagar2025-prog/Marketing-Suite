@@ -1039,6 +1039,83 @@ export const GenerateLinkSuggestionsResponse = zod.array(
 );
 
 /**
+ * @summary List competitor analyses for a website
+ */
+export const ListCompetitorsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCompetitorsResponseItem = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  competitorUrl: zod.string(),
+  analysisJson: zod
+    .union([
+      zod.object({
+        summary: zod.string(),
+        gapKeywords: zod.array(
+          zod.object({
+            keyword: zod.string(),
+            reason: zod.string(),
+          }),
+        ),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+export const ListCompetitorsResponse = zod.array(ListCompetitorsResponseItem);
+
+/**
+ * @summary Add a competitor URL (max 3 per website)
+ */
+export const AddCompetitorParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AddCompetitorBody = zod.object({
+  competitorUrl: zod.string(),
+});
+
+/**
+ * @summary Remove a competitor
+ */
+export const DeleteCompetitorParams = zod.object({
+  id: zod.coerce.number(),
+  competitorId: zod.coerce.number(),
+});
+
+/**
+ * @summary Crawl competitor and run AI keyword gap analysis
+ */
+export const AnalyseCompetitorParams = zod.object({
+  id: zod.coerce.number(),
+  competitorId: zod.coerce.number(),
+});
+
+export const AnalyseCompetitorResponse = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  competitorUrl: zod.string(),
+  analysisJson: zod
+    .union([
+      zod.object({
+        summary: zod.string(),
+        gapKeywords: zod.array(
+          zod.object({
+            keyword: zod.string(),
+            reason: zod.string(),
+          }),
+        ),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Auto-detect niche and SEO score from a URL
  */
 export const DetectWebsiteBody = zod.object({

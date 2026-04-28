@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp } from "lucide-react";
+import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, Crosshair } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,11 @@ import {
   useGetSettings,
   useListLinkSuggestions,
   useGenerateLinkSuggestions,
+  useListCompetitors,
+  useAddCompetitor,
+  useDeleteCompetitor,
+  useAnalyseCompetitor,
+  useCreateKeyword,
   getGetWebsiteQueryKey,
   getGetWebsiteAnalyticsQueryKey,
   getListKeywordsQueryKey,
@@ -27,8 +33,9 @@ import {
   getListLeadsQueryKey,
   getListSeoAuditsQueryKey,
   getListLinkSuggestionsQueryKey,
+  getListCompetitorsQueryKey,
 } from "@workspace/api-client-react";
-import type { SeoAudit, SeoAuditIssue, LinkSuggestion } from "@workspace/api-client-react";
+import type { SeoAudit, SeoAuditIssue, LinkSuggestion, CompetitorAnalysis } from "@workspace/api-client-react";
 
 function severityIcon(severity: string) {
   if (severity === "critical") return <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />;
@@ -476,6 +483,286 @@ function AuditTab({ websiteId, websiteUrl, websiteName }: { websiteId: number; w
   );
 }
 
+function CompetitorCard({
+  competitor,
+  websiteId,
+  trackedKeywordIds,
+  onDeleted,
+  onAnalysed,
+}: {
+  competitor: CompetitorAnalysis;
+  websiteId: number;
+  trackedKeywordIds: Set<string>;
+  onDeleted: () => void;
+  onAnalysed: (updated: CompetitorAnalysis) => void;
+}) {
+  const { toast } = useToast();
+  const deleteMutation = useDeleteCompetitor();
+  const analyseMutation = useAnalyseCompetitor();
+  const createKeyword = useCreateKeyword();
+  const queryClient = useQueryClient();
+  const { data: aiSettings } = useGetSettings();
+  const aiProvider = aiSettings?.aiProvider ?? "replit";
+  const aiDisabled = aiSettings !== undefined && (!aiSettings.aiEnabled || (aiProvider !== "replit" && !aiSettings.aiApiKeyConfigured));
+
+  const handleDelete = () => {
+    deleteMutation.mutate(
+      { id: websiteId, competitorId: competitor.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Competitor removed" });
+          onDeleted();
+        },
+        onError: () => toast({ title: "Failed to remove competitor", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleAnalyse = () => {
+    analyseMutation.mutate(
+      { id: websiteId, competitorId: competitor.id },
+      {
+        onSuccess: (updated) => {
+          toast({ title: "Gap analysis complete" });
+          onAnalysed(updated);
+        },
+        onError: (err) => {
+          const msg = (err as { message?: string })?.message ?? "Analysis failed";
+          toast({ title: "Analysis failed", description: msg, variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleAddKeyword = (keyword: string) => {
+    createKeyword.mutate(
+      { data: { websiteId, keyword, status: "tracking" } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey({ websiteId }) });
+          toast({ title: `"${keyword}" added to tracked keywords` });
+        },
+        onError: () => toast({ title: `Failed to add "${keyword}"`, variant: "destructive" }),
+      }
+    );
+  };
+
+  const analysis = competitor.analysisJson as { summary?: string; gapKeywords?: Array<{ keyword: string; reason: string }> } | null;
+
+  return (
+    <Card>
+      <CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <a
+              href={competitor.competitorUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium text-primary hover:underline truncate block"
+            >
+              {competitor.competitorUrl}
+            </a>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {analysis
+                ? `Analysed ${new Date(competitor.createdAt).toLocaleDateString()}`
+                : "Not yet analysed"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAnalyse}
+              disabled={analyseMutation.isPending || aiDisabled}
+              title={aiDisabled ? "AI is disabled — enable in Settings" : undefined}
+              data-testid={`button-analyse-competitor-${competitor.id}`}
+            >
+              {analyseMutation.isPending ? (
+                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Analysing...</>
+              ) : (
+                <><RefreshCw className="h-3 w-3 mr-1" /> {analysis ? "Re-analyse" : "Analyse"}</>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              onClick={handleDelete}
+              disabled={deleteMutation.isPending}
+              data-testid={`button-delete-competitor-${competitor.id}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {analysis && (
+          <div className="space-y-3 pt-1">
+            {analysis.summary && (
+              <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-muted pl-3">
+                {analysis.summary}
+              </p>
+            )}
+            {analysis.gapKeywords && analysis.gapKeywords.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Keyword Gap Opportunities ({analysis.gapKeywords.length})
+                </p>
+                {analysis.gapKeywords.map((gap, i) => {
+                  const alreadyTracked = trackedKeywordIds.has(gap.keyword.toLowerCase());
+                  return (
+                    <div key={i} className="border rounded-md p-3 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium">{gap.keyword}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{gap.reason}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={alreadyTracked ? "secondary" : "outline"}
+                          className="text-xs h-7 px-2 shrink-0"
+                          onClick={() => handleAddKeyword(gap.keyword)}
+                          disabled={alreadyTracked || createKeyword.isPending}
+                          title={alreadyTracked ? "Already tracked" : "Add to tracked keywords"}
+                          data-testid={`button-add-keyword-${i}`}
+                        >
+                          {alreadyTracked ? (
+                            <><Check className="h-3 w-3 mr-1" /> Tracked</>
+                          ) : (
+                            <><Plus className="h-3 w-3 mr-1" /> Add keyword</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompetitorsTab({ websiteId }: { websiteId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [urlInput, setUrlInput] = useState("");
+  const { data: competitors, isLoading } = useListCompetitors(websiteId, {
+    query: { queryKey: getListCompetitorsQueryKey(websiteId) },
+  });
+  const { data: keywords } = useListKeywords({ websiteId }, {
+    query: { queryKey: getListKeywordsQueryKey({ websiteId }) },
+  });
+  const addMutation = useAddCompetitor();
+
+  const trackedKeywordIds = new Set(
+    (keywords ?? []).map((k) => k.keyword.toLowerCase())
+  );
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    const url = urlInput.trim();
+    if (!url) return;
+    let normalised = url;
+    if (!/^https?:\/\//i.test(normalised)) normalised = `https://${normalised}`;
+    addMutation.mutate(
+      { id: websiteId, data: { competitorUrl: normalised } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListCompetitorsQueryKey(websiteId) });
+          setUrlInput("");
+          toast({ title: "Competitor added" });
+        },
+        onError: (err) => {
+          const msg = (err as { message?: string })?.message ?? "Failed to add competitor";
+          const isMax = msg.includes("Maximum 3");
+          toast({
+            title: isMax ? "Maximum 3 competitors reached" : "Failed to add competitor",
+            description: isMax ? "Remove an existing competitor to add a new one." : msg,
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: getListCompetitorsQueryKey(websiteId) });
+  };
+
+  const atMax = (competitors?.length ?? 0) >= 3;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Competitor Analysis</h2>
+          <p className="text-xs text-muted-foreground">
+            Track up to 3 competitors and find keyword gaps with AI
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleAdd} className="flex items-center gap-2">
+        <Input
+          placeholder="https://competitor.com"
+          value={urlInput}
+          onChange={(e) => setUrlInput(e.target.value)}
+          className="flex-1 text-sm"
+          disabled={addMutation.isPending || atMax}
+          data-testid="input-competitor-url"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          disabled={!urlInput.trim() || addMutation.isPending || atMax}
+          data-testid="button-add-competitor"
+        >
+          {addMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <><Plus className="h-4 w-4 mr-1" /> Add</>
+          )}
+        </Button>
+      </form>
+      {atMax && (
+        <p className="text-xs text-muted-foreground">Maximum 3 competitors reached. Remove one to add another.</p>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        </div>
+      ) : !competitors || competitors.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Crosshair className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">No competitors tracked yet</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Add a competitor URL above to start finding keyword gaps.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {competitors.map((c) => (
+            <CompetitorCard
+              key={c.id}
+              competitor={c}
+              websiteId={websiteId}
+              trackedKeywordIds={trackedKeywordIds}
+              onDeleted={invalidate}
+              onAnalysed={invalidate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WebsiteDetail() {
   const [, params] = useRoute("/websites/:id");
   const id = params?.id ? parseInt(params.id) : 0;
@@ -571,6 +858,7 @@ export default function WebsiteDetail() {
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-seo-audit">SEO Audit</TabsTrigger>
           <TabsTrigger value="internal-links" data-testid="tab-internal-links">Internal Links</TabsTrigger>
+          <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
@@ -688,6 +976,10 @@ export default function WebsiteDetail() {
 
         <TabsContent value="internal-links" className="mt-4">
           <InternalLinksTab websiteId={id} websiteUrl={website.url} onSwitchToAudit={() => setActiveTab("audit")} />
+        </TabsContent>
+
+        <TabsContent value="competitors" className="mt-4">
+          <CompetitorsTab websiteId={id} />
         </TabsContent>
       </Tabs>
     </div>

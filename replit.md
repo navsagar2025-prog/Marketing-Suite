@@ -67,7 +67,7 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`
+Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`
 
 ### keyword_rank_history table
 - `id`: serial PK
@@ -95,6 +95,22 @@ Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaig
 - Admin endpoints: `GET/PATCH /api/admin/lead-scoring-config`, `POST /api/admin/leads/recalculate-scores`
 - Default weights: source {paid:30, referral:25, social:20, organic:15, direct:10}, status {qualified:30, contacted:20, new:10}, valueTier {over1000:20, over500:15, over100:10, over0:5}, recencyBonus:10
 - High-intent threshold: score ≥ 70 (used in analytics summary `highIntentLeads` count and frontend filter)
+
+### link_suggestions table
+- `id`: serial PK
+- `websiteId`: FK → websites (cascade delete)
+- `sourcePage`, `targetPage`, `anchorText`, `reason`: text fields
+- `createdAt`: timestamp
+- Populated by `POST /api/websites/:id/link-suggestions` (AI-powered)
+
+### competitor_analyses table
+- `id`: serial PK
+- `websiteId`: FK → websites (cascade delete)
+- `competitorUrl`: text — the competitor site URL
+- `analysisJson`: jsonb — `{ summary: string, gapKeywords: [{keyword, reason}] }` once analysed
+- `createdAt`: timestamp
+- Max 3 competitors per website enforced at API level
+- Gap analysis via `POST /api/websites/:id/competitors/:competitorId/analyse` (crawl + AI)
 
 ## Important Notes
 

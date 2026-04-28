@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, websitesTable, seoAuditsTable, linkSuggestionsTable } from "@workspace/db";
+import { db, websitesTable, seoAuditsTable, linkSuggestionsTable, competitorAnalysesTable, keywordsTable } from "@workspace/db";
 import { callAI } from "../lib/ai-provider.js";
 import {
   ListWebsitesResponse,
@@ -479,6 +479,167 @@ Return ONLY valid JSON in this format:
   });
 
   res.json(inserted);
+});
+
+// ─── Competitors ─────────────────────────────────────────────────────────────
+
+router.get("/websites/:id/competitors", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const website = await db.select().from(websitesTable).where(eq(websitesTable.id, id)).limit(1);
+  if (!website.length) { res.status(404).json({ error: "Website not found" }); return; }
+
+  const analyses = await db
+    .select()
+    .from(competitorAnalysesTable)
+    .where(eq(competitorAnalysesTable.websiteId, id))
+    .orderBy(desc(competitorAnalysesTable.createdAt));
+
+  res.json(analyses);
+});
+
+router.post("/websites/:id/competitors", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const website = await db.select().from(websitesTable).where(eq(websitesTable.id, id)).limit(1);
+  if (!website.length) { res.status(404).json({ error: "Website not found" }); return; }
+
+  const { competitorUrl } = req.body as { competitorUrl?: string };
+  if (!competitorUrl || typeof competitorUrl !== "string") {
+    res.status(400).json({ error: "competitorUrl is required" });
+    return;
+  }
+
+  const existing = await db
+    .select()
+    .from(competitorAnalysesTable)
+    .where(eq(competitorAnalysesTable.websiteId, id));
+
+  if (existing.length >= 3) {
+    res.status(409).json({ error: "Maximum 3 competitors allowed per website" });
+    return;
+  }
+
+  const [row] = await db
+    .insert(competitorAnalysesTable)
+    .values({ websiteId: id, competitorUrl: competitorUrl.trim(), analysisJson: null })
+    .returning();
+
+  res.status(201).json(row);
+});
+
+router.delete("/websites/:id/competitors/:competitorId", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const competitorId = parseInt(req.params.competitorId);
+  if (isNaN(id) || isNaN(competitorId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const website = await db.select().from(websitesTable).where(eq(websitesTable.id, id)).limit(1);
+  if (!website.length) { res.status(404).json({ error: "Website not found" }); return; }
+
+  await db
+    .delete(competitorAnalysesTable)
+    .where(eq(competitorAnalysesTable.id, competitorId));
+
+  res.status(204).end();
+});
+
+router.post("/websites/:id/competitors/:competitorId/analyse", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const competitorId = parseInt(req.params.competitorId);
+  if (isNaN(id) || isNaN(competitorId)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [website] = await db.select().from(websitesTable).where(eq(websitesTable.id, id)).limit(1);
+  if (!website) { res.status(404).json({ error: "Website not found" }); return; }
+
+  const [competitor] = await db
+    .select()
+    .from(competitorAnalysesTable)
+    .where(eq(competitorAnalysesTable.id, competitorId))
+    .limit(1);
+  if (!competitor) { res.status(404).json({ error: "Competitor not found" }); return; }
+
+  const trackedKeywords = await db
+    .select()
+    .from(keywordsTable)
+    .where(eq(keywordsTable.websiteId, id));
+
+  let crawledText = "";
+  try {
+    const crawled = await crawlUrl(competitor.competitorUrl);
+    crawledText = [
+      crawled.title ?? "",
+      crawled.description ?? "",
+      crawled.headings?.join(" ") ?? "",
+      crawled.bodyText ?? "",
+    ].filter(Boolean).join("\n").slice(0, 6000);
+  } catch {
+    crawledText = `Could not crawl ${competitor.competitorUrl} — proceeding with URL-based analysis only.`;
+  }
+
+  const trackedList = trackedKeywords.length > 0
+    ? trackedKeywords.map((k) => k.keyword).join(", ")
+    : "(none tracked yet)";
+
+  const prompt = `You are an expert SEO analyst performing a keyword gap analysis.
+
+Website being analysed: "${website.name}" (${website.url})
+Niche: ${website.niche ?? "General"}
+Currently tracked keywords: ${trackedList}
+
+Competitor URL: ${competitor.competitorUrl}
+Competitor page content (truncated):
+${crawledText}
+
+Task: Identify keyword opportunities that the competitor appears to target but the user is NOT already tracking.
+Return 8-12 keyword gap opportunities. For each keyword:
+- keyword: a specific search term the competitor targets
+- reason: 1-sentence explanation of why this keyword is valuable and why the competitor is targeting it
+
+Return ONLY valid JSON:
+{
+  "summary": "<2-3 sentence overview of the competitor's keyword strategy and the main gap opportunities>",
+  "gapKeywords": [
+    { "keyword": "<search term>", "reason": "<1-sentence rationale>" }
+  ]
+}`;
+
+  let analysisJson: { summary: string; gapKeywords: Array<{ keyword: string; reason: string }> };
+  try {
+    const content = await callAI(prompt, { maxTokens: 2048 });
+    let parsed: typeof analysisJson = { summary: "", gapKeywords: [] };
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { parsed = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
+      }
+    }
+    const rawKeywords = Array.isArray(parsed.gapKeywords) ? parsed.gapKeywords : [];
+    analysisJson = {
+      summary: typeof parsed.summary === "string" ? parsed.summary : "",
+      gapKeywords: rawKeywords.filter(
+        (g): g is { keyword: string; reason: string } =>
+          typeof g === "object" && g !== null &&
+          typeof g.keyword === "string" && g.keyword.trim().length > 0 &&
+          typeof g.reason === "string" && g.reason.trim().length > 0
+      ).map((g) => ({ keyword: g.keyword.trim(), reason: g.reason.trim() })),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+    return;
+  }
+
+  const [updated] = await db
+    .update(competitorAnalysesTable)
+    .set({ analysisJson, createdAt: new Date() })
+    .where(eq(competitorAnalysesTable.id, competitorId))
+    .returning();
+
+  res.json(updated);
 });
 
 export default router;

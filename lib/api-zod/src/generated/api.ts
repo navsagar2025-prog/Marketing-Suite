@@ -664,7 +664,7 @@ export const CreateSequenceBody = zod.object({
           ),
       }),
     )
-    .optional(),
+    .min(1),
   active: zod.boolean().optional(),
 });
 
@@ -730,6 +730,7 @@ export const UpdateSequenceBody = zod.object({
           ),
       }),
     )
+    .min(1)
     .optional(),
   active: zod.boolean().optional(),
 });

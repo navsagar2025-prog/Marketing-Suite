@@ -12,6 +12,7 @@ export interface CreateSequenceBody {
   /** @minLength 1 */
   name: string;
   trigger: SequenceTrigger;
-  stepsJson?: SequenceStep[];
+  /** @minItems 1 */
+  stepsJson: SequenceStep[];
   active?: boolean;
 }

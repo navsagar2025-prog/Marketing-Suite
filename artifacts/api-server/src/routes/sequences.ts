@@ -207,7 +207,6 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
         );
 
       for (const enrollment of dueEnrollments) {
-        if (enrollment.completedAt) continue;
         if (enrollment.nextSendAt && enrollment.nextSendAt > now) continue;
         const stepIndex = enrollment.currentStep;
         if (stepIndex >= steps.length) {

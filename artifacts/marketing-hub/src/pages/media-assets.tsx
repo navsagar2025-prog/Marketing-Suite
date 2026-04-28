@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ImageIcon, Video, Trash2, Download, Copy, Check, ExternalLink, Film } from "lucide-react";
+import { ImageIcon, Video, Trash2, Download, Copy, Check, ExternalLink, Film, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,43 @@ function CopyButton({ text }: { text: string }) {
 
 function AssetCard({ asset, onDelete }: { asset: MediaAsset; onDelete: (id: number) => void }) {
   const isVideo = asset.type === "video";
+  const isText = asset.type === "text";
+
+  if (isText) {
+    return (
+      <Card className="group overflow-hidden" data-testid={`card-asset-${asset.id}`}>
+        <div className="relative bg-muted/50 border-b px-4 py-5 flex flex-col gap-2 min-h-[112px]">
+          <Badge variant="outline" className="text-xs gap-1 w-fit">
+            <FileText className="h-3 w-3" />
+            Draft
+          </Badge>
+          <p className="text-sm font-semibold line-clamp-2 leading-snug">{asset.url}</p>
+        </div>
+        <CardContent className="p-3">
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{asset.prompt}</p>
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-xs text-muted-foreground">
+              {new Date(asset.createdAt).toLocaleDateString()}
+            </span>
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <CopyButton text={asset.prompt} />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 hover:text-destructive"
+                onClick={() => onDelete(asset.id)}
+                data-testid={`button-delete-asset-${asset.id}`}
+                title="Delete"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="group overflow-hidden" data-testid={`card-asset-${asset.id}`}>
       <div className="relative bg-muted aspect-video flex items-center justify-center overflow-hidden">
@@ -91,7 +128,7 @@ function AssetCard({ asset, onDelete }: { asset: MediaAsset; onDelete: (id: numb
 export default function MediaAssetsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"all" | "image" | "video">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "image" | "video" | "text">("all");
   const [websiteFilter, setWebsiteFilter] = useState<string>("all");
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
 
@@ -156,7 +193,7 @@ export default function MediaAssetsPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as "all" | "image" | "video")}>
+      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as "all" | "image" | "video" | "text")}>
         <TabsList>
           <TabsTrigger value="all" data-testid="tab-all">All</TabsTrigger>
           <TabsTrigger value="image" data-testid="tab-images">
@@ -165,9 +202,12 @@ export default function MediaAssetsPage() {
           <TabsTrigger value="video" data-testid="tab-videos">
             <Video className="h-3.5 w-3.5 mr-1.5" />Videos
           </TabsTrigger>
+          <TabsTrigger value="text" data-testid="tab-drafts">
+            <FileText className="h-3.5 w-3.5 mr-1.5" />Drafts
+          </TabsTrigger>
         </TabsList>
 
-        {["all", "image", "video"].map(tab => (
+        {(["all", "image", "video", "text"] as const).map(tab => (
           <TabsContent key={tab} value={tab} className="mt-4">
             {isLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -182,9 +222,15 @@ export default function MediaAssetsPage() {
               <div className="text-center py-16 text-muted-foreground">
                 {tab === "video"
                   ? <Film className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  : tab === "text"
+                  ? <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
                   : <ImageIcon className="h-10 w-10 mx-auto mb-3 opacity-30" />}
-                <p className="text-sm font-medium">No {tab === "all" ? "media assets" : tab + "s"} yet</p>
-                <p className="text-xs mt-1">Generate images or videos from the Social or Campaigns pages.</p>
+                <p className="text-sm font-medium">No {tab === "all" ? "media assets" : tab === "text" ? "saved drafts" : tab + "s"} yet</p>
+                <p className="text-xs mt-1">
+                  {tab === "text"
+                    ? "Save drafts from the Blog / Page Drafter in AI Tools."
+                    : "Generate images or videos from the Social or Campaigns pages."}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

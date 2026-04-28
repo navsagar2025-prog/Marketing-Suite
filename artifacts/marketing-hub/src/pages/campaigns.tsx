@@ -33,7 +33,7 @@ import {
   useGenerateSequence,
   getListSequencesQueryKey,
 } from "@workspace/api-client-react";
-import type { ListSequencesResponseItem, CreateSequenceBody } from "@workspace/api-client-react";
+import type { Sequence, CreateSequenceBody } from "@workspace/api-client-react";
 import { AiMediaDialog } from "@/components/AiMediaDialog";
 import { Link } from "wouter";
 
@@ -88,10 +88,10 @@ function SequenceCard({
   onDelete,
   onToggleActive,
 }: {
-  seq: ListSequencesResponseItem;
-  onEdit: (seq: ListSequencesResponseItem) => void;
+  seq: Sequence;
+  onEdit: (seq: Sequence) => void;
   onDelete: (id: number) => void;
-  onToggleActive: (seq: ListSequencesResponseItem) => void;
+  onToggleActive: (seq: Sequence) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const steps = (seq.stepsJson ?? []) as SequenceStep[];
@@ -194,7 +194,7 @@ function SequenceDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  editSeq: ListSequencesResponseItem | null;
+  editSeq: Sequence | null;
   aiDisabled: boolean;
 }) {
   const { toast } = useToast();
@@ -215,7 +215,7 @@ function SequenceDialog({
   const [aiAudience, setAiAudience] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
 
-  const reset = (seq?: ListSequencesResponseItem | null) => {
+  const reset = (seq?: Sequence | null) => {
     setName(seq?.name ?? "");
     setTriggerType((seq?.trigger as SequenceTrigger | undefined)?.type ?? "status");
     setTriggerValue(String((seq?.trigger as SequenceTrigger | undefined)?.value ?? "new"));
@@ -514,9 +514,9 @@ function SequencesTab({ aiDisabled }: { aiDisabled: boolean }) {
   const deleteMutation = useDeleteSequence();
   const updateMutation = useUpdateSequence();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editSeq, setEditSeq] = useState<ListSequencesResponseItem | null>(null);
+  const [editSeq, setEditSeq] = useState<Sequence | null>(null);
 
-  const handleEdit = (seq: ListSequencesResponseItem) => {
+  const handleEdit = (seq: Sequence) => {
     setEditSeq(seq);
     setDialogOpen(true);
   };
@@ -529,7 +529,7 @@ function SequencesTab({ aiDisabled }: { aiDisabled: boolean }) {
     });
   };
 
-  const handleToggleActive = (seq: ListSequencesResponseItem) => {
+  const handleToggleActive = (seq: Sequence) => {
     updateMutation.mutate(
       { id: seq.id, data: { active: !seq.active } },
       {

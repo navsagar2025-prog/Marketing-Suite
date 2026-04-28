@@ -177,15 +177,15 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
       const newLeads = leadsWithEmail.filter(l => !enrolledLeadIds.has(l.id));
       if (newLeads.length > 0) {
         const now = new Date();
-        await db.insert(sequenceEnrollmentsTable).values(
+        const inserted = await db.insert(sequenceEnrollmentsTable).values(
           newLeads.map(l => ({
             sequenceId: seq.id,
             leadId: l.id,
             currentStep: 0,
             nextSendAt: now,
           }))
-        ).onConflictDoNothing();
-        enrolled += newLeads.length;
+        ).onConflictDoNothing().returning({ id: sequenceEnrollmentsTable.id });
+        enrolled += inserted.length;
       }
 
       if (!emailConfig) continue;

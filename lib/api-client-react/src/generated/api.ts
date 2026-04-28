@@ -7854,7 +7854,7 @@ export const updatePaymentSettings = async (
 ): Promise<PaymentSettings> => {
   return customFetch<PaymentSettings>(getUpdatePaymentSettingsUrl(), {
     ...options,
-    method: "PATCH",
+    method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(updatePaymentSettingsBody),
   });

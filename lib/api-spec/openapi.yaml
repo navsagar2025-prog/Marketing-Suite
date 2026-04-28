@@ -1801,7 +1801,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PaymentSettings"
-    patch:
+    post:
       operationId: updatePaymentSettings
       tags: [settings]
       summary: Update payment gateway configuration (admin only)

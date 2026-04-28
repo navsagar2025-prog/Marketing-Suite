@@ -209,7 +209,7 @@ router.get("/settings/payment", requireAdmin, async (_req, res): Promise<void> =
   res.json(settings);
 });
 
-router.patch("/settings/payment", requireAdmin, async (req, res): Promise<void> => {
+router.post("/settings/payment", requireAdmin, async (req, res): Promise<void> => {
   const body = req.body ?? {};
   try {
     const settings = await savePaymentSettings(body);

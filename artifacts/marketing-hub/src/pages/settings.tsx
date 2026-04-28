@@ -353,16 +353,17 @@ export default function SettingsPage() {
   };
 
   const activePaymentProvider = (paymentProvider ?? paymentSettings?.provider ?? null) as PaymentProvider | null;
-  const CURRENCIES = [
+  const STRIPE_CURRENCIES = [
     { value: "usd", label: "USD — US Dollar" },
-    { value: "inr", label: "INR — Indian Rupee" },
-    { value: "eur", label: "EUR — Euro" },
     { value: "gbp", label: "GBP — British Pound" },
-    { value: "aud", label: "AUD — Australian Dollar" },
-    { value: "cad", label: "CAD — Canadian Dollar" },
-    { value: "sgd", label: "SGD — Singapore Dollar" },
-    { value: "aed", label: "AED — UAE Dirham" },
+    { value: "eur", label: "EUR — Euro" },
   ];
+  const RAZORPAY_CURRENCIES = [
+    { value: "inr", label: "INR — Indian Rupee" },
+  ];
+  const CURRENCIES = activePaymentProvider === "razorpay" ? RAZORPAY_CURRENCIES
+    : activePaymentProvider === "stripe" ? STRIPE_CURRENCIES
+    : [...STRIPE_CURRENCIES, { value: "inr", label: "INR — Indian Rupee" }];
 
   const handleSavePayment = () => {
     const body: Record<string, string> = {};
@@ -393,8 +394,18 @@ export default function SettingsPage() {
   const handleTestPayment = () => {
     setPaymentTestResult(null);
     testPaymentMutation.mutate(undefined, {
-      onSuccess: (r) => setPaymentTestResult({ success: r.success, message: r.message, provider: r.provider }),
-      onError: () => setPaymentTestResult({ success: false, message: "Request failed", provider: "" }),
+      onSuccess: (r) => {
+        setPaymentTestResult({ success: r.success, message: r.message, provider: r.provider });
+        toast({
+          title: r.success ? "Connection verified" : "Connection failed",
+          description: r.message,
+          variant: r.success ? "default" : "destructive",
+        });
+      },
+      onError: () => {
+        setPaymentTestResult({ success: false, message: "Request failed", provider: "" });
+        toast({ title: "Connection failed", description: "Could not reach the payment provider.", variant: "destructive" });
+      },
     });
   };
 
@@ -1276,7 +1287,11 @@ export default function SettingsPage() {
                     key={p}
                     type="button"
                     data-testid={`button-payment-provider-${p}`}
-                    onClick={() => { setPaymentProvider(p); setPaymentTestResult(null); }}
+                    onClick={() => {
+                      setPaymentProvider(p);
+                      setPaymentTestResult(null);
+                      setPaymentCurrency(p === "razorpay" ? "inr" : "usd");
+                    }}
                     className={`flex items-center gap-3 p-3 rounded-md border text-left transition-colors ${
                       activePaymentProvider === p
                         ? "border-primary bg-primary/5"

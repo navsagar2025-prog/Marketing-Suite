@@ -24,6 +24,8 @@ import {
   LogOut,
   Gauge,
   MessageSquare,
+  BookOpen,
+  HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,8 @@ const navItems = [
   { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "analytics" },
   { path: "/ai", label: "AI Tools", icon: Sparkles, permission: "ai_tools" },
   { path: "/media", label: "Media Library", icon: ImageIcon, permission: "media" },
+  { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
+  { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
   { path: "/settings", label: "Settings", icon: Settings, permission: null },
 ];
 

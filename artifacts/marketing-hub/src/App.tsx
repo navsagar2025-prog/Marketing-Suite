@@ -22,6 +22,10 @@ import ReportPage from "@/pages/report";
 import LandingPage from "@/pages/landing";
 import AdminPage from "@/pages/admin";
 import ConversationsPage from "@/pages/conversations";
+import BlogPage from "@/pages/blog";
+import BlogPostPage from "@/pages/blog-post";
+import KnowledgeBasePage from "@/pages/knowledge-base";
+import KbArticlePage from "@/pages/kb-article";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Loader2, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -136,6 +140,14 @@ function ProtectedRouter() {
             <Route path="/media">
               <PermissionGuard module="media"><MediaAssets /></PermissionGuard>
             </Route>
+            <Route path="/blog/:slug">
+              {(params) => <BlogPostPage key={params.slug} />}
+            </Route>
+            <Route path="/blog" component={BlogPage} />
+            <Route path="/kb/:slug">
+              {(params) => <KbArticlePage key={params.slug} />}
+            </Route>
+            <Route path="/kb" component={KnowledgeBasePage} />
             <Route path="/settings" component={SettingsPage} />
             <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />

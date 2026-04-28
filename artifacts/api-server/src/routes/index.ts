@@ -20,6 +20,8 @@ import emailWebhooksRouter from "./email-webhooks";
 import conversationsRouter from "./conversations";
 import sequencesRouter from "./sequences";
 import leadFormsRouter from "./lead-forms";
+import blogRouter from "./blog";
+import kbRouter from "./kb";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -63,6 +65,8 @@ router.use(usageRouter);
 router.use(conversationsRouter);
 router.use(sequencesRouter);
 router.use(leadFormsRouter);
+router.use("/blog", blogRouter);
+router.use("/kb", kbRouter);
 router.use(adminRouter);
 
 export default router;

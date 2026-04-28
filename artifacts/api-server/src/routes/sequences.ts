@@ -198,6 +198,7 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
         .where(
           and(
             eq(sequenceEnrollmentsTable.sequenceId, seq.id),
+            isNull(sequenceEnrollmentsTable.completedAt),
             or(
               lte(sequenceEnrollmentsTable.nextSendAt, now),
               eq(sequenceEnrollmentsTable.currentStep, 0)

@@ -162,8 +162,8 @@ router.post("/admin/staff", async (req, res): Promise<void> => {
       return;
     }
   }
-  // Admin users always get null permissions (full access). Staff get the provided list or null (full access).
-  const resolvedPermissions: string[] | null = validRole === "admin" ? null : (Array.isArray(permissions) ? permissions : null);
+  // Admin users always get null permissions (full access). Staff get the provided list (deduplicated) or null (full access).
+  const resolvedPermissions: string[] | null = validRole === "admin" ? null : (Array.isArray(permissions) ? [...new Set(permissions)] : null);
   try {
     const [user] = await db.insert(staffUsersTable).values({
       username: username.trim().toLowerCase(),
@@ -189,6 +189,17 @@ router.patch("/admin/users/:id/permissions", async (req, res): Promise<void> => 
     res.status(400).json({ error: "Invalid id" });
     return;
   }
+  // Fetch target user to guard against updating admin accounts
+  const [targetUser] = await db.select({ role: staffUsersTable.role }).from(staffUsersTable).where(eq(staffUsersTable.id, id));
+  if (!targetUser) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (targetUser.role === "admin") {
+    res.status(400).json({ error: "Cannot set permissions on admin accounts — admins always have full access" });
+    return;
+  }
+
   const { permissions } = req.body as { permissions?: string[] | null };
   if (Array.isArray(permissions)) {
     const invalidKeys = permissions.filter(p => !(ALL_MODULES as readonly string[]).includes(p));
@@ -197,9 +208,11 @@ router.patch("/admin/users/:id/permissions", async (req, res): Promise<void> => 
       return;
     }
   }
+  // Deduplicate permission keys before persisting
+  const resolvedPermissions = Array.isArray(permissions) ? [...new Set(permissions)] : null;
   const [updated] = await db
     .update(staffUsersTable)
-    .set({ permissions: Array.isArray(permissions) ? permissions : null })
+    .set({ permissions: resolvedPermissions })
     .where(eq(staffUsersTable.id, id))
     .returning({
       id: staffUsersTable.id,

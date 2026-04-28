@@ -40,7 +40,11 @@ router.post("/lead-forms", async (req, res): Promise<void> => {
   if (isNaN(websiteId) || websiteId < 1) { res.status(400).json({ error: "websiteId is required" }); return; }
   const [site] = await db.select({ id: websitesTable.id }).from(websitesTable).where(eq(websitesTable.id, websiteId));
   if (!site) { res.status(400).json({ error: "Website not found" }); return; }
-  const fieldsJson = parseFieldsJson(body.fieldsJson ?? null) || defaultFields();
+  const rawFields = parseFieldsJson(body.fieldsJson ?? null);
+  const fieldsJson = rawFields.length > 0 ? rawFields : defaultFields();
+  if (!fieldsJson.some(f => f.enabled)) {
+    res.status(400).json({ error: "At least one field must be enabled" }); return;
+  }
   const active = body.active !== false;
   const [form] = await db.insert(leadFormsTable).values({ name, websiteId, fieldsJson, active }).returning();
   res.status(201).json(form);
@@ -54,7 +58,13 @@ router.patch("/lead-forms/:id", async (req, res): Promise<void> => {
   const body = req.body as { name?: unknown; fieldsJson?: unknown; active?: unknown };
   const updates: Partial<typeof leadFormsTable.$inferInsert> = {};
   if (typeof body.name === "string" && body.name.trim()) updates.name = body.name.trim();
-  if (Array.isArray(body.fieldsJson)) updates.fieldsJson = parseFieldsJson(body.fieldsJson);
+  if (Array.isArray(body.fieldsJson)) {
+    const parsed = parseFieldsJson(body.fieldsJson);
+    if (!parsed.some(f => f.enabled)) {
+      res.status(400).json({ error: "At least one field must be enabled" }); return;
+    }
+    updates.fieldsJson = parsed;
+  }
   if (typeof body.active === "boolean") updates.active = body.active;
   if (Object.keys(updates).length === 0) { res.json(existing); return; }
   const [updated] = await db.update(leadFormsTable).set(updates).where(eq(leadFormsTable.id, id)).returning();

@@ -91,9 +91,9 @@ router.post("/public/forms/:formId/submit", async (req, res): Promise<void> => {
       name: leadName,
       email: email || null,
       phone: phone || null,
-      source: "form",
+      source: "referral",
       status: "new",
-      notes: message ? `Form message: ${message}` : undefined,
+      notes: message ? `[Form] ${message}` : "[Form]",
     });
 
     await db.update(leadFormsTable)

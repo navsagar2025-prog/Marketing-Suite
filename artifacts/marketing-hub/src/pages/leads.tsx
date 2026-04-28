@@ -41,7 +41,7 @@ import type { Conversation, LeadForm, LeadFormField } from "@workspace/api-clien
 import ConversationDrawer from "@/components/ConversationDrawer";
 
 const STATUS_OPTIONS = ["new", "contacted", "qualified", "converted", "lost"];
-const SOURCE_OPTIONS = ["organic", "paid", "social", "direct", "referral", "form"];
+const SOURCE_OPTIONS = ["organic", "paid", "social", "direct", "referral"];
 
 const createSchema = z.object({
   websiteId: z.coerce.number().min(1, "Website is required"),
@@ -437,7 +437,7 @@ export default function Leads() {
                       <td className="px-4 py-3 font-medium">{l.name}</td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{l.email ?? l.phone ?? "—"}</td>
                       <td className="px-4 py-3">
-                        {l.source === "form" ? (
+                        {l.source === "referral" && l.notes?.startsWith("[Form]") ? (
                           <span
                             className="text-xs px-1.5 py-0.5 rounded font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400"
                             data-testid={`badge-form-source-${l.id}`}

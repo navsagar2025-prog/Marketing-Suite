@@ -263,6 +263,12 @@ function SequenceDialog({
   const handleSave = () => {
     if (!name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
     if (!triggerValue.trim()) { toast({ title: "Trigger value is required", variant: "destructive" }); return; }
+    if (steps.length === 0) { toast({ title: "At least one step is required", variant: "destructive" }); return; }
+    for (let i = 0; i < steps.length; i++) {
+      if (!steps[i].subject.trim()) { toast({ title: `Step ${i + 1}: subject is required`, variant: "destructive" }); return; }
+      if (!steps[i].body.trim()) { toast({ title: `Step ${i + 1}: body is required`, variant: "destructive" }); return; }
+      if (steps[i].delayDays < 0) { toast({ title: `Step ${i + 1}: delay must be 0 or more days`, variant: "destructive" }); return; }
+    }
     const trigger: SequenceTrigger = {
       type: triggerType,
       value: triggerType === "score" ? Number(triggerValue) : triggerValue,

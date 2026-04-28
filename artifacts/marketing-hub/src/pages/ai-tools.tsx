@@ -222,7 +222,7 @@ export default function AiTools() {
   const [blogTone, setBlogTone] = useState("professional");
   const [blogNotes, setBlogNotes] = useState("");
   const [blogResult, setBlogResult] = useState<{ title: string; content: string } | null>(null);
-  const [blogSaveWebsiteId, setBlogSaveWebsiteId] = useState<string>("");
+  const [blogSaveWebsiteId, setBlogSaveWebsiteId] = useState<string>("none");
   const [blogSaved, setBlogSaved] = useState(false);
   const blogDraftMutation = useGenerateBlogDraft();
   const createMediaAssetMutation = useCreateMediaAsset();
@@ -312,7 +312,7 @@ export default function AiTools() {
         url: blogResult.title,
         type: "text",
         prompt: blogResult.content,
-        websiteId: blogSaveWebsiteId ? parseInt(blogSaveWebsiteId) : undefined,
+        websiteId: blogSaveWebsiteId !== "none" ? parseInt(blogSaveWebsiteId) : undefined,
       },
     }, {
       onSuccess: () => {
@@ -782,10 +782,10 @@ export default function AiTools() {
                     <Label className="text-xs">Save to website (optional)</Label>
                     <Select value={blogSaveWebsiteId} onValueChange={setBlogSaveWebsiteId}>
                       <SelectTrigger data-testid="select-blog-save-website" className="h-8 text-xs">
-                        <SelectValue placeholder="No website" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No website</SelectItem>
+                        <SelectItem value="none">No website</SelectItem>
                         {(websitesList ?? []).map(w => (
                           <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
                         ))}

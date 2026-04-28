@@ -19,6 +19,7 @@ import CalendarPage from "@/pages/calendar";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import ReportPage from "@/pages/report";
+import LandingPage from "@/pages/landing";
 import AdminPage from "@/pages/admin";
 import ConversationsPage from "@/pages/conversations";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -49,8 +50,9 @@ function ProtectedRouter() {
       <Switch>
         <Route path="/login" component={LoginPage} />
         <Route path="/report" component={ReportPage} />
+        <Route path="/" component={LandingPage} />
         <Route>
-          <Redirect to="/login" />
+          <Redirect to="/" />
         </Route>
       </Switch>
     );

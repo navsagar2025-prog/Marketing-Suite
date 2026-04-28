@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db, websitesTable, seoAuditsTable, linkSuggestionsTable, competitorAnalysesTable, keywordsTable } from "@workspace/db";
 import { callAI } from "../lib/ai-provider.js";
 import {
@@ -538,9 +538,12 @@ router.delete("/websites/:id/competitors/:competitorId", async (req, res): Promi
   const website = await db.select().from(websitesTable).where(eq(websitesTable.id, id)).limit(1);
   if (!website.length) { res.status(404).json({ error: "Website not found" }); return; }
 
-  await db
+  const deleted = await db
     .delete(competitorAnalysesTable)
-    .where(eq(competitorAnalysesTable.id, competitorId));
+    .where(and(eq(competitorAnalysesTable.id, competitorId), eq(competitorAnalysesTable.websiteId, id)))
+    .returning();
+
+  if (!deleted.length) { res.status(404).json({ error: "Competitor not found" }); return; }
 
   res.status(204).end();
 });
@@ -556,7 +559,7 @@ router.post("/websites/:id/competitors/:competitorId/analyse", async (req, res):
   const [competitor] = await db
     .select()
     .from(competitorAnalysesTable)
-    .where(eq(competitorAnalysesTable.id, competitorId))
+    .where(and(eq(competitorAnalysesTable.id, competitorId), eq(competitorAnalysesTable.websiteId, id)))
     .limit(1);
   if (!competitor) { res.status(404).json({ error: "Competitor not found" }); return; }
 
@@ -636,7 +639,7 @@ Return ONLY valid JSON:
   const [updated] = await db
     .update(competitorAnalysesTable)
     .set({ analysisJson, createdAt: new Date() })
-    .where(eq(competitorAnalysesTable.id, competitorId))
+    .where(and(eq(competitorAnalysesTable.id, competitorId), eq(competitorAnalysesTable.websiteId, id)))
     .returning();
 
   res.json(updated);

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, lte, inArray, isNull } from "drizzle-orm";
+import { eq, and, or, lte, gte, inArray, isNull } from "drizzle-orm";
 import { db, sequencesTable, sequenceEnrollmentsTable, leadsTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";

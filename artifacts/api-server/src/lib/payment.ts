@@ -58,6 +58,8 @@ export async function savePaymentSettings(body: {
   razorpayKeySecret?: string;
 }): Promise<PaymentSettings> {
   const VALID_PROVIDERS: PaymentProvider[] = ["stripe", "razorpay"];
+  const STRIPE_CURRENCIES = ["usd", "gbp", "eur"];
+  const RAZORPAY_CURRENCIES = ["inr"];
 
   if (body.provider !== undefined) {
     if (!VALID_PROVIDERS.includes(body.provider as PaymentProvider)) {
@@ -66,7 +68,15 @@ export async function savePaymentSettings(body: {
     await setDbSetting("active_payment_provider", body.provider);
   }
   if (body.currency && typeof body.currency === "string") {
-    await setDbSetting("payment_default_currency", body.currency.toLowerCase().trim());
+    const currency = body.currency.toLowerCase().trim();
+    const provider = body.provider ?? (await getDbSetting("active_payment_provider"));
+    if (provider === "stripe" && !STRIPE_CURRENCIES.includes(currency)) {
+      throw new Error(`Invalid currency for Stripe. Allowed values: ${STRIPE_CURRENCIES.join(", ")}`);
+    }
+    if (provider === "razorpay" && !RAZORPAY_CURRENCIES.includes(currency)) {
+      throw new Error(`Invalid currency for Razorpay. Allowed values: ${RAZORPAY_CURRENCIES.join(", ")}`);
+    }
+    await setDbSetting("payment_default_currency", currency);
   }
   if (body.stripePublishableKey !== undefined && typeof body.stripePublishableKey === "string") {
     await setDbSetting("stripe_publishable_key", body.stripePublishableKey.trim());

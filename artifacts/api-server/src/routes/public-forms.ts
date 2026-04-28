@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db, leadFormsTable, leadsTable, ipRateLimitsTable } from "@workspace/db";
 import type { LeadFormField } from "@workspace/db";
 import { logger } from "../lib/logger.js";
@@ -97,7 +97,7 @@ router.post("/public/forms/:formId/submit", async (req, res): Promise<void> => {
     });
 
     await db.update(leadFormsTable)
-      .set({ submissionCount: form.submissionCount + 1 })
+      .set({ submissionCount: sql`${leadFormsTable.submissionCount} + 1` })
       .where(eq(leadFormsTable.id, formId));
 
     logger.info({ formId, leadName }, "lead_form: submission created");

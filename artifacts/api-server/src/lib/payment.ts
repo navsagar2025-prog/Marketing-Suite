@@ -81,11 +81,13 @@ export async function savePaymentSettings(body: {
   if (body.currency && typeof body.currency === "string") {
     const currency = body.currency.toLowerCase().trim();
     const provider = body.provider ?? (await getDbSetting("active_payment_provider"));
+    const ALL_CURRENCIES = [...STRIPE_CURRENCIES, ...RAZORPAY_CURRENCIES];
     if (provider === "stripe" && !STRIPE_CURRENCIES.includes(currency)) {
       throw new Error(`Invalid currency for Stripe. Allowed values: ${STRIPE_CURRENCIES.join(", ")}`);
-    }
-    if (provider === "razorpay" && !RAZORPAY_CURRENCIES.includes(currency)) {
+    } else if (provider === "razorpay" && !RAZORPAY_CURRENCIES.includes(currency)) {
       throw new Error(`Invalid currency for Razorpay. Allowed values: ${RAZORPAY_CURRENCIES.join(", ")}`);
+    } else if (!provider && !ALL_CURRENCIES.includes(currency)) {
+      throw new Error(`Unsupported currency. Allowed values: ${ALL_CURRENCIES.join(", ")}`);
     }
     await setDbSetting("payment_default_currency", currency);
   }
@@ -125,8 +127,15 @@ export async function testPaymentConnection(): Promise<{ success: boolean; messa
       await stripe.balance.retrieve();
       return { success: true, message: "Stripe connection verified successfully.", provider: "stripe" };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Stripe connection failed";
-      return { success: false, message: msg, provider: "stripe" };
+      // Normalize upstream SDK errors to avoid leaking internal details
+      const code = (err as { statusCode?: number; code?: string })?.statusCode
+        ?? (err as { status?: number })?.status;
+      const normalized =
+        code === 401 ? "Invalid API key — authentication failed."
+        : code === 403 ? "Access denied — check your Stripe account permissions."
+        : "Could not connect to Stripe. Verify your secret key and try again.";
+      console.error("[payment] Stripe connection test failed:", err instanceof Error ? err.message : err);
+      return { success: false, message: normalized, provider: "stripe" };
     }
   }
 
@@ -141,8 +150,13 @@ export async function testPaymentConnection(): Promise<{ success: boolean; messa
       await razorpay.payments.all({ count: 1 });
       return { success: true, message: "Razorpay connection verified successfully.", provider: "razorpay" };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Razorpay connection failed";
-      return { success: false, message: msg, provider: "razorpay" };
+      const statusCode = (err as { statusCode?: number; error?: { code?: string } })?.statusCode;
+      const normalized =
+        statusCode === 401 ? "Invalid credentials — authentication failed."
+        : statusCode === 403 ? "Access denied — check your Razorpay account permissions."
+        : "Could not connect to Razorpay. Verify your Key ID and Key Secret and try again.";
+      console.error("[payment] Razorpay connection test failed:", err instanceof Error ? err.message : err);
+      return { success: false, message: normalized, provider: "razorpay" };
     }
   }
 

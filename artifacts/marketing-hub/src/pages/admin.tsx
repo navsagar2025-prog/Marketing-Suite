@@ -563,7 +563,10 @@ function StaffTab() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle className="text-base">Add Staff Account</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Add Staff Account</CardTitle>
+          <p className="text-xs text-muted-foreground">Permission changes take effect the next time a staff member logs in.</p>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2 flex-wrap">
             <Input

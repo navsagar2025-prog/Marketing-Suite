@@ -1045,6 +1045,8 @@ export const ListCompetitorsParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const listCompetitorsResponseAnalysisJsonOneGapKeywordsItemPriorityMax = 5;
+
 export const ListCompetitorsResponseItem = zod.object({
   id: zod.number(),
   websiteId: zod.number(),
@@ -1057,6 +1059,13 @@ export const ListCompetitorsResponseItem = zod.object({
           zod.object({
             keyword: zod.string(),
             reason: zod.string(),
+            priority: zod
+              .number()
+              .min(1)
+              .max(
+                listCompetitorsResponseAnalysisJsonOneGapKeywordsItemPriorityMax,
+              )
+              .describe("Opportunity priority 1-5 (1 = highest value)"),
           }),
         ),
       }),
@@ -1094,6 +1103,8 @@ export const AnalyseCompetitorParams = zod.object({
   competitorId: zod.coerce.number(),
 });
 
+export const analyseCompetitorResponseAnalysisJsonOneGapKeywordsItemPriorityMax = 5;
+
 export const AnalyseCompetitorResponse = zod.object({
   id: zod.number(),
   websiteId: zod.number(),
@@ -1106,6 +1117,13 @@ export const AnalyseCompetitorResponse = zod.object({
           zod.object({
             keyword: zod.string(),
             reason: zod.string(),
+            priority: zod
+              .number()
+              .min(1)
+              .max(
+                analyseCompetitorResponseAnalysisJsonOneGapKeywordsItemPriorityMax,
+              )
+              .describe("Opportunity priority 1-5 (1 = highest value)"),
           }),
         ),
       }),

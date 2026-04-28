@@ -551,6 +551,12 @@ export interface LinkSuggestion {
 export interface CompetitorGapKeyword {
   keyword: string;
   reason: string;
+  /**
+   * Opportunity priority 1-5 (1 = highest value)
+   * @minimum 1
+   * @maximum 5
+   */
+  priority: number;
 }
 
 export interface CompetitorAnalysisJson {

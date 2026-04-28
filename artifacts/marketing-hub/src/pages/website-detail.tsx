@@ -547,7 +547,7 @@ function CompetitorCard({
     );
   };
 
-  const analysis = competitor.analysisJson as { summary?: string; gapKeywords?: Array<{ keyword: string; reason: string }> } | null;
+  const analysis = competitor.analysisJson as { summary?: string; gapKeywords?: Array<{ keyword: string; reason: string; priority: number }> } | null;
 
   return (
     <Card>
@@ -610,11 +610,24 @@ function CompetitorCard({
                 </p>
                 {analysis.gapKeywords.map((gap, i) => {
                   const alreadyTracked = trackedKeywordIds.has(gap.keyword.toLowerCase());
+                  const priorityColors: Record<number, string> = {
+                    1: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+                    2: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+                    3: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+                    4: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+                    5: "bg-muted text-muted-foreground",
+                  };
+                  const priorityClass = priorityColors[gap.priority] ?? priorityColors[3];
                   return (
                     <div key={i} className="border rounded-md p-3 space-y-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium">{gap.keyword}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium">{gap.keyword}</p>
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${priorityClass}`}>
+                              P{gap.priority}
+                            </span>
+                          </div>
                           <p className="text-xs text-muted-foreground mt-0.5">{gap.reason}</p>
                         </div>
                         <Button

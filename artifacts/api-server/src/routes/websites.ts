@@ -571,11 +571,13 @@ router.post("/websites/:id/competitors/:competitorId/analyse", async (req, res):
   let crawledText = "";
   try {
     const crawled = await crawlUrl(competitor.competitorUrl);
+    const allHeadings = [...(crawled.h1Tags ?? []), ...(crawled.h2Tags ?? []), ...(crawled.h3Tags ?? [])];
     crawledText = [
-      crawled.title ?? "",
-      crawled.description ?? "",
-      crawled.headings?.join(" ") ?? "",
-      crawled.bodyText ?? "",
+      crawled.title ? `Title: ${crawled.title}` : null,
+      crawled.metaDescription ? `Meta description: ${crawled.metaDescription}` : null,
+      crawled.ogDescription ? `OG description: ${crawled.ogDescription}` : null,
+      allHeadings.length > 0 ? `Headings: ${allHeadings.join(" | ")}` : null,
+      crawled.schemaTypes?.length ? `Schema types: ${crawled.schemaTypes.join(", ")}` : null,
     ].filter(Boolean).join("\n").slice(0, 6000);
   } catch {
     crawledText = `Could not crawl ${competitor.competitorUrl} — proceeding with URL-based analysis only.`;
@@ -596,22 +598,25 @@ Competitor page content (truncated):
 ${crawledText}
 
 Task: Identify keyword opportunities that the competitor appears to target but the user is NOT already tracking.
-Return 8-12 keyword gap opportunities. For each keyword:
+Return 8-12 keyword gap opportunities sorted by estimated opportunity (priority 1 = highest value first).
+
+For each keyword provide:
 - keyword: a specific search term the competitor targets
 - reason: 1-sentence explanation of why this keyword is valuable and why the competitor is targeting it
+- priority: integer 1-5 (1 = highest opportunity, 5 = lowest) based on estimated traffic potential and relevance
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (sorted by priority ascending):
 {
   "summary": "<2-3 sentence overview of the competitor's keyword strategy and the main gap opportunities>",
   "gapKeywords": [
-    { "keyword": "<search term>", "reason": "<1-sentence rationale>" }
+    { "keyword": "<search term>", "reason": "<1-sentence rationale>", "priority": 1 }
   ]
 }`;
 
-  let analysisJson: { summary: string; gapKeywords: Array<{ keyword: string; reason: string }> };
+  let analysisJson: { summary: string; gapKeywords: Array<{ keyword: string; reason: string; priority: number }> };
   try {
     const content = await callAI(prompt, { maxTokens: 2048 });
-    let parsed: typeof analysisJson = { summary: "", gapKeywords: [] };
+    let parsed: { summary?: string; gapKeywords?: unknown[] } = { summary: "", gapKeywords: [] };
     try {
       parsed = JSON.parse(content);
     } catch {
@@ -621,14 +626,21 @@ Return ONLY valid JSON:
       }
     }
     const rawKeywords = Array.isArray(parsed.gapKeywords) ? parsed.gapKeywords : [];
+    const validated = rawKeywords.filter(
+      (g): g is { keyword: string; reason: string; priority?: number } =>
+        typeof g === "object" && g !== null &&
+        typeof (g as Record<string, unknown>).keyword === "string" && ((g as Record<string, unknown>).keyword as string).trim().length > 0 &&
+        typeof (g as Record<string, unknown>).reason === "string" && ((g as Record<string, unknown>).reason as string).trim().length > 0
+    ).map((g) => ({
+      keyword: (g.keyword as string).trim(),
+      reason: (g.reason as string).trim(),
+      priority: typeof g.priority === "number" && g.priority >= 1 && g.priority <= 5 ? Math.round(g.priority) : 3,
+    }));
+    // Sort by priority ascending (1 = highest opportunity first)
+    validated.sort((a, b) => a.priority - b.priority);
     analysisJson = {
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
-      gapKeywords: rawKeywords.filter(
-        (g): g is { keyword: string; reason: string } =>
-          typeof g === "object" && g !== null &&
-          typeof g.keyword === "string" && g.keyword.trim().length > 0 &&
-          typeof g.reason === "string" && g.reason.trim().length > 0
-      ).map((g) => ({ keyword: g.keyword.trim(), reason: g.reason.trim() })),
+      gapKeywords: validated,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI generation failed";

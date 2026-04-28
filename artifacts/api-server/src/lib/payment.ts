@@ -66,6 +66,17 @@ export async function savePaymentSettings(body: {
       throw new Error(`Invalid provider. Valid values: ${VALID_PROVIDERS.join(", ")}`);
     }
     await setDbSetting("active_payment_provider", body.provider);
+    // When switching providers, reset stored currency to a valid default if incompatible
+    if (!body.currency) {
+      const existingCurrency = (await getDbSetting("payment_default_currency")) ?? "usd";
+      const validForNew =
+        body.provider === "stripe" ? STRIPE_CURRENCIES.includes(existingCurrency) :
+        body.provider === "razorpay" ? RAZORPAY_CURRENCIES.includes(existingCurrency) : true;
+      if (!validForNew) {
+        const defaultCurrency = body.provider === "razorpay" ? "inr" : "usd";
+        await setDbSetting("payment_default_currency", defaultCurrency);
+      }
+    }
   }
   if (body.currency && typeof body.currency === "string") {
     const currency = body.currency.toLowerCase().trim();

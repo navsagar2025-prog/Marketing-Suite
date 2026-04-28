@@ -110,6 +110,12 @@ export async function savePaymentSettings(body: {
   return getPaymentSettings();
 }
 
+export async function getProviderInfo(): Promise<{ provider: PaymentProvider | null; currency: string }> {
+  const provider = (await getDbSetting("active_payment_provider")) as PaymentProvider | null;
+  const currency = (await getDbSetting("payment_default_currency")) ?? "usd";
+  return { provider, currency };
+}
+
 export async function testPaymentConnection(): Promise<{ success: boolean; message: string; provider: string }> {
   const settings = await getPaymentSettings();
 

@@ -70,6 +70,15 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
  * Staff with an explicit permissions array must have the module in that array.
  */
 export function requirePermission(module: string) {
+  return requireAnyPermission(module);
+}
+
+/**
+ * Middleware factory that passes if the user has ANY of the specified module permissions.
+ * Use when a single API route serves multiple frontend sections (e.g. social-posts for
+ * both "social" and "calendar" modules).
+ */
+export function requireAnyPermission(...modules: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: "Authentication required" });
@@ -85,11 +94,11 @@ export function requirePermission(module: string) {
       next();
       return;
     }
-    // Explicit permissions array: check for module
-    if (req.user.permissions.includes(module)) {
+    // Explicit permissions array: check for any of the required modules
+    if (modules.some(m => req.user!.permissions!.includes(m))) {
       next();
       return;
     }
-    res.status(403).json({ error: `Permission denied: ${module}` });
+    res.status(403).json({ error: `Permission denied: requires one of ${modules.join(", ")}` });
   };
 }

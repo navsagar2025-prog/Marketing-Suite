@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { ALL_MODULES } from "@workspace/api-zod";
 import bcrypt from "bcryptjs";
 import { eq, desc, count, sum, countDistinct, and, gte } from "drizzle-orm";
 import { db, staffUsersTable, ipRateLimitsTable, ipAllowlistTable, leadsTable } from "@workspace/db";
@@ -153,6 +154,14 @@ router.post("/admin/staff", async (req, res): Promise<void> => {
   }
   const validRole = role === "admin" ? "admin" : "staff";
   const passwordHash = await bcrypt.hash(password, 12);
+  // Validate permissions against known module keys
+  if (Array.isArray(permissions)) {
+    const invalidKeys = permissions.filter(p => !(ALL_MODULES as readonly string[]).includes(p));
+    if (invalidKeys.length > 0) {
+      res.status(400).json({ error: `Invalid permission keys: ${invalidKeys.join(", ")}` });
+      return;
+    }
+  }
   // Admin users always get null permissions (full access). Staff get the provided list or null (full access).
   const resolvedPermissions: string[] | null = validRole === "admin" ? null : (Array.isArray(permissions) ? permissions : null);
   try {
@@ -181,6 +190,13 @@ router.patch("/admin/users/:id/permissions", async (req, res): Promise<void> => 
     return;
   }
   const { permissions } = req.body as { permissions?: string[] | null };
+  if (Array.isArray(permissions)) {
+    const invalidKeys = permissions.filter(p => !(ALL_MODULES as readonly string[]).includes(p));
+    if (invalidKeys.length > 0) {
+      res.status(400).json({ error: `Invalid permission keys: ${invalidKeys.join(", ")}` });
+      return;
+    }
+  }
   const [updated] = await db
     .update(staffUsersTable)
     .set({ permissions: Array.isArray(permissions) ? permissions : null })

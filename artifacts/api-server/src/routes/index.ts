@@ -20,7 +20,7 @@ import emailWebhooksRouter from "./email-webhooks";
 import conversationsRouter from "./conversations";
 import sequencesRouter from "./sequences";
 import leadFormsRouter from "./lead-forms";
-import { requireAuth, requirePermission } from "../lib/auth";
+import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -38,7 +38,7 @@ router.use(requireAuth);
 // Per-module permission guards (admins always pass; staff with null perms = full access)
 router.use("/websites", requirePermission("websites"));
 router.use("/keywords", requirePermission("keywords"));
-router.use("/social-posts", requirePermission("social"));
+router.use("/social-posts", requireAnyPermission("social", "calendar"));
 router.use("/campaigns", requirePermission("campaigns"));
 router.use("/sequences", requirePermission("campaigns"));
 router.use("/backlinks", requirePermission("backlinks"));

@@ -91,6 +91,8 @@ router.delete("/sequences/:id", async (req, res): Promise<void> => {
 router.get("/sequences/:id/enrollments", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [seq] = await db.select({ id: sequencesTable.id }).from(sequencesTable).where(eq(sequencesTable.id, id));
+  if (!seq) { res.status(404).json({ error: "Sequence not found" }); return; }
   const enrollments = await db
     .select({
       id: sequenceEnrollmentsTable.id,

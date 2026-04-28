@@ -443,7 +443,7 @@ function SequenceDialog({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-muted-foreground">STEP {i + 1}</span>
                     <div className="flex items-center gap-2">
-                      <label className="text-xs text-muted-foreground">Delay (days)</label>
+                      <label className="text-xs text-muted-foreground">{i === 0 ? "Send after (days)" : "Days after prev"}</label>
                       <Input
                         data-testid={`input-step-${i}-delay`}
                         type="number"

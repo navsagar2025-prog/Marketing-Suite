@@ -3,6 +3,7 @@ import { eq, and, or, gte, inArray, isNull } from "drizzle-orm";
 import { db, sequencesTable, sequenceEnrollmentsTable, leadsTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
+import { requireAdmin } from "../lib/auth.js";
 
 const router: IRouter = Router();
 
@@ -254,7 +255,7 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
   return { enrolled, sent, errors };
 }
 
-router.post("/admin/sequences/process", async (req, res): Promise<void> => {
+router.post("/admin/sequences/process", requireAdmin, async (req, res): Promise<void> => {
   try {
     const result = await runSequenceEngine();
     res.json({ ...result, processedAt: new Date().toISOString() });

@@ -42,9 +42,9 @@ router.use(analyticsRouter);
 router.use(aiRouter);
 router.use(mediaAssetsRouter);
 router.use(settingsRouter);
-router.use(adminRouter);
 router.use(usageRouter);
 router.use(conversationsRouter);
 router.use(sequencesRouter);
+router.use(adminRouter);
 
 export default router;

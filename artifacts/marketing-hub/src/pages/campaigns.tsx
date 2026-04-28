@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail, Eye, EyeOff, List, ChevronDown, ChevronUp, Pencil, PlayCircle, PauseCircle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -225,6 +225,13 @@ function SequenceDialog({
     setAiAudience("");
     setAiOpen(false);
   };
+
+  useEffect(() => {
+    if (open) {
+      reset(editSeq);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editSeq?.id]);
 
   const handleOpen = (v: boolean) => {
     if (!v) reset(null);

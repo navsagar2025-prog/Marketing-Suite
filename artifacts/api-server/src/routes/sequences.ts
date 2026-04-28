@@ -164,8 +164,14 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
           .where(eq(leadsTable.source, String(trigger.value)));
       }
 
+      // Only enroll leads that have a valid email address — sequences are
+      // email-only delivery; leads without emails are intentionally skipped.
       const leadsWithEmail = matchingLeads.filter(l => l.email && l.email.includes("@"));
 
+      // Check ALL past enrollments (including completed) so each lead enrolls
+      // in a given sequence at most once.  Re-enrollment on re-entry is not
+      // supported by design — once a lead completes a nurture sequence we do
+      // not restart it on the next cron run.
       const existingEnrollments = await db
         .select({ leadId: sequenceEnrollmentsTable.leadId })
         .from(sequenceEnrollmentsTable)

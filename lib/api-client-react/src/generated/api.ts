@@ -43,6 +43,8 @@ import type {
   EmailProviderSettings,
   FixSeoIssueBody,
   FixSeoIssueResponse,
+  GenerateBlogDraftBody,
+  GenerateBlogDraftResponse,
   GenerateCampaignCopyBody,
   GenerateFaqBody,
   GenerateFaqResponse,
@@ -5378,6 +5380,92 @@ export const useGenerateSchema = <
   TContext
 > => {
   return useMutation(getGenerateSchemaMutationOptions(options));
+};
+
+/**
+ * @summary Generate a long-form blog post or landing page draft
+ */
+export const getGenerateBlogDraftUrl = () => {
+  return `/api/ai/generate-blog-draft`;
+};
+
+export const generateBlogDraft = async (
+  generateBlogDraftBody: GenerateBlogDraftBody,
+  options?: RequestInit,
+): Promise<GenerateBlogDraftResponse> => {
+  return customFetch<GenerateBlogDraftResponse>(getGenerateBlogDraftUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateBlogDraftBody),
+  });
+};
+
+export const getGenerateBlogDraftMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateBlogDraft>>,
+    TError,
+    { data: BodyType<GenerateBlogDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateBlogDraft>>,
+  TError,
+  { data: BodyType<GenerateBlogDraftBody> },
+  TContext
+> => {
+  const mutationKey = ["generateBlogDraft"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateBlogDraft>>,
+    { data: BodyType<GenerateBlogDraftBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateBlogDraft(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateBlogDraftMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateBlogDraft>>
+>;
+export type GenerateBlogDraftMutationBody = BodyType<GenerateBlogDraftBody>;
+export type GenerateBlogDraftMutationError = ErrorType<void>;
+
+/**
+ * @summary Generate a long-form blog post or landing page draft
+ */
+export const useGenerateBlogDraft = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateBlogDraft>>,
+    TError,
+    { data: BodyType<GenerateBlogDraftBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateBlogDraft>>,
+  TError,
+  { data: BodyType<GenerateBlogDraftBody> },
+  TContext
+> => {
+  return useMutation(getGenerateBlogDraftMutationOptions(options));
 };
 
 /**

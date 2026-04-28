@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings, HelpCircle, Code2, Copy, Check, Download } from "lucide-react";
+import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings, HelpCircle, Code2, Copy, Check, Download, PenLine, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,9 @@ import {
   useGenerateFaq,
   useGenerateSchema,
   useGetSettings,
+  useGenerateBlogDraft,
+  useListWebsites,
+  useCreateMediaAsset,
 } from "@workspace/api-client-react";
 
 const PLATFORMS = [
@@ -211,6 +215,19 @@ export default function AiTools() {
   const [schemaResult, setSchemaResult] = useState("");
   const schemaMutation = useGenerateSchema();
 
+  // Blog / Page Drafter state
+  const [blogKeyword, setBlogKeyword] = useState("");
+  const [blogContentType, setBlogContentType] = useState("blog_post");
+  const [blogWordCount, setBlogWordCount] = useState("1000");
+  const [blogTone, setBlogTone] = useState("professional");
+  const [blogNotes, setBlogNotes] = useState("");
+  const [blogResult, setBlogResult] = useState<{ title: string; content: string } | null>(null);
+  const [blogSaveWebsiteId, setBlogSaveWebsiteId] = useState<string>("");
+  const [blogSaved, setBlogSaved] = useState(false);
+  const blogDraftMutation = useGenerateBlogDraft();
+  const createMediaAssetMutation = useCreateMediaAsset();
+  const { data: websitesList } = useListWebsites();
+
   const handleSuggestKeywords = () => {
     if (!kwNiche.trim()) return;
     suggestMutation.mutate({ data: { niche: kwNiche, seedKeyword: kwSeed || undefined } }, {
@@ -270,6 +287,80 @@ export default function AiTools() {
   };
 
   const faqJsonLd = faqResult.length > 0 ? buildFaqJsonLd(faqResult) : "";
+
+  const handleGenerateBlogDraft = () => {
+    if (!blogKeyword.trim()) return;
+    setBlogSaved(false);
+    blogDraftMutation.mutate({
+      data: {
+        keyword: blogKeyword,
+        contentType: blogContentType as "blog_post" | "landing_page" | "product_page",
+        wordCount: parseInt(blogWordCount) as 500 | 1000 | 1500 | 2000,
+        tone: blogTone as "professional" | "conversational" | "persuasive",
+        notes: blogNotes || undefined,
+      },
+    }, {
+      onSuccess: (r) => setBlogResult(r),
+      onError: () => toast({ title: "AI error", description: "Failed to generate draft. Please try again.", variant: "destructive" }),
+    });
+  };
+
+  const handleSaveBlogDraft = () => {
+    if (!blogResult) return;
+    createMediaAssetMutation.mutate({
+      data: {
+        url: blogResult.title,
+        type: "text",
+        prompt: blogResult.content,
+        websiteId: blogSaveWebsiteId ? parseInt(blogSaveWebsiteId) : undefined,
+      },
+    }, {
+      onSuccess: () => {
+        setBlogSaved(true);
+        toast({ title: "Draft saved", description: "Your draft has been saved to the Media Library." });
+      },
+      onError: () => toast({ title: "Save failed", variant: "destructive" }),
+    });
+  };
+
+  function estimateWordCount(text: string): number {
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  }
+
+  function stripMarkdown(text: string): string {
+    return text
+      .replace(/#{1,6}\s+/g, "")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/`(.*?)`/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\d+\.\s+/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  function renderMarkdownDraft(text: string) {
+    const lines = text.split("\n");
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.startsWith("## ")) {
+        elements.push(<h2 key={i} className="text-base font-bold mt-5 mb-1.5 text-foreground border-b pb-1">{line.slice(3)}</h2>);
+      } else if (line.startsWith("# ")) {
+        elements.push(<h1 key={i} className="text-lg font-bold mb-2 text-foreground">{line.slice(2)}</h1>);
+      } else if (line.startsWith("### ")) {
+        elements.push(<h3 key={i} className="text-sm font-semibold mt-3 mb-1 text-foreground">{line.slice(4)}</h3>);
+      } else if (line.trim() === "") {
+        elements.push(<div key={i} className="h-2" />);
+      } else {
+        elements.push(<p key={i} className="text-sm text-foreground/90 leading-relaxed">{line.replace(/\*\*(.*?)\*\*/g, "$1")}</p>);
+      }
+      i++;
+    }
+    return elements;
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -578,6 +669,141 @@ export default function AiTools() {
             {schemaResult && (
               <div className="relative" data-testid="container-schema-result">
                 <JsonLdHighlight code={schemaResult} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 8. Blog / Page Drafter — full width */}
+        <Card className="lg:col-span-2" data-testid="card-blog-drafter">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><PenLine className="h-4 w-4 text-primary" /> Blog / Page Drafter</CardTitle>
+            <CardDescription className="text-xs">Generate a fully structured long-form blog post, landing page, or product page — ready to paste into your CMS</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Target Keyword *</Label>
+                <Input
+                  data-testid="input-blog-keyword"
+                  placeholder="e.g. best CRM software for small business"
+                  value={blogKeyword}
+                  onChange={e => setBlogKeyword(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Content Type</Label>
+                <Select value={blogContentType} onValueChange={setBlogContentType}>
+                  <SelectTrigger data-testid="select-blog-content-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="blog_post">Blog Post</SelectItem>
+                    <SelectItem value="landing_page">Landing Page</SelectItem>
+                    <SelectItem value="product_page">Product Page</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Approximate Word Count</Label>
+                <Select value={blogWordCount} onValueChange={setBlogWordCount}>
+                  <SelectTrigger data-testid="select-blog-word-count">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="500">~500 words</SelectItem>
+                    <SelectItem value="1000">~1,000 words</SelectItem>
+                    <SelectItem value="1500">~1,500 words</SelectItem>
+                    <SelectItem value="2000">~2,000 words</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Tone</Label>
+                <Select value={blogTone} onValueChange={setBlogTone}>
+                  <SelectTrigger data-testid="select-blog-tone">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="professional">Professional</SelectItem>
+                    <SelectItem value="conversational">Conversational</SelectItem>
+                    <SelectItem value="persuasive">Persuasive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Additional Notes (optional)</Label>
+              <Textarea
+                data-testid="input-blog-notes"
+                placeholder="e.g. Focus on enterprise buyers, include a comparison table, mention our product..."
+                value={blogNotes}
+                onChange={e => setBlogNotes(e.target.value)}
+                className="resize-none h-16 text-sm"
+              />
+            </div>
+            <Button
+              data-testid="button-generate-blog-draft"
+              onClick={handleGenerateBlogDraft}
+              disabled={blogDraftMutation.isPending || !blogKeyword.trim()}
+              className="w-full md:w-auto"
+            >
+              {blogDraftMutation.isPending ? "Drafting..." : "Generate Draft"}
+            </Button>
+
+            {blogResult && (
+              <div className="space-y-3" data-testid="container-blog-result">
+                {/* Title + word count + copy actions */}
+                <div className="flex flex-wrap items-start justify-between gap-2 pt-1">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Generated Draft</p>
+                    <p className="text-base font-bold text-foreground" data-testid="text-blog-title">{blogResult.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      ~{estimateWordCount(blogResult.content).toLocaleString()} words &middot; {blogResult.content.length.toLocaleString()} characters
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap shrink-0">
+                    <CopyButton text={blogResult.content} copyKey="blog-markdown" label="Copy as Markdown" />
+                    <CopyButton text={`${blogResult.title}\n\n${stripMarkdown(blogResult.content)}`} copyKey="blog-plaintext" label="Copy as Plain Text" />
+                  </div>
+                </div>
+
+                {/* Rendered document view */}
+                <div
+                  className="border rounded-md p-4 bg-white dark:bg-zinc-950 max-h-[520px] overflow-y-auto"
+                  data-testid="container-blog-rendered"
+                >
+                  {renderMarkdownDraft(blogResult.content)}
+                </div>
+
+                {/* Save as asset */}
+                <div className="flex flex-wrap items-end gap-3 pt-1 border-t">
+                  <div className="space-y-1 flex-1 min-w-[160px]">
+                    <Label className="text-xs">Save to website (optional)</Label>
+                    <Select value={blogSaveWebsiteId} onValueChange={setBlogSaveWebsiteId}>
+                      <SelectTrigger data-testid="select-blog-save-website" className="h-8 text-xs">
+                        <SelectValue placeholder="No website" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No website</SelectItem>
+                        {(websitesList ?? []).map(w => (
+                          <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    data-testid="button-save-blog-draft"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveBlogDraft}
+                    disabled={createMediaAssetMutation.isPending || blogSaved}
+                    className="gap-1.5"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {blogSaved ? "Saved to Media Library" : createMediaAssetMutation.isPending ? "Saving..." : "Save Draft"}
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

@@ -1252,6 +1252,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/GenerateSchemaResponse"
 
+  /ai/generate-blog-draft:
+    post:
+      operationId: generateBlogDraft
+      tags: [ai]
+      summary: Generate a long-form blog post or landing page draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateBlogDraftBody"
+      responses:
+        "200":
+          description: Generated blog or landing page draft
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateBlogDraftResponse"
+        "400":
+          description: Bad request
+        "503":
+          description: AI unavailable
+
   /ai/generate-image:
     post:
       operationId: generateAiImage
@@ -2710,6 +2733,40 @@ components:
           description: Ready-to-paste JSON-LD script block
       required:
         - jsonLd
+
+    GenerateBlogDraftBody:
+      type: object
+      required: [keyword, contentType, wordCount, tone]
+      properties:
+        keyword:
+          type: string
+          description: Primary target keyword for the content
+        contentType:
+          type: string
+          enum: [blog_post, landing_page, product_page]
+          description: Type of content to generate
+        wordCount:
+          type: integer
+          enum: [500, 1000, 1500, 2000]
+          description: Approximate target word count
+        tone:
+          type: string
+          enum: [professional, conversational, persuasive]
+          description: Writing tone
+        notes:
+          type: ["string", "null"]
+          description: Optional additional instructions or context
+
+    GenerateBlogDraftResponse:
+      type: object
+      required: [title, content]
+      properties:
+        title:
+          type: string
+          description: Suggested headline for the post or page
+        content:
+          type: string
+          description: Full draft in Markdown with ## H2 section headings
 
     # ─── AI Media Generation ──────────────────────────────────────────────────
     GenerateImageBody:

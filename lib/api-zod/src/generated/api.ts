@@ -1300,6 +1300,36 @@ export const GenerateSchemaResponse = zod.object({
 });
 
 /**
+ * @summary Generate a long-form blog post or landing page draft
+ */
+export const GenerateBlogDraftBody = zod.object({
+  keyword: zod.string().describe("Primary target keyword for the content"),
+  contentType: zod
+    .enum(["blog_post", "landing_page", "product_page"])
+    .describe("Type of content to generate"),
+  wordCount: zod
+    .union([
+      zod.literal(500),
+      zod.literal(1000),
+      zod.literal(1500),
+      zod.literal(2000),
+    ])
+    .describe("Approximate target word count"),
+  tone: zod
+    .enum(["professional", "conversational", "persuasive"])
+    .describe("Writing tone"),
+  notes: zod
+    .string()
+    .nullish()
+    .describe("Optional additional instructions or context"),
+});
+
+export const GenerateBlogDraftResponse = zod.object({
+  title: zod.string().describe("Suggested headline for the post or page"),
+  content: zod.string().describe("Full draft in Markdown with"),
+});
+
+/**
  * @summary Generate an AI image using Fal.ai
  */
 export const GenerateAiImageBody = zod.object({

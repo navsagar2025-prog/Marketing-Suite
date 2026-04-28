@@ -750,6 +750,66 @@ export interface GenerateSchemaResponse {
   jsonLd: string;
 }
 
+/**
+ * Type of content to generate
+ */
+export type GenerateBlogDraftBodyContentType =
+  (typeof GenerateBlogDraftBodyContentType)[keyof typeof GenerateBlogDraftBodyContentType];
+
+export const GenerateBlogDraftBodyContentType = {
+  blog_post: "blog_post",
+  landing_page: "landing_page",
+  product_page: "product_page",
+} as const;
+
+/**
+ * Approximate target word count
+ */
+export type GenerateBlogDraftBodyWordCount =
+  (typeof GenerateBlogDraftBodyWordCount)[keyof typeof GenerateBlogDraftBodyWordCount];
+
+export const GenerateBlogDraftBodyWordCount = {
+  NUMBER_500: 500,
+  NUMBER_1000: 1000,
+  NUMBER_1500: 1500,
+  NUMBER_2000: 2000,
+} as const;
+
+/**
+ * Writing tone
+ */
+export type GenerateBlogDraftBodyTone =
+  (typeof GenerateBlogDraftBodyTone)[keyof typeof GenerateBlogDraftBodyTone];
+
+export const GenerateBlogDraftBodyTone = {
+  professional: "professional",
+  conversational: "conversational",
+  persuasive: "persuasive",
+} as const;
+
+export interface GenerateBlogDraftBody {
+  /** Primary target keyword for the content */
+  keyword: string;
+  /** Type of content to generate */
+  contentType: GenerateBlogDraftBodyContentType;
+  /** Approximate target word count */
+  wordCount: GenerateBlogDraftBodyWordCount;
+  /** Writing tone */
+  tone: GenerateBlogDraftBodyTone;
+  /**
+   * Optional additional instructions or context
+   * @nullable
+   */
+  notes?: string | null;
+}
+
+export interface GenerateBlogDraftResponse {
+  /** Suggested headline for the post or page */
+  title: string;
+  /** Full draft in Markdown with */
+  content: string;
+}
+
 export interface GenerateImageBody {
   prompt: string;
   /** 1:1, 16:9, 9:16, 4:3, 3:4 */

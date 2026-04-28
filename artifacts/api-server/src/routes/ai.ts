@@ -18,6 +18,7 @@ import {
   GenerateFaqResponse,
   GenerateSchemaBody,
   GenerateSchemaResponse,
+  GenerateBlogDraftBody,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -514,6 +515,68 @@ Return ONLY valid JSON in this exact format:
       }
     }
     res.json(GenerateFaqResponse.parse(result));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
+});
+
+router.post("/ai/generate-blog-draft", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+  const parsed = GenerateBlogDraftBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { keyword, contentType, wordCount, tone, notes } = parsed.data;
+
+  const contentTypeLabel: Record<string, string> = {
+    blog_post: "blog post",
+    landing_page: "landing page",
+    product_page: "product page",
+  };
+  const label = contentTypeLabel[contentType] ?? contentType;
+
+  const prompt = `You are an expert content writer and SEO strategist. Write a fully structured ${label} targeting the keyword: "${keyword}".
+
+Requirements:
+- Tone: ${tone}
+- Target length: approximately ${wordCount} words
+- Include a compelling H1 headline
+- Structure the body with H2 (##) sections covering different aspects of the topic
+- Write a strong introduction (2-3 paragraphs)
+- Include 3-6 H2 sections with substantive content under each
+- End with a conclusion and clear call-to-action
+${notes ? `- Additional instructions: ${notes}` : ""}
+
+Return ONLY valid JSON in this exact format (no markdown wrapper):
+{
+  "title": "The H1 headline for the content",
+  "content": "The full Markdown draft. Use ## for H2 headings. Do NOT wrap in a code block."
+}
+
+The content must be a genuine, detailed draft — not an outline or summary. Write the full body text.`;
+
+  try {
+    const raw = await callAI(prompt, { maxTokens: 4096 });
+    let result: { title: string; content: string } = { title: "", content: "" };
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { result = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
+      }
+    }
+    if (!result.title || !result.content) {
+      res.status(503).json({ error: "AI returned an incomplete draft. Please try again." });
+      return;
+    }
+    res.json({ title: result.title.trim(), content: result.content.trim() });
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI generation failed";
     res.status(503).json({ error: message });

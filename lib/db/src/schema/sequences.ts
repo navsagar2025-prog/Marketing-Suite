@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { leadsTable } from "./leads";
 
 export const sequencesTable = pgTable("sequences", {
@@ -18,4 +18,6 @@ export const sequenceEnrollmentsTable = pgTable("sequence_enrollments", {
   nextSendAt: timestamp("next_send_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("sequence_enrollments_sequence_lead_unique").on(table.sequenceId, table.leadId),
+]);

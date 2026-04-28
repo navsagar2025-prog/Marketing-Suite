@@ -27,6 +27,20 @@ router.post("/sequences", async (req, res): Promise<void> => {
     return;
   }
   const steps = Array.isArray(stepsJson) ? stepsJson : [];
+  for (const [i, step] of steps.entries()) {
+    if (!step.subject || typeof step.subject !== "string" || !step.subject.trim()) {
+      res.status(400).json({ error: `Step ${i + 1}: subject is required` });
+      return;
+    }
+    if (!step.body || typeof step.body !== "string" || !step.body.trim()) {
+      res.status(400).json({ error: `Step ${i + 1}: body is required` });
+      return;
+    }
+    if (typeof step.delayDays !== "number" || step.delayDays < 0 || !Number.isInteger(step.delayDays)) {
+      res.status(400).json({ error: `Step ${i + 1}: delayDays must be a non-negative integer` });
+      return;
+    }
+  }
   const [seq] = await db.insert(sequencesTable).values({
     name: name.trim(),
     trigger,
@@ -184,7 +198,7 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
             currentStep: 0,
             nextSendAt: now,
           }))
-        );
+        ).onConflictDoNothing();
         enrolled += newLeads.length;
       }
 

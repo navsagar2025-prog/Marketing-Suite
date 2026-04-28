@@ -3422,10 +3422,13 @@ components:
       properties:
         subject:
           type: string
+          minLength: 1
         body:
           type: string
+          minLength: 1
         delayDays:
           type: integer
+          minimum: 0
           description: Days to wait before sending this step (0 = send immediately)
       required:
         - subject
@@ -3477,6 +3480,7 @@ components:
       properties:
         name:
           type: string
+          minLength: 1
         trigger:
           $ref: "#/components/schemas/SequenceTrigger"
         stepsJson:

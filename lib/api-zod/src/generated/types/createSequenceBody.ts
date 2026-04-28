@@ -9,6 +9,7 @@ import type { SequenceStep } from "./sequenceStep";
 import type { SequenceTrigger } from "./sequenceTrigger";
 
 export interface CreateSequenceBody {
+  /** @minLength 1 */
   name: string;
   trigger: SequenceTrigger;
   stepsJson?: SequenceStep[];

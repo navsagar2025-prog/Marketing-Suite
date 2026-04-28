@@ -612,6 +612,9 @@ export const GetCampaignRecipientsResponse = zod.object({
 /**
  * @summary List all nurture sequences
  */
+
+export const listSequencesResponseStepsJsonItemDelayDaysMin = 0;
+
 export const ListSequencesResponseItem = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -621,10 +624,11 @@ export const ListSequencesResponseItem = zod.object({
   }),
   stepsJson: zod.array(
     zod.object({
-      subject: zod.string(),
-      body: zod.string(),
+      subject: zod.string().min(1),
+      body: zod.string().min(1),
       delayDays: zod
         .number()
+        .min(listSequencesResponseStepsJsonItemDelayDaysMin)
         .describe(
           "Days to wait before sending this step (0 = send immediately)",
         ),
@@ -638,8 +642,11 @@ export const ListSequencesResponse = zod.array(ListSequencesResponseItem);
 /**
  * @summary Create a nurture sequence
  */
+
+export const createSequenceBodyStepsJsonItemDelayDaysMin = 0;
+
 export const CreateSequenceBody = zod.object({
-  name: zod.string(),
+  name: zod.string().min(1),
   trigger: zod.object({
     type: zod.enum(["status", "score", "source"]),
     value: zod.union([zod.string(), zod.number()]),
@@ -647,10 +654,11 @@ export const CreateSequenceBody = zod.object({
   stepsJson: zod
     .array(
       zod.object({
-        subject: zod.string(),
-        body: zod.string(),
+        subject: zod.string().min(1),
+        body: zod.string().min(1),
         delayDays: zod
           .number()
+          .min(createSequenceBodyStepsJsonItemDelayDaysMin)
           .describe(
             "Days to wait before sending this step (0 = send immediately)",
           ),
@@ -667,6 +675,8 @@ export const GetSequenceParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const getSequenceResponseStepsJsonItemDelayDaysMin = 0;
+
 export const GetSequenceResponse = zod.object({
   id: zod.number(),
   name: zod.string(),
@@ -676,10 +686,11 @@ export const GetSequenceResponse = zod.object({
   }),
   stepsJson: zod.array(
     zod.object({
-      subject: zod.string(),
-      body: zod.string(),
+      subject: zod.string().min(1),
+      body: zod.string().min(1),
       delayDays: zod
         .number()
+        .min(getSequenceResponseStepsJsonItemDelayDaysMin)
         .describe(
           "Days to wait before sending this step (0 = send immediately)",
         ),
@@ -696,6 +707,8 @@ export const UpdateSequenceParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const updateSequenceBodyStepsJsonItemDelayDaysMin = 0;
+
 export const UpdateSequenceBody = zod.object({
   name: zod.string().optional(),
   trigger: zod
@@ -707,10 +720,11 @@ export const UpdateSequenceBody = zod.object({
   stepsJson: zod
     .array(
       zod.object({
-        subject: zod.string(),
-        body: zod.string(),
+        subject: zod.string().min(1),
+        body: zod.string().min(1),
         delayDays: zod
           .number()
+          .min(updateSequenceBodyStepsJsonItemDelayDaysMin)
           .describe(
             "Days to wait before sending this step (0 = send immediately)",
           ),
@@ -719,6 +733,8 @@ export const UpdateSequenceBody = zod.object({
     .optional(),
   active: zod.boolean().optional(),
 });
+
+export const updateSequenceResponseStepsJsonItemDelayDaysMin = 0;
 
 export const UpdateSequenceResponse = zod.object({
   id: zod.number(),
@@ -729,10 +745,11 @@ export const UpdateSequenceResponse = zod.object({
   }),
   stepsJson: zod.array(
     zod.object({
-      subject: zod.string(),
-      body: zod.string(),
+      subject: zod.string().min(1),
+      body: zod.string().min(1),
       delayDays: zod
         .number()
+        .min(updateSequenceResponseStepsJsonItemDelayDaysMin)
         .describe(
           "Days to wait before sending this step (0 = send immediately)",
         ),
@@ -1591,14 +1608,17 @@ export const GenerateSequenceBody = zod.object({
     .describe("Number of emails to generate (3-5)"),
 });
 
+export const generateSequenceResponseStepsItemDelayDaysMin = 0;
+
 export const GenerateSequenceResponse = zod.object({
   name: zod.string(),
   steps: zod.array(
     zod.object({
-      subject: zod.string(),
-      body: zod.string(),
+      subject: zod.string().min(1),
+      body: zod.string().min(1),
       delayDays: zod
         .number()
+        .min(generateSequenceResponseStepsItemDelayDaysMin)
         .describe(
           "Days to wait before sending this step (0 = send immediately)",
         ),

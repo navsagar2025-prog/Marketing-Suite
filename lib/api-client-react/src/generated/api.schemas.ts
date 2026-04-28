@@ -1085,9 +1085,14 @@ export interface SummarizeConversationResponse {
 }
 
 export interface SequenceStep {
+  /** @minLength 1 */
   subject: string;
+  /** @minLength 1 */
   body: string;
-  /** Days to wait before sending this step (0 = send immediately) */
+  /**
+   * Days to wait before sending this step (0 = send immediately)
+   * @minimum 0
+   */
   delayDays: number;
 }
 
@@ -1115,6 +1120,7 @@ export interface Sequence {
 }
 
 export interface CreateSequenceBody {
+  /** @minLength 1 */
   name: string;
   trigger: SequenceTrigger;
   stepsJson?: SequenceStep[];

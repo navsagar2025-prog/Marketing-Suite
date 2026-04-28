@@ -88,9 +88,10 @@ router.get("/lead-forms/:id/embed", async (req, res): Promise<void> => {
   const fields = (form.fieldsJson ?? []) as LeadFormField[];
   const enabledFields = fields.filter(f => f.enabled);
 
+  const configBase = process.env.APP_URL?.replace(/\/$/, "");
   const proto = req.headers["x-forwarded-proto"] || req.protocol;
   const host = req.headers["x-forwarded-host"] || req.headers.host || "YOUR_DOMAIN";
-  const baseUrl = `${proto}://${host}`;
+  const baseUrl = configBase || `${proto}://${host}`;
 
   const fieldsHtml = enabledFields.map(f => {
     const isTextarea = f.name === "message";

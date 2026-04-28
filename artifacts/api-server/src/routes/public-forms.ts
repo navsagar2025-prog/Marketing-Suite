@@ -39,6 +39,16 @@ router.post("/public/forms/:formId/submit", async (req, res): Promise<void> => {
   const body = req.body as Record<string, unknown>;
 
   if (typeof body._hp === "string" && body._hp.length > 0) {
+    if (rateRecord) {
+      await db.update(ipRateLimitsTable)
+        .set({ count: rateRecord.count + 1, lastRequestAt: new Date() })
+        .where(eq(ipRateLimitsTable.id, rateRecord.id));
+    } else {
+      await db.insert(ipRateLimitsTable).values({
+        ip, feature, url: `/public/forms/${formId}/submit`,
+        date: today, count: 1, lastRequestAt: new Date(),
+      });
+    }
     res.status(201).json({ ok: true });
     return;
   }

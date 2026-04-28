@@ -83,9 +83,35 @@ router.patch("/sequences/:id", async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { name, trigger, stepsJson, active } = req.body ?? {};
   const updates: Record<string, unknown> = {};
-  if (name !== undefined) updates.name = String(name).trim();
-  if (trigger !== undefined) updates.trigger = trigger;
-  if (stepsJson !== undefined) updates.stepsJson = stepsJson;
+  if (name !== undefined) {
+    const trimmed = String(name).trim();
+    if (!trimmed) { res.status(400).json({ error: "name must not be empty" }); return; }
+    updates.name = trimmed;
+  }
+  if (trigger !== undefined) {
+    if (!trigger || typeof trigger !== "object" || !trigger.type || trigger.value === undefined) {
+      res.status(400).json({ error: "trigger with type and value is required" }); return;
+    }
+    if (!["status", "score", "source"].includes(trigger.type)) {
+      res.status(400).json({ error: "trigger.type must be status, score, or source" }); return;
+    }
+    updates.trigger = trigger;
+  }
+  if (stepsJson !== undefined) {
+    if (!Array.isArray(stepsJson)) { res.status(400).json({ error: "stepsJson must be an array" }); return; }
+    for (const [i, step] of (stepsJson as Array<Record<string, unknown>>).entries()) {
+      if (!step.subject || typeof step.subject !== "string" || !String(step.subject).trim()) {
+        res.status(400).json({ error: `Step ${i + 1}: subject is required` }); return;
+      }
+      if (!step.body || typeof step.body !== "string" || !String(step.body).trim()) {
+        res.status(400).json({ error: `Step ${i + 1}: body is required` }); return;
+      }
+      if (typeof step.delayDays !== "number" || step.delayDays < 0 || !Number.isInteger(step.delayDays)) {
+        res.status(400).json({ error: `Step ${i + 1}: delayDays must be a non-negative integer` }); return;
+      }
+    }
+    updates.stepsJson = stepsJson;
+  }
   if (active !== undefined) updates.active = Boolean(active);
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No fields to update" });

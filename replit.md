@@ -56,7 +56,10 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET /api/admin/audit-requests` — List all public audit rate-limit records (admin only)
 - `GET /api/admin/visitor-stats` — Aggregated visitor stats: unique IPs today, total audits today/all-time, IPs at daily limit, 14-day daily volume (admin only)
 - `GET /api/admin/allowlist` — Manage IP allowlist (admin only)
-- `GET /api/admin/staff` — Manage staff accounts (admin only)
+- `GET /api/admin/staff` — List staff accounts with permissions (admin only)
+- `POST /api/admin/staff` — Create staff account; accepts `permissions: string[] | null` (admin only)
+- `PATCH /api/admin/users/:id/permissions` — Update per-module permissions for a staff user (admin only); `null` = full access
+- `DELETE /api/admin/staff/:id` — Delete staff account (admin only)
 - `GET /api/settings` — Get app settings (falApiKeyConfigured, aiProvider, aiModel, aiEnabled, aiApiKeyConfigured)
 - `PATCH /api/settings` — Update settings (falApiKey, aiProvider, aiModel, aiEnabled, aiApiKey)
 - `POST /api/settings/test-ai` — Test the configured AI provider connection
@@ -70,7 +73,7 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`
+Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `staff_users`
 
 ### keyword_rank_history table
 - `id`: serial PK
@@ -114,6 +117,13 @@ Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaig
 - `createdAt`: timestamp
 - Max 3 competitors per website enforced at API level
 - Gap analysis via `POST /api/websites/:id/competitors/:competitorId/analyse` (crawl + AI)
+
+### staff_users table
+- `permissions`: jsonb (nullable, default null) — `null` = full access for legacy/admin users; `string[]` = explicit module-level access for staff
+- Module keys: `websites`, `keywords`, `leads`, `campaigns`, `backlinks`, `social`, `analytics`, `ai_tools`, `media`, `calendar`, `conversations`
+- `requirePermission(module)` middleware in `artifacts/api-server/src/lib/auth.ts` — admins always pass; staff with null = full access; staff with explicit array must include the module
+- Frontend: `usePermissions()` hook in `AuthContext.tsx`; sidebar filters nav items; `PermissionGuard` wraps page routes; `AccessDenied` component shown on blocked pages
+- Admin UI: StaffTab in `/admin` page lets admins set per-module permissions when creating or editing staff accounts
 
 ## Important Notes
 

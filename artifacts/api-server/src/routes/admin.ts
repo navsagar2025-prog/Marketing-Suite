@@ -131,30 +131,72 @@ router.delete("/admin/allowlist/:id", async (req, res): Promise<void> => {
 
 router.get("/admin/staff", async (_req, res): Promise<void> => {
   const staff = await db
-    .select({ id: staffUsersTable.id, username: staffUsersTable.username, role: staffUsersTable.role, createdAt: staffUsersTable.createdAt })
+    .select({
+      id: staffUsersTable.id,
+      username: staffUsersTable.username,
+      role: staffUsersTable.role,
+      permissions: staffUsersTable.permissions,
+      createdAt: staffUsersTable.createdAt,
+    })
     .from(staffUsersTable)
     .orderBy(staffUsersTable.createdAt);
   res.json(staff);
 });
 
 router.post("/admin/staff", async (req, res): Promise<void> => {
-  const { username, password, role } = req.body as { username?: string; password?: string; role?: string };
+  const { username, password, role, permissions } = req.body as {
+    username?: string; password?: string; role?: string; permissions?: string[] | null;
+  };
   if (!username || !password) {
     res.status(400).json({ error: "Username and password are required" });
     return;
   }
   const validRole = role === "admin" ? "admin" : "staff";
   const passwordHash = await bcrypt.hash(password, 12);
+  // Admin users always get null permissions (full access). Staff get the provided list or null (full access).
+  const resolvedPermissions: string[] | null = validRole === "admin" ? null : (Array.isArray(permissions) ? permissions : null);
   try {
     const [user] = await db.insert(staffUsersTable).values({
       username: username.trim().toLowerCase(),
       passwordHash,
       role: validRole,
-    }).returning({ id: staffUsersTable.id, username: staffUsersTable.username, role: staffUsersTable.role, createdAt: staffUsersTable.createdAt });
+      permissions: resolvedPermissions,
+    }).returning({
+      id: staffUsersTable.id,
+      username: staffUsersTable.username,
+      role: staffUsersTable.role,
+      permissions: staffUsersTable.permissions,
+      createdAt: staffUsersTable.createdAt,
+    });
     res.status(201).json(user);
   } catch {
     res.status(409).json({ error: "Username already exists" });
   }
+});
+
+router.patch("/admin/users/:id/permissions", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const { permissions } = req.body as { permissions?: string[] | null };
+  const [updated] = await db
+    .update(staffUsersTable)
+    .set({ permissions: Array.isArray(permissions) ? permissions : null })
+    .where(eq(staffUsersTable.id, id))
+    .returning({
+      id: staffUsersTable.id,
+      username: staffUsersTable.username,
+      role: staffUsersTable.role,
+      permissions: staffUsersTable.permissions,
+      createdAt: staffUsersTable.createdAt,
+    });
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(updated);
 });
 
 router.delete("/admin/staff/:id", async (req, res): Promise<void> => {

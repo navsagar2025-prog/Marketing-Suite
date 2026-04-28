@@ -12,6 +12,7 @@ export interface JwtPayload {
   id: number;
   username: string;
   role: "admin" | "staff";
+  permissions?: string[] | null;
 }
 
 export function signToken(payload: JwtPayload): string {
@@ -61,4 +62,34 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
     }
     next();
   });
+}
+
+/**
+ * Middleware factory that checks if the authenticated user has permission for a given module.
+ * Admins always pass. Staff with null permissions (legacy) also pass (full access fallback).
+ * Staff with an explicit permissions array must have the module in that array.
+ */
+export function requirePermission(module: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    // Admins always retain full access
+    if (req.user.role === "admin") {
+      next();
+      return;
+    }
+    // Legacy staff with no permissions set: full access
+    if (req.user.permissions == null) {
+      next();
+      return;
+    }
+    // Explicit permissions array: check for module
+    if (req.user.permissions.includes(module)) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: `Permission denied: ${module}` });
+  };
 }

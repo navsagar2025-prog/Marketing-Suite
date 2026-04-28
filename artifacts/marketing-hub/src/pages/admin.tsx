@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -20,6 +20,20 @@ import {
 } from "recharts";
 
 const DAILY_LIMIT = 2;
+
+const ALL_MODULES: { key: string; label: string }[] = [
+  { key: "websites", label: "Websites" },
+  { key: "keywords", label: "Keywords" },
+  { key: "leads", label: "Leads" },
+  { key: "campaigns", label: "Campaigns" },
+  { key: "backlinks", label: "Backlinks" },
+  { key: "social", label: "Social Media" },
+  { key: "analytics", label: "Analytics" },
+  { key: "ai_tools", label: "AI Tools" },
+  { key: "media", label: "Media Library" },
+  { key: "calendar", label: "Calendar" },
+  { key: "conversations", label: "Conversations" },
+];
 
 interface AuditRequest {
   id: number;
@@ -41,6 +55,7 @@ interface StaffUser {
   id: number;
   username: string;
   role: "admin" | "staff";
+  permissions: string[] | null;
   createdAt: string;
 }
 
@@ -395,6 +410,59 @@ function AllowlistTab() {
   );
 }
 
+function ModuleChecklist({
+  selected,
+  onChange,
+  fullAccess,
+  onFullAccessChange,
+  idPrefix = "perm",
+}: {
+  selected: string[];
+  onChange: (keys: string[]) => void;
+  fullAccess: boolean;
+  onFullAccessChange: (v: boolean) => void;
+  idPrefix?: string;
+}) {
+  function toggle(key: string) {
+    if (selected.includes(key)) {
+      onChange(selected.filter(k => k !== key));
+    } else {
+      onChange([...selected, key]);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor={`${idPrefix}-full-access`}>
+        <input
+          type="checkbox"
+          id={`${idPrefix}-full-access`}
+          checked={fullAccess}
+          onChange={e => onFullAccessChange(e.target.checked)}
+          className="h-4 w-4 rounded border border-input cursor-pointer"
+        />
+        <span className="text-sm font-medium">Full access (all modules)</span>
+      </label>
+      {!fullAccess && (
+        <div className="grid grid-cols-2 gap-1 pt-1 pl-1">
+          {ALL_MODULES.map(m => (
+            <label key={m.key} className="flex items-center gap-2 cursor-pointer select-none py-0.5" htmlFor={`${idPrefix}-mod-${m.key}`}>
+              <input
+                type="checkbox"
+                id={`${idPrefix}-mod-${m.key}`}
+                checked={selected.includes(m.key)}
+                onChange={() => toggle(m.key)}
+                className="h-4 w-4 rounded border border-input cursor-pointer"
+              />
+              <span className="text-xs">{m.label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StaffTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -407,13 +475,36 @@ function StaffTab() {
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [roleInput, setRoleInput] = useState<"staff" | "admin">("staff");
+  const [newUserFullAccess, setNewUserFullAccess] = useState(true);
+  const [newUserPermissions, setNewUserPermissions] = useState<string[]>([]);
+
+  const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+  const [editPermissions, setEditPermissions] = useState<string[]>([]);
+  const [editFullAccess, setEditFullAccess] = useState(true);
+
+  function openPermissionsPanel(staff: StaffUser) {
+    if (expandedUserId === staff.id) {
+      setExpandedUserId(null);
+      return;
+    }
+    setExpandedUserId(staff.id);
+    const hasFullAccess = staff.permissions == null;
+    setEditFullAccess(hasFullAccess);
+    setEditPermissions(hasFullAccess ? [] : (staff.permissions ?? []));
+  }
 
   const addMutation = useMutation({
     mutationFn: async () => {
+      const permissions = roleInput === "admin" ? null : (newUserFullAccess ? null : newUserPermissions);
       const res = await fetch(`${base}/api/admin/staff`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ username: usernameInput, password: passwordInput, role: roleInput }),
+        body: JSON.stringify({
+          username: usernameInput,
+          password: passwordInput,
+          role: roleInput,
+          permissions,
+        }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -426,7 +517,30 @@ function StaffTab() {
       setUsernameInput("");
       setPasswordInput("");
       setRoleInput("staff");
+      setNewUserFullAccess(true);
+      setNewUserPermissions([]);
       toast({ title: "Staff account created" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const updatePermissionsMutation = useMutation({
+    mutationFn: async ({ id, permissions }: { id: number; permissions: string[] | null }) => {
+      const res = await fetch(`${base}/api/admin/users/${id}/permissions`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ permissions }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+      setExpandedUserId(null);
+      toast({ title: "Permissions updated" });
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
@@ -446,11 +560,18 @@ function StaffTab() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
+  function permissionsSummary(staff: StaffUser) {
+    if (staff.role === "admin") return "Full access (admin)";
+    if (staff.permissions == null) return "Full access";
+    if (staff.permissions.length === 0) return "No modules";
+    return `${staff.permissions.length} module${staff.permissions.length !== 1 ? "s" : ""}`;
+  }
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader><CardTitle className="text-base">Add Staff Account</CardTitle></CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="flex gap-2 flex-wrap">
             <Input
               placeholder="Username"
@@ -477,6 +598,20 @@ function StaffTab() {
               {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1" /> Add</>}
             </Button>
           </div>
+          {roleInput === "staff" && (
+            <div className="border rounded-md p-3 bg-muted/30">
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Lock className="h-3 w-3" /> Module permissions
+              </p>
+              <ModuleChecklist
+                idPrefix="new-user"
+                selected={newUserPermissions}
+                onChange={setNewUserPermissions}
+                fullAccess={newUserFullAccess}
+                onFullAccessChange={setNewUserFullAccess}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -488,27 +623,83 @@ function StaffTab() {
           ) : !data?.length ? (
             <p className="text-sm text-muted-foreground text-center py-4">No staff accounts.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {data.map(staff => (
-                <div key={staff.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <div>
-                    <p className="text-sm font-medium">{staff.username}</p>
-                    <p className="text-xs text-muted-foreground">Created {new Date(staff.createdAt).toLocaleDateString()}</p>
+                <div key={staff.id} className="border-b last:border-0">
+                  <div className="flex items-center justify-between py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{staff.username}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Created {new Date(staff.createdAt).toLocaleDateString()}
+                        {" · "}
+                        <span className={staff.permissions?.length === 0 ? "text-destructive" : ""}>
+                          {permissionsSummary(staff)}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      <Badge variant={staff.role === "admin" ? "default" : "secondary"} className="text-xs">{staff.role}</Badge>
+                      {staff.role === "staff" && staff.id !== currentUser?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          title="Edit permissions"
+                          onClick={() => openPermissionsPanel(staff)}
+                        >
+                          {expandedUserId === staff.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      {staff.id !== currentUser?.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => deleteMutation.mutate(staff.id)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={staff.role === "admin" ? "default" : "secondary"} className="text-xs">{staff.role}</Badge>
-                    {staff.id !== currentUser?.id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => deleteMutation.mutate(staff.id)}
-                        disabled={deleteMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+
+                  {expandedUserId === staff.id && (
+                    <div className="pb-3 px-1">
+                      <div className="border rounded-md p-3 bg-muted/30 space-y-3">
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                          <Lock className="h-3 w-3" /> Edit module access for <strong>{staff.username}</strong>
+                        </p>
+                        <ModuleChecklist
+                          idPrefix={`edit-${staff.id}`}
+                          selected={editPermissions}
+                          onChange={setEditPermissions}
+                          fullAccess={editFullAccess}
+                          onFullAccessChange={setEditFullAccess}
+                        />
+                        <div className="flex gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            onClick={() =>
+                              updatePermissionsMutation.mutate({
+                                id: staff.id,
+                                permissions: editFullAccess ? null : editPermissions,
+                              })
+                            }
+                            disabled={updatePermissionsMutation.isPending}
+                          >
+                            {updatePermissionsMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : null}
+                            Save
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setExpandedUserId(null)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

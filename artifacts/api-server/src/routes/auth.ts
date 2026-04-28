@@ -25,8 +25,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
-  const token = signToken({ id: user.id, username: user.username, role: user.role });
-  res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+  const permissions = user.role === "admin" ? null : (user.permissions ?? null);
+  const token = signToken({ id: user.id, username: user.username, role: user.role, permissions });
+  res.json({
+    token,
+    user: { id: user.id, username: user.username, role: user.role, permissions },
+  });
 });
 
 router.post("/auth/logout", (_req, res): void => {
@@ -34,8 +38,8 @@ router.post("/auth/logout", (_req, res): void => {
 });
 
 router.get("/auth/me", requireAuth, (req, res): void => {
-  const { id, username, role } = req.user!;
-  res.json({ user: { id, username, role } });
+  const { id, username, role, permissions } = req.user!;
+  res.json({ user: { id, username, role, permissions: permissions ?? null } });
 });
 
 export default router;

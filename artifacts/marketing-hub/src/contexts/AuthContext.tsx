@@ -5,6 +5,7 @@ export interface AuthUser {
   id: number;
   username: string;
   role: "admin" | "staff";
+  permissions: string[] | null;
 }
 
 interface AuthContextValue {
@@ -73,4 +74,21 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
+}
+
+/**
+ * Returns true if the current user has a given permission.
+ * Admins always return true. Staff with null permissions (legacy) return true (full access).
+ */
+export function usePermissions() {
+  const { user } = useAuth();
+
+  const hasPermission = useCallback((module: string): boolean => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+    if (user.permissions == null) return true;
+    return user.permissions.includes(module);
+  }, [user]);
+
+  return { hasPermission, permissions: user?.permissions ?? null };
 }

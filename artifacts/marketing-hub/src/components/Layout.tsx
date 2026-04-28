@@ -28,22 +28,22 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useGetSettings, useGetMyUsage } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 
 const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/websites", label: "Websites", icon: Globe },
-  { path: "/keywords", label: "Keywords", icon: Search },
-  { path: "/social", label: "Social Media", icon: Share2 },
-  { path: "/calendar", label: "Calendar", icon: CalendarDays },
-  { path: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { path: "/backlinks", label: "Backlinks", icon: Link2 },
-  { path: "/leads", label: "Leads", icon: Users },
-  { path: "/conversations", label: "Conversations", icon: MessageSquare },
-  { path: "/analytics", label: "Analytics", icon: BarChart3 },
-  { path: "/ai", label: "AI Tools", icon: Sparkles },
-  { path: "/media", label: "Media Library", icon: ImageIcon },
-  { path: "/settings", label: "Settings", icon: Settings },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, permission: null },
+  { path: "/websites", label: "Websites", icon: Globe, permission: "websites" },
+  { path: "/keywords", label: "Keywords", icon: Search, permission: "keywords" },
+  { path: "/social", label: "Social Media", icon: Share2, permission: "social" },
+  { path: "/calendar", label: "Calendar", icon: CalendarDays, permission: "calendar" },
+  { path: "/campaigns", label: "Campaigns", icon: Megaphone, permission: "campaigns" },
+  { path: "/backlinks", label: "Backlinks", icon: Link2, permission: "backlinks" },
+  { path: "/leads", label: "Leads", icon: Users, permission: "leads" },
+  { path: "/conversations", label: "Conversations", icon: MessageSquare, permission: "conversations" },
+  { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "analytics" },
+  { path: "/ai", label: "AI Tools", icon: Sparkles, permission: "ai_tools" },
+  { path: "/media", label: "Media Library", icon: ImageIcon, permission: "media" },
+  { path: "/settings", label: "Settings", icon: Settings, permission: null },
 ];
 
 const PROVIDER_SHORT: Record<string, string> = {
@@ -83,14 +83,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { data: settings } = useGetSettings();
   const { data: usageData } = useGetMyUsage();
   const { user, logout } = useAuth();
+  const { hasPermission } = usePermissions();
 
   const aiEnabled = settings?.aiEnabled ?? true;
   const aiProvider = settings?.aiProvider ?? "replit";
   const providerLabel = PROVIDER_SHORT[aiProvider] ?? aiProvider;
 
+  const visibleNavItems = navItems.filter(item =>
+    item.permission == null || hasPermission(item.permission)
+  );
+
   const allNavItems = [
-    ...navItems,
-    ...(user?.role === "admin" ? [{ path: "/admin", label: "Admin", icon: ShieldCheck }] : []),
+    ...visibleNavItems,
+    ...(user?.role === "admin" ? [{ path: "/admin", label: "Admin", icon: ShieldCheck, permission: null }] : []),
   ];
 
   return (

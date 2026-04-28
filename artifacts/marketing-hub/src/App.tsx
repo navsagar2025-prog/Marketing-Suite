@@ -22,8 +22,10 @@ import ReportPage from "@/pages/report";
 import LandingPage from "@/pages/landing";
 import AdminPage from "@/pages/admin";
 import ConversationsPage from "@/pages/conversations";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
+import { Loader2, ShieldOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +35,34 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function AccessDenied() {
+  const [, setLocation] = useLocation();
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+      <ShieldOff className="h-14 w-14 text-muted-foreground/50" />
+      <div>
+        <h2 className="text-xl font-semibold">Access Denied</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          You don't have permission to view this section.
+          <br />
+          Contact your administrator to request access.
+        </p>
+      </div>
+      <Button variant="outline" size="sm" onClick={() => setLocation("/")}>
+        Go to Dashboard
+      </Button>
+    </div>
+  );
+}
+
+function PermissionGuard({ module, children }: { module: string; children: React.ReactNode }) {
+  const { hasPermission } = usePermissions();
+  if (!hasPermission(module)) {
+    return <AccessDenied />;
+  }
+  return <>{children}</>;
+}
 
 function ProtectedRouter() {
   const { user, isLoading } = useAuth();
@@ -68,18 +98,44 @@ function ProtectedRouter() {
         <Layout>
           <Switch>
             <Route path="/" component={Dashboard} />
-            <Route path="/websites" component={Websites} />
-            <Route path="/websites/:id" component={WebsiteDetail} />
-            <Route path="/keywords" component={Keywords} />
-            <Route path="/social" component={Social} />
-            <Route path="/calendar" component={CalendarPage} />
-            <Route path="/campaigns" component={Campaigns} />
-            <Route path="/backlinks" component={Backlinks} />
-            <Route path="/leads" component={Leads} />
-            <Route path="/conversations" component={ConversationsPage} />
-            <Route path="/analytics" component={Analytics} />
-            <Route path="/ai" component={AiTools} />
-            <Route path="/media" component={MediaAssets} />
+            <Route path="/websites">
+              <PermissionGuard module="websites"><Websites /></PermissionGuard>
+            </Route>
+            <Route path="/websites/:id">
+              {(params) => (
+                <PermissionGuard module="websites"><WebsiteDetail {...params} /></PermissionGuard>
+              )}
+            </Route>
+            <Route path="/keywords">
+              <PermissionGuard module="keywords"><Keywords /></PermissionGuard>
+            </Route>
+            <Route path="/social">
+              <PermissionGuard module="social"><Social /></PermissionGuard>
+            </Route>
+            <Route path="/calendar">
+              <PermissionGuard module="calendar"><CalendarPage /></PermissionGuard>
+            </Route>
+            <Route path="/campaigns">
+              <PermissionGuard module="campaigns"><Campaigns /></PermissionGuard>
+            </Route>
+            <Route path="/backlinks">
+              <PermissionGuard module="backlinks"><Backlinks /></PermissionGuard>
+            </Route>
+            <Route path="/leads">
+              <PermissionGuard module="leads"><Leads /></PermissionGuard>
+            </Route>
+            <Route path="/conversations">
+              <PermissionGuard module="conversations"><ConversationsPage /></PermissionGuard>
+            </Route>
+            <Route path="/analytics">
+              <PermissionGuard module="analytics"><Analytics /></PermissionGuard>
+            </Route>
+            <Route path="/ai">
+              <PermissionGuard module="ai_tools"><AiTools /></PermissionGuard>
+            </Route>
+            <Route path="/media">
+              <PermissionGuard module="media"><MediaAssets /></PermissionGuard>
+            </Route>
             <Route path="/settings" component={SettingsPage} />
             <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />

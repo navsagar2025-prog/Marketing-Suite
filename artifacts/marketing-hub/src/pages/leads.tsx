@@ -40,6 +40,19 @@ import {
 import type { Conversation, LeadForm, LeadFormField } from "@workspace/api-client-react";
 import ConversationDrawer from "@/components/ConversationDrawer";
 
+function highlightHtmlSnippet(code: string): string {
+  const escaped = code
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped
+    .replace(/(&lt;\/?)([\w-]+)/g, '<span style="color:#7dd3fc">$1$2</span>')
+    .replace(/([\w-]+)(=")([^"]*?)(")/g, '<span style="color:#86efac">$1</span><span style="color:#f9a8d4">$2$3$4</span>')
+    .replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span style="color:#6b7280;font-style:italic">$1</span>')
+    .replace(/(\/\/[^\n]*)/g, '<span style="color:#6b7280;font-style:italic">$1</span>')
+    .replace(/\b(var|function|return|if|else|for|new|document|fetch|JSON|method|headers|body)\b/g, '<span style="color:#c4b5fd">$1</span>');
+}
+
 const STATUS_OPTIONS = ["new", "contacted", "qualified", "converted", "lost"];
 const SOURCE_OPTIONS = ["organic", "paid", "social", "direct", "referral"];
 
@@ -556,12 +569,13 @@ function EmbedDialog({ form, onClose }: { form: LeadForm; onClose: () => void })
             <div className="relative">
               <pre
                 data-testid="embed-code-block"
-                className="bg-muted text-xs p-4 rounded-md overflow-x-auto whitespace-pre-wrap break-all font-mono border max-h-64"
-              >{embed.snippet}</pre>
+                className="bg-zinc-950 text-xs p-4 rounded-md overflow-x-auto whitespace-pre-wrap break-all font-mono border border-zinc-800 max-h-64"
+                dangerouslySetInnerHTML={{ __html: highlightHtmlSnippet(embed.snippet) }}
+              />
               <Button
                 size="sm"
-                variant="secondary"
-                className="absolute top-2 right-2 gap-1.5"
+                variant="outline"
+                className="absolute top-2 right-2 gap-1.5 bg-zinc-800 border-zinc-700 text-zinc-100 hover:bg-zinc-700 hover:text-white"
                 data-testid="button-copy-embed"
                 onClick={handleCopy}
               >

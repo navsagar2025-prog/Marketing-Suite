@@ -164,14 +164,10 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
           .where(eq(leadsTable.source, String(trigger.value)));
       }
 
-      // Only enroll leads that have a valid email address — sequences are
-      // email-only delivery; leads without emails are intentionally skipped.
+      // Email-only: leads without a valid email are skipped.
       const leadsWithEmail = matchingLeads.filter(l => l.email && l.email.includes("@"));
 
-      // Check ALL past enrollments (including completed) so each lead enrolls
-      // in a given sequence at most once.  Re-enrollment on re-entry is not
-      // supported by design — once a lead completes a nurture sequence we do
-      // not restart it on the next cron run.
+      // One-time enrollment per sequence/lead (includes completed enrollments).
       const existingEnrollments = await db
         .select({ leadId: sequenceEnrollmentsTable.leadId })
         .from(sequenceEnrollmentsTable)
@@ -194,10 +190,7 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
 
       if (!emailConfig) continue;
 
-      // No exit/stop logic: once enrolled, a lead receives the complete
-      // sequence even if its status or score no longer matches the trigger.
-      // This mirrors standard drip campaign behavior where enrollment is a
-      // one-time gate; stopping mid-sequence would require explicit opt-out.
+      // No exit logic: enrolled leads complete the full sequence regardless of trigger changes.
       const now = new Date();
       const dueEnrollments = await db
         .select()

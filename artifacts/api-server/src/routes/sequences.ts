@@ -194,6 +194,10 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
 
       if (!emailConfig) continue;
 
+      // No exit/stop logic: once enrolled, a lead receives the complete
+      // sequence even if its status or score no longer matches the trigger.
+      // This mirrors standard drip campaign behavior where enrollment is a
+      // one-time gate; stopping mid-sequence would require explicit opt-out.
       const now = new Date();
       const dueEnrollments = await db
         .select()

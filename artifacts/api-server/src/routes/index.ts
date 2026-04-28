@@ -43,6 +43,7 @@ router.use("/campaigns", requirePermission("campaigns"));
 router.use("/sequences", requirePermission("campaigns"));
 router.use("/backlinks", requirePermission("backlinks"));
 router.use("/leads", requirePermission("leads"));
+router.use("/lead-forms", requirePermission("leads"));
 router.use("/conversations", requirePermission("conversations"));
 router.use("/analytics", requirePermission("analytics"));
 router.use("/ai", requirePermission("ai_tools"));

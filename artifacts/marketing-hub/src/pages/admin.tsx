@@ -18,22 +18,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { ALL_MODULES as MODULE_KEYS, MODULE_LABELS } from "@workspace/api-zod";
 
 const DAILY_LIMIT = 2;
 
-const ALL_MODULES: { key: string; label: string }[] = [
-  { key: "websites", label: "Websites" },
-  { key: "keywords", label: "Keywords" },
-  { key: "leads", label: "Leads" },
-  { key: "campaigns", label: "Campaigns" },
-  { key: "backlinks", label: "Backlinks" },
-  { key: "social", label: "Social Media" },
-  { key: "analytics", label: "Analytics" },
-  { key: "ai_tools", label: "AI Tools" },
-  { key: "media", label: "Media Library" },
-  { key: "calendar", label: "Calendar" },
-  { key: "conversations", label: "Conversations" },
-];
+const ALL_MODULES = MODULE_KEYS.map(key => ({ key, label: MODULE_LABELS[key] }));
 
 interface AuditRequest {
   id: number;
@@ -416,14 +405,17 @@ function ModuleChecklist({
   fullAccess,
   onFullAccessChange,
   idPrefix = "perm",
+  disabled = false,
 }: {
   selected: string[];
   onChange: (keys: string[]) => void;
   fullAccess: boolean;
   onFullAccessChange: (v: boolean) => void;
   idPrefix?: string;
+  disabled?: boolean;
 }) {
   function toggle(key: string) {
+    if (disabled) return;
     if (selected.includes(key)) {
       onChange(selected.filter(k => k !== key));
     } else {
@@ -432,18 +424,19 @@ function ModuleChecklist({
   }
 
   return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 cursor-pointer select-none" htmlFor={`${idPrefix}-full-access`}>
+    <div className={`space-y-2 ${disabled ? "opacity-60" : ""}`}>
+      <label className={`flex items-center gap-2 select-none ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`} htmlFor={`${idPrefix}-full-access`}>
         <input
           type="checkbox"
           id={`${idPrefix}-full-access`}
-          checked={fullAccess}
-          onChange={e => onFullAccessChange(e.target.checked)}
+          checked={disabled ? true : fullAccess}
+          onChange={e => !disabled && onFullAccessChange(e.target.checked)}
+          disabled={disabled}
           className="h-4 w-4 rounded border border-input cursor-pointer"
         />
         <span className="text-sm font-medium">Full access (all modules)</span>
       </label>
-      {!fullAccess && (
+      {!disabled && !fullAccess && (
         <div className="grid grid-cols-2 gap-1 pt-1 pl-1">
           {ALL_MODULES.map(m => (
             <label key={m.key} className="flex items-center gap-2 cursor-pointer select-none py-0.5" htmlFor={`${idPrefix}-mod-${m.key}`}>
@@ -598,20 +591,22 @@ function StaffTab() {
               {addMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4 mr-1" /> Add</>}
             </Button>
           </div>
-          {roleInput === "staff" && (
-            <div className="border rounded-md p-3 bg-muted/30">
-              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Lock className="h-3 w-3" /> Module permissions
-              </p>
-              <ModuleChecklist
-                idPrefix="new-user"
-                selected={newUserPermissions}
-                onChange={setNewUserPermissions}
-                fullAccess={newUserFullAccess}
-                onFullAccessChange={setNewUserFullAccess}
-              />
-            </div>
-          )}
+          <div className="border rounded-md p-3 bg-muted/30">
+            <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+              <Lock className="h-3 w-3" /> Module permissions
+              {roleInput === "admin" && (
+                <span className="ml-1 text-muted-foreground/70">(admins always have full access)</span>
+              )}
+            </p>
+            <ModuleChecklist
+              idPrefix="new-user"
+              selected={newUserPermissions}
+              onChange={setNewUserPermissions}
+              fullAccess={newUserFullAccess}
+              onFullAccessChange={setNewUserFullAccess}
+              disabled={roleInput === "admin"}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -645,6 +640,8 @@ function StaffTab() {
                           size="icon"
                           className="h-7 w-7 text-muted-foreground hover:text-foreground"
                           title="Edit permissions"
+                          aria-label={`Edit permissions for ${staff.username}`}
+                          data-testid={`button-edit-permissions-${staff.id}`}
                           onClick={() => openPermissionsPanel(staff)}
                         >
                           {expandedUserId === staff.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -655,6 +652,9 @@ function StaffTab() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive hover:text-destructive"
+                          title="Delete account"
+                          aria-label={`Delete account ${staff.username}`}
+                          data-testid={`button-delete-staff-${staff.id}`}
                           onClick={() => deleteMutation.mutate(staff.id)}
                           disabled={deleteMutation.isPending}
                         >

@@ -32,6 +32,8 @@ tags:
     description: Application settings
   - name: sequences
     description: Email nurture sequence management
+  - name: lead-forms
+    description: Embeddable lead capture form management
 
 paths:
   /healthz:
@@ -872,6 +874,129 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  # ─── Lead Forms ───────────────────────────────────────────────────────────────
+  /lead-forms:
+    get:
+      operationId: listLeadForms
+      tags: [lead-forms]
+      summary: List all lead capture forms
+      responses:
+        "200":
+          description: List of lead forms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadForm"
+    post:
+      operationId: createLeadForm
+      tags: [lead-forms]
+      summary: Create a lead capture form
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadFormBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadForm"
+
+  /lead-forms/{id}:
+    patch:
+      operationId: updateLeadForm
+      tags: [lead-forms]
+      summary: Update a lead capture form
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadFormBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadForm"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteLeadForm
+      tags: [lead-forms]
+      summary: Delete a lead capture form
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /lead-forms/{id}/embed:
+    get:
+      operationId: getLeadFormEmbed
+      tags: [lead-forms]
+      summary: Get embed snippet for a lead capture form
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Embed snippet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadFormEmbedResponse"
+        "404":
+          description: Not found
+
+  /public/forms/{formId}/submit:
+    post:
+      operationId: submitLeadForm
+      tags: [lead-forms]
+      summary: Submit a lead capture form (public, no auth required)
+      parameters:
+        - name: formId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadFormSubmitBody"
+      responses:
+        "201":
+          description: Submission accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadFormSubmitResponse"
+        "400":
+          description: Validation error
+        "429":
+          description: Rate limit exceeded
 
   # ─── Conversations ────────────────────────────────────────────────────────────
   /conversations:
@@ -3614,3 +3739,120 @@ components:
       required:
         - name
         - steps
+
+    LeadFormField:
+      type: object
+      properties:
+        name:
+          type: string
+          enum: [name, email, phone, message]
+        enabled:
+          type: boolean
+        required:
+          type: boolean
+      required:
+        - name
+        - enabled
+        - required
+
+    LeadForm:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        name:
+          type: string
+        fieldsJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeadFormField"
+        active:
+          type: boolean
+        submissionCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - websiteId
+        - name
+        - fieldsJson
+        - active
+        - submissionCount
+        - createdAt
+
+    CreateLeadFormBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        fieldsJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeadFormField"
+        active:
+          type: boolean
+      required:
+        - websiteId
+        - name
+
+    UpdateLeadFormBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        fieldsJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/LeadFormField"
+        active:
+          type: boolean
+
+    LeadFormEmbedResponse:
+      type: object
+      properties:
+        formId:
+          type: integer
+        name:
+          type: string
+        snippet:
+          type: string
+          description: Full HTML snippet (<div> + <script>) ready to paste
+        scriptOnly:
+          type: string
+          description: Just the JavaScript content of the script tag
+      required:
+        - formId
+        - name
+        - snippet
+        - scriptOnly
+
+    LeadFormSubmitBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        message:
+          type: string
+        _hp:
+          type: string
+          description: Honeypot field — must be empty
+
+    LeadFormSubmitResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok

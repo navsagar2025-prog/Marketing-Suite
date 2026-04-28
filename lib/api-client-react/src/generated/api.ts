@@ -35,6 +35,7 @@ import type {
   CreateConversationBody,
   CreateKeywordBody,
   CreateLeadBody,
+  CreateLeadFormBody,
   CreateMediaAssetBody,
   CreateSequenceBody,
   CreateSocialPostBody,
@@ -67,6 +68,10 @@ import type {
   KeywordRankHistory,
   KeywordSuggestions,
   Lead,
+  LeadForm,
+  LeadFormEmbedResponse,
+  LeadFormSubmitBody,
+  LeadFormSubmitResponse,
   LeadScoringConfig,
   LeadSequenceEnrollment,
   LeadsFunnel,
@@ -102,6 +107,7 @@ import type {
   UpdateEmailProviderBody,
   UpdateKeywordBody,
   UpdateLeadBody,
+  UpdateLeadFormBody,
   UpdateSequenceBody,
   UpdateSettingsBody,
   UpdateSocialPostBody,
@@ -3861,6 +3867,512 @@ export const useDeleteLead = <
   TContext
 > => {
   return useMutation(getDeleteLeadMutationOptions(options));
+};
+
+/**
+ * @summary List all lead capture forms
+ */
+export const getListLeadFormsUrl = () => {
+  return `/api/lead-forms`;
+};
+
+export const listLeadForms = async (
+  options?: RequestInit,
+): Promise<LeadForm[]> => {
+  return customFetch<LeadForm[]>(getListLeadFormsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLeadFormsQueryKey = () => {
+  return [`/api/lead-forms`] as const;
+};
+
+export const getListLeadFormsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLeadForms>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLeadForms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLeadFormsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listLeadForms>>> = ({
+    signal,
+  }) => listLeadForms({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLeadForms>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLeadFormsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLeadForms>>
+>;
+export type ListLeadFormsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all lead capture forms
+ */
+
+export function useListLeadForms<
+  TData = Awaited<ReturnType<typeof listLeadForms>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listLeadForms>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLeadFormsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a lead capture form
+ */
+export const getCreateLeadFormUrl = () => {
+  return `/api/lead-forms`;
+};
+
+export const createLeadForm = async (
+  createLeadFormBody: CreateLeadFormBody,
+  options?: RequestInit,
+): Promise<LeadForm> => {
+  return customFetch<LeadForm>(getCreateLeadFormUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createLeadFormBody),
+  });
+};
+
+export const getCreateLeadFormMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLeadForm>>,
+    TError,
+    { data: BodyType<CreateLeadFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createLeadForm>>,
+  TError,
+  { data: BodyType<CreateLeadFormBody> },
+  TContext
+> => {
+  const mutationKey = ["createLeadForm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createLeadForm>>,
+    { data: BodyType<CreateLeadFormBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createLeadForm(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateLeadFormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLeadForm>>
+>;
+export type CreateLeadFormMutationBody = BodyType<CreateLeadFormBody>;
+export type CreateLeadFormMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a lead capture form
+ */
+export const useCreateLeadForm = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLeadForm>>,
+    TError,
+    { data: BodyType<CreateLeadFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createLeadForm>>,
+  TError,
+  { data: BodyType<CreateLeadFormBody> },
+  TContext
+> => {
+  return useMutation(getCreateLeadFormMutationOptions(options));
+};
+
+/**
+ * @summary Update a lead capture form
+ */
+export const getUpdateLeadFormUrl = (id: number) => {
+  return `/api/lead-forms/${id}`;
+};
+
+export const updateLeadForm = async (
+  id: number,
+  updateLeadFormBody: UpdateLeadFormBody,
+  options?: RequestInit,
+): Promise<LeadForm> => {
+  return customFetch<LeadForm>(getUpdateLeadFormUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateLeadFormBody),
+  });
+};
+
+export const getUpdateLeadFormMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLeadForm>>,
+    TError,
+    { id: number; data: BodyType<UpdateLeadFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLeadForm>>,
+  TError,
+  { id: number; data: BodyType<UpdateLeadFormBody> },
+  TContext
+> => {
+  const mutationKey = ["updateLeadForm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLeadForm>>,
+    { id: number; data: BodyType<UpdateLeadFormBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateLeadForm(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLeadFormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLeadForm>>
+>;
+export type UpdateLeadFormMutationBody = BodyType<UpdateLeadFormBody>;
+export type UpdateLeadFormMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a lead capture form
+ */
+export const useUpdateLeadForm = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLeadForm>>,
+    TError,
+    { id: number; data: BodyType<UpdateLeadFormBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLeadForm>>,
+  TError,
+  { id: number; data: BodyType<UpdateLeadFormBody> },
+  TContext
+> => {
+  return useMutation(getUpdateLeadFormMutationOptions(options));
+};
+
+/**
+ * @summary Delete a lead capture form
+ */
+export const getDeleteLeadFormUrl = (id: number) => {
+  return `/api/lead-forms/${id}`;
+};
+
+export const deleteLeadForm = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteLeadFormUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteLeadFormMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLeadForm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteLeadForm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteLeadForm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteLeadForm>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteLeadForm(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteLeadFormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteLeadForm>>
+>;
+
+export type DeleteLeadFormMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a lead capture form
+ */
+export const useDeleteLeadForm = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLeadForm>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteLeadForm>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteLeadFormMutationOptions(options));
+};
+
+/**
+ * @summary Get embed snippet for a lead capture form
+ */
+export const getGetLeadFormEmbedUrl = (id: number) => {
+  return `/api/lead-forms/${id}/embed`;
+};
+
+export const getLeadFormEmbed = async (
+  id: number,
+  options?: RequestInit,
+): Promise<LeadFormEmbedResponse> => {
+  return customFetch<LeadFormEmbedResponse>(getGetLeadFormEmbedUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetLeadFormEmbedQueryKey = (id: number) => {
+  return [`/api/lead-forms/${id}/embed`] as const;
+};
+
+export const getGetLeadFormEmbedQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeadFormEmbed>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeadFormEmbed>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetLeadFormEmbedQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLeadFormEmbed>>
+  > = ({ signal }) => getLeadFormEmbed(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeadFormEmbed>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLeadFormEmbedQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeadFormEmbed>>
+>;
+export type GetLeadFormEmbedQueryError = ErrorType<void>;
+
+/**
+ * @summary Get embed snippet for a lead capture form
+ */
+
+export function useGetLeadFormEmbed<
+  TData = Awaited<ReturnType<typeof getLeadFormEmbed>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeadFormEmbed>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLeadFormEmbedQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit a lead capture form (public, no auth required)
+ */
+export const getSubmitLeadFormUrl = (formId: number) => {
+  return `/api/public/forms/${formId}/submit`;
+};
+
+export const submitLeadForm = async (
+  formId: number,
+  leadFormSubmitBody: LeadFormSubmitBody,
+  options?: RequestInit,
+): Promise<LeadFormSubmitResponse> => {
+  return customFetch<LeadFormSubmitResponse>(getSubmitLeadFormUrl(formId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(leadFormSubmitBody),
+  });
+};
+
+export const getSubmitLeadFormMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitLeadForm>>,
+    TError,
+    { formId: number; data: BodyType<LeadFormSubmitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitLeadForm>>,
+  TError,
+  { formId: number; data: BodyType<LeadFormSubmitBody> },
+  TContext
+> => {
+  const mutationKey = ["submitLeadForm"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitLeadForm>>,
+    { formId: number; data: BodyType<LeadFormSubmitBody> }
+  > = (props) => {
+    const { formId, data } = props ?? {};
+
+    return submitLeadForm(formId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitLeadFormMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitLeadForm>>
+>;
+export type SubmitLeadFormMutationBody = BodyType<LeadFormSubmitBody>;
+export type SubmitLeadFormMutationError = ErrorType<void>;
+
+/**
+ * @summary Submit a lead capture form (public, no auth required)
+ */
+export const useSubmitLeadForm = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitLeadForm>>,
+    TError,
+    { formId: number; data: BodyType<LeadFormSubmitBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitLeadForm>>,
+  TError,
+  { formId: number; data: BodyType<LeadFormSubmitBody> },
+  TContext
+> => {
+  return useMutation(getSubmitLeadFormMutationOptions(options));
 };
 
 /**

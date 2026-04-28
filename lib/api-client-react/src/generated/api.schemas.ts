@@ -1187,6 +1187,69 @@ export interface GenerateSequenceResponse {
   steps: SequenceStep[];
 }
 
+export type LeadFormFieldName =
+  (typeof LeadFormFieldName)[keyof typeof LeadFormFieldName];
+
+export const LeadFormFieldName = {
+  name: "name",
+  email: "email",
+  phone: "phone",
+  message: "message",
+} as const;
+
+export interface LeadFormField {
+  name: LeadFormFieldName;
+  enabled: boolean;
+  required: boolean;
+}
+
+export interface LeadForm {
+  id: number;
+  websiteId: number;
+  name: string;
+  fieldsJson: LeadFormField[];
+  active: boolean;
+  submissionCount: number;
+  createdAt: string;
+}
+
+export interface CreateLeadFormBody {
+  websiteId: number;
+  /** @minLength 1 */
+  name: string;
+  fieldsJson?: LeadFormField[];
+  active?: boolean;
+}
+
+export interface UpdateLeadFormBody {
+  /** @minLength 1 */
+  name?: string;
+  fieldsJson?: LeadFormField[];
+  active?: boolean;
+}
+
+export interface LeadFormEmbedResponse {
+  formId: number;
+  name: string;
+  /** Full HTML snippet (<div> + <script>) ready to paste */
+  snippet: string;
+  /** Just the JavaScript content of the script tag */
+  scriptOnly: string;
+}
+
+export interface LeadFormSubmitBody {
+  name?: string;
+  email?: string;
+  phone?: string;
+  message?: string;
+  /** Honeypot field — must be empty */
+  _hp?: string;
+}
+
+export interface LeadFormSubmitResponse {
+  ok: boolean;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };

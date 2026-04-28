@@ -1021,6 +1021,122 @@ export const DeleteLeadParams = zod.object({
 });
 
 /**
+ * @summary List all lead capture forms
+ */
+export const ListLeadFormsResponseItem = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  name: zod.string(),
+  fieldsJson: zod.array(
+    zod.object({
+      name: zod.enum(["name", "email", "phone", "message"]),
+      enabled: zod.boolean(),
+      required: zod.boolean(),
+    }),
+  ),
+  active: zod.boolean(),
+  submissionCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+export const ListLeadFormsResponse = zod.array(ListLeadFormsResponseItem);
+
+/**
+ * @summary Create a lead capture form
+ */
+
+export const CreateLeadFormBody = zod.object({
+  websiteId: zod.number(),
+  name: zod.string().min(1),
+  fieldsJson: zod
+    .array(
+      zod.object({
+        name: zod.enum(["name", "email", "phone", "message"]),
+        enabled: zod.boolean(),
+        required: zod.boolean(),
+      }),
+    )
+    .optional(),
+  active: zod.boolean().optional(),
+});
+
+/**
+ * @summary Update a lead capture form
+ */
+export const UpdateLeadFormParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateLeadFormBody = zod.object({
+  name: zod.string().min(1).optional(),
+  fieldsJson: zod
+    .array(
+      zod.object({
+        name: zod.enum(["name", "email", "phone", "message"]),
+        enabled: zod.boolean(),
+        required: zod.boolean(),
+      }),
+    )
+    .optional(),
+  active: zod.boolean().optional(),
+});
+
+export const UpdateLeadFormResponse = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  name: zod.string(),
+  fieldsJson: zod.array(
+    zod.object({
+      name: zod.enum(["name", "email", "phone", "message"]),
+      enabled: zod.boolean(),
+      required: zod.boolean(),
+    }),
+  ),
+  active: zod.boolean(),
+  submissionCount: zod.number(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a lead capture form
+ */
+export const DeleteLeadFormParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Get embed snippet for a lead capture form
+ */
+export const GetLeadFormEmbedParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetLeadFormEmbedResponse = zod.object({
+  formId: zod.number(),
+  name: zod.string(),
+  snippet: zod
+    .string()
+    .describe("Full HTML snippet (<div> + <script>) ready to paste"),
+  scriptOnly: zod
+    .string()
+    .describe("Just the JavaScript content of the script tag"),
+});
+
+/**
+ * @summary Submit a lead capture form (public, no auth required)
+ */
+export const SubmitLeadFormParams = zod.object({
+  formId: zod.coerce.number(),
+});
+
+export const SubmitLeadFormBody = zod.object({
+  name: zod.string().optional(),
+  email: zod.string().optional(),
+  phone: zod.string().optional(),
+  message: zod.string().optional(),
+  _hp: zod.string().optional().describe("Honeypot field — must be empty"),
+});
+
+/**
  * @summary List all conversations
  */
 export const ListConversationsResponseItem = zod.object({

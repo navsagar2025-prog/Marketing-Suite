@@ -14,10 +14,12 @@ import authRouter from "./auth";
 import adminRouter from "./admin";
 import publicAuditRouter from "./public-audit";
 import publicContactRouter from "./public-contact";
+import publicFormsRouter from "./public-forms";
 import usageRouter from "./usage";
 import emailWebhooksRouter from "./email-webhooks";
 import conversationsRouter from "./conversations";
 import sequencesRouter from "./sequences";
+import leadFormsRouter from "./lead-forms";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -28,6 +30,7 @@ router.use(authRouter);
 
 router.use(publicAuditRouter);
 router.use(publicContactRouter);
+router.use(publicFormsRouter);
 router.use(emailWebhooksRouter);
 
 router.use(requireAuth);
@@ -45,6 +48,7 @@ router.use(settingsRouter);
 router.use(usageRouter);
 router.use(conversationsRouter);
 router.use(sequencesRouter);
+router.use(leadFormsRouter);
 router.use(adminRouter);
 
 export default router;

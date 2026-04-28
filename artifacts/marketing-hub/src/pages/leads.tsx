@@ -41,7 +41,7 @@ import type { Conversation, LeadForm, LeadFormField } from "@workspace/api-clien
 import ConversationDrawer from "@/components/ConversationDrawer";
 
 const STATUS_OPTIONS = ["new", "contacted", "qualified", "converted", "lost"];
-const SOURCE_OPTIONS = ["organic", "paid", "social", "direct", "referral"];
+const SOURCE_OPTIONS = ["organic", "paid", "social", "direct", "referral", "form"];
 
 const createSchema = z.object({
   websiteId: z.coerce.number().min(1, "Website is required"),

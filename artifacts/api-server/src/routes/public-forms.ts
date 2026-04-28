@@ -51,21 +51,33 @@ router.post("/public/forms/:formId/submit", async (req, res): Promise<void> => {
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const message = typeof body.message === "string" ? body.message.trim() : "";
 
-  const nameField = enabledFields.find(f => f.name === "name");
-  const emailField = enabledFields.find(f => f.name === "email");
-  const phoneField = enabledFields.find(f => f.name === "phone");
-
-  if (nameField?.required && (!name || name.length > 200)) {
-    res.status(400).json({ error: "Please provide your name." }); return;
-  }
-  if (emailField?.required && (!email || !EMAIL_RE.test(email) || email.length > 300)) {
-    res.status(400).json({ error: "Please provide a valid email address." }); return;
+  for (const field of enabledFields) {
+    if (!field.required) continue;
+    switch (field.name) {
+      case "name":
+        if (!name || name.length > 200) {
+          res.status(400).json({ error: "Please provide your name." }); return;
+        }
+        break;
+      case "email":
+        if (!email || !EMAIL_RE.test(email) || email.length > 300) {
+          res.status(400).json({ error: "Please provide a valid email address." }); return;
+        }
+        break;
+      case "phone":
+        if (!phone) {
+          res.status(400).json({ error: "Please provide your phone number." }); return;
+        }
+        break;
+      case "message":
+        if (!message) {
+          res.status(400).json({ error: "Please provide a message." }); return;
+        }
+        break;
+    }
   }
   if (email && !EMAIL_RE.test(email)) {
     res.status(400).json({ error: "Please provide a valid email address." }); return;
-  }
-  if (phoneField?.required && !phone) {
-    res.status(400).json({ error: "Please provide your phone number." }); return;
   }
   if (message.length > 2000) {
     res.status(400).json({ error: "Message is too long." }); return;

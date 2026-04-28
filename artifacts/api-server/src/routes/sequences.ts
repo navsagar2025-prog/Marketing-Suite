@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
-import { eq, and, or, gte, inArray, isNull } from "drizzle-orm";
+import { eq, and, or, lte, inArray, isNull } from "drizzle-orm";
 import { db, sequencesTable, sequenceEnrollmentsTable, leadsTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
 import { requireAdmin } from "../lib/auth.js";
+import { CreateSequenceBody, UpdateSequenceBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
@@ -13,38 +14,16 @@ router.get("/sequences", async (req, res): Promise<void> => {
 });
 
 router.post("/sequences", async (req, res): Promise<void> => {
-  const { name, trigger, stepsJson, active } = req.body ?? {};
-  if (!name || typeof name !== "string" || !name.trim()) {
-    res.status(400).json({ error: "name is required" });
+  const parsed = CreateSequenceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Invalid request" });
     return;
   }
-  if (!trigger || typeof trigger !== "object" || !trigger.type || trigger.value === undefined) {
-    res.status(400).json({ error: "trigger with type and value is required" });
-    return;
-  }
-  if (!["status", "score", "source"].includes(trigger.type)) {
-    res.status(400).json({ error: "trigger.type must be status, score, or source" });
-    return;
-  }
-  const steps = Array.isArray(stepsJson) ? stepsJson : [];
-  for (const [i, step] of steps.entries()) {
-    if (!step.subject || typeof step.subject !== "string" || !step.subject.trim()) {
-      res.status(400).json({ error: `Step ${i + 1}: subject is required` });
-      return;
-    }
-    if (!step.body || typeof step.body !== "string" || !step.body.trim()) {
-      res.status(400).json({ error: `Step ${i + 1}: body is required` });
-      return;
-    }
-    if (typeof step.delayDays !== "number" || step.delayDays < 0 || !Number.isInteger(step.delayDays)) {
-      res.status(400).json({ error: `Step ${i + 1}: delayDays must be a non-negative integer` });
-      return;
-    }
-  }
+  const { name, trigger, stepsJson, active } = parsed.data;
   const [seq] = await db.insert(sequencesTable).values({
     name: name.trim(),
     trigger,
-    stepsJson: steps,
+    stepsJson: stepsJson ?? [],
     active: active !== false,
   }).returning();
   res.status(201).json(seq);
@@ -81,38 +60,17 @@ router.get("/sequences/:id", async (req, res): Promise<void> => {
 router.patch("/sequences/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { name, trigger, stepsJson, active } = req.body ?? {};
+  const parsed = UpdateSequenceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.errors[0]?.message ?? "Invalid request" });
+    return;
+  }
+  const { name, trigger, stepsJson, active } = parsed.data;
   const updates: Record<string, unknown> = {};
-  if (name !== undefined) {
-    const trimmed = String(name).trim();
-    if (!trimmed) { res.status(400).json({ error: "name must not be empty" }); return; }
-    updates.name = trimmed;
-  }
-  if (trigger !== undefined) {
-    if (!trigger || typeof trigger !== "object" || !trigger.type || trigger.value === undefined) {
-      res.status(400).json({ error: "trigger with type and value is required" }); return;
-    }
-    if (!["status", "score", "source"].includes(trigger.type)) {
-      res.status(400).json({ error: "trigger.type must be status, score, or source" }); return;
-    }
-    updates.trigger = trigger;
-  }
-  if (stepsJson !== undefined) {
-    if (!Array.isArray(stepsJson)) { res.status(400).json({ error: "stepsJson must be an array" }); return; }
-    for (const [i, step] of (stepsJson as Array<Record<string, unknown>>).entries()) {
-      if (!step.subject || typeof step.subject !== "string" || !String(step.subject).trim()) {
-        res.status(400).json({ error: `Step ${i + 1}: subject is required` }); return;
-      }
-      if (!step.body || typeof step.body !== "string" || !String(step.body).trim()) {
-        res.status(400).json({ error: `Step ${i + 1}: body is required` }); return;
-      }
-      if (typeof step.delayDays !== "number" || step.delayDays < 0 || !Number.isInteger(step.delayDays)) {
-        res.status(400).json({ error: `Step ${i + 1}: delayDays must be a non-negative integer` }); return;
-      }
-    }
-    updates.stepsJson = stepsJson;
-  }
-  if (active !== undefined) updates.active = Boolean(active);
+  if (name !== undefined) updates.name = name.trim();
+  if (trigger !== undefined) updates.trigger = trigger;
+  if (stepsJson !== undefined) updates.stepsJson = stepsJson;
+  if (active !== undefined) updates.active = active;
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No fields to update" });
     return;
@@ -238,7 +196,7 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
           and(
             eq(sequenceEnrollmentsTable.sequenceId, seq.id),
             or(
-              gte(now, sequenceEnrollmentsTable.nextSendAt),
+              lte(sequenceEnrollmentsTable.nextSendAt, now),
               eq(sequenceEnrollmentsTable.currentStep, 0)
             )
           )

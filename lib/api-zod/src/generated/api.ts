@@ -710,7 +710,7 @@ export const UpdateSequenceParams = zod.object({
 export const updateSequenceBodyStepsJsonItemDelayDaysMin = 0;
 
 export const UpdateSequenceBody = zod.object({
-  name: zod.string().optional(),
+  name: zod.string().min(1).optional(),
   trigger: zod
     .object({
       type: zod.enum(["status", "score", "source"]),

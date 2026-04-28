@@ -1128,6 +1128,7 @@ export interface CreateSequenceBody {
 }
 
 export interface UpdateSequenceBody {
+  /** @minLength 1 */
   name?: string;
   trigger?: SequenceTrigger;
   stepsJson?: SequenceStep[];

@@ -675,11 +675,23 @@ The first email should have delayDays: 0 (send immediately upon enrollment). Sub
         try { result = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
       }
     }
-    if (!result.name || !Array.isArray(result.steps) || result.steps.length === 0) {
+    const validSteps = Array.isArray(result.steps) && result.steps.every(
+      (s) => s && typeof s.subject === "string" && s.subject.trim() &&
+             typeof s.body === "string" && s.body.trim() &&
+             typeof s.delayDays === "number" && s.delayDays >= 0
+    );
+    if (!result.name || !validSteps || result.steps.length === 0) {
       res.status(503).json({ error: "AI returned an incomplete sequence. Please try again." });
       return;
     }
-    res.json({ name: result.name.trim(), steps: result.steps });
+    res.json({
+      name: result.name.trim(),
+      steps: result.steps.map((s) => ({
+        subject: String(s.subject).trim(),
+        body: String(s.body).trim(),
+        delayDays: Math.max(0, Math.round(Number(s.delayDays))),
+      })),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI generation failed";
     res.status(503).json({ error: message });

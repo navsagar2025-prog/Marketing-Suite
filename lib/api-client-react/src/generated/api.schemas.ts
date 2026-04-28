@@ -1019,6 +1019,38 @@ export interface TestEmailResponse {
   message: string;
 }
 
+export interface PaymentSettings {
+  /**
+   * Active payment provider — stripe or razorpay
+   * @nullable
+   */
+  provider?: string | null;
+  /** Default billing currency code (e.g. usd, inr) */
+  currency: string;
+  stripePublishableKey: string;
+  stripeSecretKeyConfigured: boolean;
+  stripeWebhookSecretConfigured: boolean;
+  razorpayKeyId: string;
+  razorpayKeySecretConfigured: boolean;
+}
+
+export interface UpdatePaymentSettingsBody {
+  /** stripe | razorpay */
+  provider?: string;
+  currency?: string;
+  stripePublishableKey?: string;
+  stripeSecretKey?: string;
+  stripeWebhookSecret?: string;
+  razorpayKeyId?: string;
+  razorpayKeySecret?: string;
+}
+
+export interface TestPaymentResponse {
+  success: boolean;
+  message: string;
+  provider: string;
+}
+
 export interface SendCampaignEmailBody {
   subject: string;
   body: string;

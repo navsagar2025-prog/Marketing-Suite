@@ -1789,6 +1789,49 @@ paths:
               schema:
                 $ref: "#/components/schemas/TestEmailResponse"
 
+  /settings/payment:
+    get:
+      operationId: getPaymentSettings
+      tags: [settings]
+      summary: Get payment gateway configuration (admin only)
+      responses:
+        "200":
+          description: Payment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentSettings"
+    patch:
+      operationId: updatePaymentSettings
+      tags: [settings]
+      summary: Update payment gateway configuration (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePaymentSettingsBody"
+      responses:
+        "200":
+          description: Updated payment settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentSettings"
+
+  /settings/payment/test:
+    post:
+      operationId: testPaymentConnection
+      tags: [settings]
+      summary: Test the active payment provider connection (admin only)
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestPaymentResponse"
+
   # ─── Usage ────────────────────────────────────────────────────────────────
   /usage/me:
     get:
@@ -3406,6 +3449,67 @@ components:
       required:
         - success
         - message
+
+    # ─── Payment Settings ──────────────────────────────────────────────────────
+    PaymentSettings:
+      type: object
+      properties:
+        provider:
+          type: ["string", "null"]
+          description: Active payment provider — stripe or razorpay
+        currency:
+          type: string
+          description: Default billing currency code (e.g. usd, inr)
+        stripePublishableKey:
+          type: string
+        stripeSecretKeyConfigured:
+          type: boolean
+        stripeWebhookSecretConfigured:
+          type: boolean
+        razorpayKeyId:
+          type: string
+        razorpayKeySecretConfigured:
+          type: boolean
+      required:
+        - currency
+        - stripePublishableKey
+        - stripeSecretKeyConfigured
+        - stripeWebhookSecretConfigured
+        - razorpayKeyId
+        - razorpayKeySecretConfigured
+
+    UpdatePaymentSettingsBody:
+      type: object
+      properties:
+        provider:
+          type: string
+          description: stripe | razorpay
+        currency:
+          type: string
+        stripePublishableKey:
+          type: string
+        stripeSecretKey:
+          type: string
+        stripeWebhookSecret:
+          type: string
+        razorpayKeyId:
+          type: string
+        razorpayKeySecret:
+          type: string
+
+    TestPaymentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        provider:
+          type: string
+      required:
+        - success
+        - message
+        - provider
 
     # ─── Campaign Email Send ───────────────────────────────────────────────────
     SendCampaignEmailBody:

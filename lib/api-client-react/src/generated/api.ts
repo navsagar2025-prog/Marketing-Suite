@@ -84,6 +84,7 @@ import type {
   ListSocialPostsParams,
   MediaAsset,
   MyUsageResponse,
+  PaymentSettings,
   ProcessSequencesResponse,
   RecalculateScoresResponse,
   ResetUsageBody,
@@ -102,12 +103,14 @@ import type {
   TestAiResponse,
   TestEmailBody,
   TestEmailResponse,
+  TestPaymentResponse,
   UpdateBacklinkBody,
   UpdateCampaignBody,
   UpdateEmailProviderBody,
   UpdateKeywordBody,
   UpdateLeadBody,
   UpdateLeadFormBody,
+  UpdatePaymentSettingsBody,
   UpdateSequenceBody,
   UpdateSettingsBody,
   UpdateSocialPostBody,
@@ -7761,6 +7764,249 @@ export const useTestEmailConnection = <
   TContext
 > => {
   return useMutation(getTestEmailConnectionMutationOptions(options));
+};
+
+/**
+ * @summary Get payment gateway configuration (admin only)
+ */
+export const getGetPaymentSettingsUrl = () => {
+  return `/api/settings/payment`;
+};
+
+export const getPaymentSettings = async (
+  options?: RequestInit,
+): Promise<PaymentSettings> => {
+  return customFetch<PaymentSettings>(getGetPaymentSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPaymentSettingsQueryKey = () => {
+  return [`/api/settings/payment`] as const;
+};
+
+export const getGetPaymentSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPaymentSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPaymentSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPaymentSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPaymentSettings>>
+  > = ({ signal }) => getPaymentSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPaymentSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPaymentSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPaymentSettings>>
+>;
+export type GetPaymentSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get payment gateway configuration (admin only)
+ */
+
+export function useGetPaymentSettings<
+  TData = Awaited<ReturnType<typeof getPaymentSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPaymentSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPaymentSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update payment gateway configuration (admin only)
+ */
+export const getUpdatePaymentSettingsUrl = () => {
+  return `/api/settings/payment`;
+};
+
+export const updatePaymentSettings = async (
+  updatePaymentSettingsBody: UpdatePaymentSettingsBody,
+  options?: RequestInit,
+): Promise<PaymentSettings> => {
+  return customFetch<PaymentSettings>(getUpdatePaymentSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updatePaymentSettingsBody),
+  });
+};
+
+export const getUpdatePaymentSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePaymentSettings>>,
+    TError,
+    { data: BodyType<UpdatePaymentSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updatePaymentSettings>>,
+  TError,
+  { data: BodyType<UpdatePaymentSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["updatePaymentSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updatePaymentSettings>>,
+    { data: BodyType<UpdatePaymentSettingsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updatePaymentSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdatePaymentSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updatePaymentSettings>>
+>;
+export type UpdatePaymentSettingsMutationBody =
+  BodyType<UpdatePaymentSettingsBody>;
+export type UpdatePaymentSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update payment gateway configuration (admin only)
+ */
+export const useUpdatePaymentSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updatePaymentSettings>>,
+    TError,
+    { data: BodyType<UpdatePaymentSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updatePaymentSettings>>,
+  TError,
+  { data: BodyType<UpdatePaymentSettingsBody> },
+  TContext
+> => {
+  return useMutation(getUpdatePaymentSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Test the active payment provider connection (admin only)
+ */
+export const getTestPaymentConnectionUrl = () => {
+  return `/api/settings/payment/test`;
+};
+
+export const testPaymentConnection = async (
+  options?: RequestInit,
+): Promise<TestPaymentResponse> => {
+  return customFetch<TestPaymentResponse>(getTestPaymentConnectionUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getTestPaymentConnectionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testPaymentConnection>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof testPaymentConnection>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["testPaymentConnection"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof testPaymentConnection>>,
+    void
+  > = () => {
+    return testPaymentConnection(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type TestPaymentConnectionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof testPaymentConnection>>
+>;
+
+export type TestPaymentConnectionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Test the active payment provider connection (admin only)
+ */
+export const useTestPaymentConnection = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof testPaymentConnection>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof testPaymentConnection>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getTestPaymentConnectionMutationOptions(options));
 };
 
 /**

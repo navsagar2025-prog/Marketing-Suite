@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +105,23 @@ export default function SettingsPage() {
   const { data: scoringConfig, refetch: refetchScoringConfig } = useGetLeadScoringConfig({ query: { enabled: isAdmin, queryKey: getGetLeadScoringConfigQueryKey() } });
   const updateScoringMutation = useUpdateLeadScoringConfig();
   const recalculateMutation = useRecalculateLeadScores();
+
+  // Payment state
+  type PaymentProvider = "stripe" | "razorpay";
+  const [paymentProvider, setPaymentProvider] = useState<PaymentProvider | null>(null);
+  const [paymentCurrency, setPaymentCurrency] = useState("");
+  const [stripePublishableKey, setStripePublishableKey] = useState("");
+  const [stripeSecretKey, setStripeSecretKey] = useState("");
+  const [showStripeSecret, setShowStripeSecret] = useState(false);
+  const [stripeWebhookSecret, setStripeWebhookSecret] = useState("");
+  const [showStripeWebhook, setShowStripeWebhook] = useState(false);
+  const [razorpayKeyId, setRazorpayKeyId] = useState("");
+  const [razorpayKeySecret, setRazorpayKeySecret] = useState("");
+  const [showRazorpaySecret, setShowRazorpaySecret] = useState(false);
+  const [paymentTestResult, setPaymentTestResult] = useState<{ success: boolean; message: string; provider: string } | null>(null);
+  const { data: paymentSettings, refetch: refetchPaymentSettings } = useGetPaymentSettings({ query: { enabled: isAdmin, queryKey: getGetPaymentSettingsQueryKey() } });
+  const updatePaymentMutation = useUpdatePaymentSettings();
+  const testPaymentMutation = useTestPaymentConnection();
 
   const activeEmailProvider = (emailProvider ?? emailSettings?.provider ?? null) as EmailProvider | null;
   const activeProviderInfo = EMAIL_PROVIDERS.find(p => p.value === activeEmailProvider);
@@ -333,6 +350,52 @@ export default function SettingsPage() {
       ...prev,
       [category]: { ...(prev[category] as object ?? {}), [key]: value },
     }));
+  };
+
+  const activePaymentProvider = (paymentProvider ?? paymentSettings?.provider ?? null) as PaymentProvider | null;
+  const CURRENCIES = [
+    { value: "usd", label: "USD — US Dollar" },
+    { value: "inr", label: "INR — Indian Rupee" },
+    { value: "eur", label: "EUR — Euro" },
+    { value: "gbp", label: "GBP — British Pound" },
+    { value: "aud", label: "AUD — Australian Dollar" },
+    { value: "cad", label: "CAD — Canadian Dollar" },
+    { value: "sgd", label: "SGD — Singapore Dollar" },
+    { value: "aed", label: "AED — UAE Dirham" },
+  ];
+
+  const handleSavePayment = () => {
+    const body: Record<string, string> = {};
+    if (paymentProvider) body.provider = paymentProvider;
+    const cur = paymentCurrency.trim() || paymentSettings?.currency;
+    if (cur) body.currency = cur;
+    if (stripePublishableKey.trim()) body.stripePublishableKey = stripePublishableKey.trim();
+    if (stripeSecretKey.trim()) body.stripeSecretKey = stripeSecretKey.trim();
+    if (stripeWebhookSecret.trim()) body.stripeWebhookSecret = stripeWebhookSecret.trim();
+    if (razorpayKeyId.trim()) body.razorpayKeyId = razorpayKeyId.trim();
+    if (razorpayKeySecret.trim()) body.razorpayKeySecret = razorpayKeySecret.trim();
+    if (Object.keys(body).length === 0) return;
+    updatePaymentMutation.mutate(
+      { data: body as Parameters<typeof updatePaymentMutation.mutate>[0]["data"] },
+      {
+        onSuccess: () => {
+          toast({ title: "Payment settings saved" });
+          setStripeSecretKey(""); setStripeWebhookSecret(""); setRazorpayKeySecret("");
+          setPaymentProvider(null); setPaymentCurrency("");
+          setStripePublishableKey(""); setRazorpayKeyId("");
+          refetchPaymentSettings();
+        },
+        onError: () => toast({ title: "Failed to save payment settings", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleTestPayment = () => {
+    setPaymentTestResult(null);
+    testPaymentMutation.mutate(undefined, {
+      onSuccess: (r) => setPaymentTestResult({ success: r.success, message: r.message, provider: r.provider }),
+      onError: () => setPaymentTestResult({ success: false, message: "Request failed", provider: "" }),
+    });
   };
 
   return (
@@ -1173,6 +1236,223 @@ export default function SettingsPage() {
                 {updateScoringMutation.isPending ? "Saving..." : "Save Weights"}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Gateway (admin only) */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-primary/10">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-base">Payment Gateway</CardTitle>
+                  {paymentSettings?.provider && (
+                    <Badge variant="default" className="text-xs capitalize" data-testid="badge-payment-provider">
+                      {paymentSettings.provider === "stripe" ? "Stripe" : "Razorpay"} Active
+                    </Badge>
+                  )}
+                  {!paymentSettings?.provider && (
+                    <Badge variant="secondary" className="text-xs">Not configured</Badge>
+                  )}
+                </div>
+                <CardDescription className="mt-1">
+                  Configure Stripe or Razorpay for payment processing. Keys are encrypted at rest.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Provider selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Active Provider</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["stripe", "razorpay"] as PaymentProvider[]).map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    data-testid={`button-payment-provider-${p}`}
+                    onClick={() => { setPaymentProvider(p); setPaymentTestResult(null); }}
+                    className={`flex items-center gap-3 p-3 rounded-md border text-left transition-colors ${
+                      activePaymentProvider === p
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/40 hover:bg-muted/40"
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium capitalize">{p === "stripe" ? "Stripe" : "Razorpay"}</span>
+                        {p === "razorpay" && <Badge variant="outline" className="text-xs">India</Badge>}
+                        {p === "stripe" && <Badge variant="outline" className="text-xs">Global</Badge>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {p === "stripe" ? "Cards, wallets, subscriptions — worldwide." : "UPI, net banking, cards — India-first."}
+                      </p>
+                    </div>
+                    {activePaymentProvider === p && <CheckCircle className="h-4 w-4 text-primary shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Default currency */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Default Billing Currency</label>
+              <div className="relative">
+                <select
+                  data-testid="select-payment-currency"
+                  value={paymentCurrency || paymentSettings?.currency || "usd"}
+                  onChange={e => setPaymentCurrency(e.target.value)}
+                  className="w-full appearance-none rounded-md border border-input bg-background px-3 py-2 pr-8 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                >
+                  {CURRENCIES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Stripe keys */}
+            {activePaymentProvider === "stripe" && (
+              <div className="space-y-3 p-4 rounded-md border bg-muted/30">
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide text-xs">Stripe Keys</p>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Publishable Key</label>
+                  <Input
+                    data-testid="input-stripe-publishable-key"
+                    placeholder={paymentSettings?.stripePublishableKey ? paymentSettings.stripePublishableKey : "pk_live_... or pk_test_..."}
+                    value={stripePublishableKey}
+                    onChange={e => setStripePublishableKey(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Public key — safe to include in frontend code.</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Secret Key</label>
+                  {paymentSettings?.stripeSecretKeyConfigured && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-muted border text-xs text-muted-foreground">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      Secret key is saved. Enter a new one to replace it.
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      data-testid="input-stripe-secret-key"
+                      type={showStripeSecret ? "text" : "password"}
+                      placeholder={paymentSettings?.stripeSecretKeyConfigured ? "Enter new key to replace" : "sk_live_... or sk_test_..."}
+                      value={stripeSecretKey}
+                      onChange={e => setStripeSecretKey(e.target.value)}
+                      className="pr-16"
+                    />
+                    <button type="button" onClick={() => setShowStripeSecret(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+                      {showStripeSecret ? "hide" : "show"}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Webhook Secret <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  {paymentSettings?.stripeWebhookSecretConfigured && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-muted border text-xs text-muted-foreground">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      Webhook secret is saved.
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      data-testid="input-stripe-webhook-secret"
+                      type={showStripeWebhook ? "text" : "password"}
+                      placeholder="whsec_..."
+                      value={stripeWebhookSecret}
+                      onChange={e => setStripeWebhookSecret(e.target.value)}
+                      className="pr-16"
+                    />
+                    <button type="button" onClick={() => setShowStripeWebhook(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+                      {showStripeWebhook ? "hide" : "show"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Used to verify webhook payloads from Stripe's dashboard.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Razorpay keys */}
+            {activePaymentProvider === "razorpay" && (
+              <div className="space-y-3 p-4 rounded-md border bg-muted/30">
+                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide text-xs">Razorpay Keys</p>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Key ID</label>
+                  <Input
+                    data-testid="input-razorpay-key-id"
+                    placeholder={paymentSettings?.razorpayKeyId ? paymentSettings.razorpayKeyId : "rzp_live_... or rzp_test_..."}
+                    value={razorpayKeyId}
+                    onChange={e => setRazorpayKeyId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Your Razorpay Key ID (public identifier).</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Key Secret</label>
+                  {paymentSettings?.razorpayKeySecretConfigured && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-muted border text-xs text-muted-foreground">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      Key secret is saved. Enter a new one to replace it.
+                    </div>
+                  )}
+                  <div className="relative">
+                    <Input
+                      data-testid="input-razorpay-key-secret"
+                      type={showRazorpaySecret ? "text" : "password"}
+                      placeholder={paymentSettings?.razorpayKeySecretConfigured ? "Enter new secret to replace" : "Your Razorpay key secret"}
+                      value={razorpayKeySecret}
+                      onChange={e => setRazorpayKeySecret(e.target.value)}
+                      className="pr-16"
+                    />
+                    <button type="button" onClick={() => setShowRazorpaySecret(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
+                      {showRazorpaySecret ? "hide" : "show"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Save + Test */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                data-testid="button-save-payment"
+                onClick={handleSavePayment}
+                disabled={updatePaymentMutation.isPending}
+              >
+                <Save className="h-4 w-4 mr-1" />
+                {updatePaymentMutation.isPending ? "Saving..." : "Save Payment Settings"}
+              </Button>
+              <Button
+                variant="outline"
+                data-testid="button-test-payment"
+                onClick={handleTestPayment}
+                disabled={testPaymentMutation.isPending || !paymentSettings?.provider}
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${testPaymentMutation.isPending ? "animate-spin" : ""}`} />
+                {testPaymentMutation.isPending ? "Testing..." : "Test Connection"}
+              </Button>
+            </div>
+
+            {/* Test result */}
+            {paymentTestResult && (
+              <div className={`flex items-start gap-2 p-3 rounded-md text-sm border ${
+                paymentTestResult.success
+                  ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-300"
+                  : "bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-300"
+              }`} data-testid="text-payment-test-result">
+                {paymentTestResult.success
+                  ? <CheckCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                }
+                <span>{paymentTestResult.message}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

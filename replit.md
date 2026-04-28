@@ -60,6 +60,9 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET /api/settings` — Get app settings (falApiKeyConfigured, aiProvider, aiModel, aiEnabled, aiApiKeyConfigured)
 - `PATCH /api/settings` — Update settings (falApiKey, aiProvider, aiModel, aiEnabled, aiApiKey)
 - `POST /api/settings/test-ai` — Test the configured AI provider connection
+- `GET /api/settings/payment` — Get payment gateway settings (admin only; returns provider, currency, key statuses)
+- `PATCH /api/settings/payment` — Update payment gateway settings (admin only; accepts stripePublishableKey, stripeSecretKey, stripeWebhookSecret, razorpayKeyId, razorpayKeySecret, provider, currency; secret keys encrypted at rest)
+- `POST /api/settings/payment/test` — Test active payment provider connection (stripe: balance.retrieve; razorpay: payments.all)
 - `POST /api/websites/detect` — Auto-detect niche/SEO score from URL via crawl + AI
 - `POST /api/websites/:id/audit` — Run full SEO audit (crawl URL + AI analysis, store snapshot)
 - `GET /api/websites/:id/audits` — List audit history for a website

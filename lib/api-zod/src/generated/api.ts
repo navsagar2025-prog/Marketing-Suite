@@ -1917,6 +1917,61 @@ export const TestEmailConnectionResponse = zod.object({
 });
 
 /**
+ * @summary Get payment gateway configuration (admin only)
+ */
+export const GetPaymentSettingsResponse = zod.object({
+  provider: zod
+    .string()
+    .nullish()
+    .describe("Active payment provider — stripe or razorpay"),
+  currency: zod
+    .string()
+    .describe("Default billing currency code (e.g. usd, inr)"),
+  stripePublishableKey: zod.string(),
+  stripeSecretKeyConfigured: zod.boolean(),
+  stripeWebhookSecretConfigured: zod.boolean(),
+  razorpayKeyId: zod.string(),
+  razorpayKeySecretConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Update payment gateway configuration (admin only)
+ */
+export const UpdatePaymentSettingsBody = zod.object({
+  provider: zod.string().optional().describe("stripe | razorpay"),
+  currency: zod.string().optional(),
+  stripePublishableKey: zod.string().optional(),
+  stripeSecretKey: zod.string().optional(),
+  stripeWebhookSecret: zod.string().optional(),
+  razorpayKeyId: zod.string().optional(),
+  razorpayKeySecret: zod.string().optional(),
+});
+
+export const UpdatePaymentSettingsResponse = zod.object({
+  provider: zod
+    .string()
+    .nullish()
+    .describe("Active payment provider — stripe or razorpay"),
+  currency: zod
+    .string()
+    .describe("Default billing currency code (e.g. usd, inr)"),
+  stripePublishableKey: zod.string(),
+  stripeSecretKeyConfigured: zod.boolean(),
+  stripeWebhookSecretConfigured: zod.boolean(),
+  razorpayKeyId: zod.string(),
+  razorpayKeySecretConfigured: zod.boolean(),
+});
+
+/**
+ * @summary Test the active payment provider connection (admin only)
+ */
+export const TestPaymentConnectionResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string(),
+  provider: zod.string(),
+});
+
+/**
  * @summary Get current user AI usage for this month
  */
 export const GetMyUsageResponse = zod.object({

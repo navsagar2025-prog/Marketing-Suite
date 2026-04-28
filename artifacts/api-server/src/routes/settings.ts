@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getAiConfig, setDbSetting, callAI, getDbSetting, PROVIDER_MODELS, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS, type AiProvider } from "../lib/ai-provider.js";
 import { getEmailProviderConfig, testEmailConnection, setSecretSetting, type EmailProvider } from "../lib/email-sender.js";
+import { getPaymentSettings, savePaymentSettings, testPaymentConnection } from "../lib/payment.js";
 
 const router: IRouter = Router();
 
@@ -200,6 +201,27 @@ router.post("/settings/test-email", async (req, res): Promise<void> => {
     const message = err instanceof Error ? err.message : "Send failed";
     res.json({ success: false, message });
   }
+});
+
+router.get("/settings/payment", async (_req, res): Promise<void> => {
+  const settings = await getPaymentSettings();
+  res.json(settings);
+});
+
+router.patch("/settings/payment", async (req, res): Promise<void> => {
+  const body = req.body ?? {};
+  try {
+    const settings = await savePaymentSettings(body);
+    res.json(settings);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to save payment settings";
+    res.status(400).json({ error: message });
+  }
+});
+
+router.post("/settings/payment/test", async (_req, res): Promise<void> => {
+  const result = await testPaymentConnection();
+  res.json(result);
 });
 
 export default router;

@@ -511,6 +511,16 @@ router.post("/websites/:id/competitors", async (req, res): Promise<void> => {
     res.status(400).json({ error: "competitorUrl is required" });
     return;
   }
+  if (!/^https?:\/\//i.test(competitorUrl.trim())) {
+    res.status(400).json({ error: "competitorUrl must start with http:// or https://" });
+    return;
+  }
+  try {
+    new URL(competitorUrl.trim());
+  } catch {
+    res.status(400).json({ error: "competitorUrl is not a valid URL" });
+    return;
+  }
 
   const existing = await db
     .select()
@@ -636,11 +646,14 @@ Return ONLY valid JSON (sorted by priority ascending):
       reason: (g.reason as string).trim(),
       priority: typeof g.priority === "number" && g.priority >= 1 && g.priority <= 5 ? Math.round(g.priority) : 3,
     }));
+    // Deterministically filter out keywords already tracked by the user (case-insensitive)
+    const trackedSet = new Set(trackedKeywords.map((k) => k.keyword.toLowerCase()));
+    const filtered = validated.filter((g) => !trackedSet.has(g.keyword.toLowerCase()));
     // Sort by priority ascending (1 = highest opportunity first)
-    validated.sort((a, b) => a.priority - b.priority);
+    filtered.sort((a, b) => a.priority - b.priority);
     analysisJson = {
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
-      gapKeywords: validated,
+      gapKeywords: filtered,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI generation failed";

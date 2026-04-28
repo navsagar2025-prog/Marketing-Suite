@@ -26,6 +26,7 @@ import {
   useListWebsites,
   useGetAnalyticsSummary,
   useListConversations,
+  useGetEnrolledLeadIds,
   getListLeadsQueryKey,
   getGetLeadsFunnelQueryKey,
   getListConversationsQueryKey,
@@ -149,6 +150,8 @@ export default function Leads() {
   const { data: leads, isLoading } = useListLeads(filterStatus !== "all" ? { status: filterStatus } : undefined, {
     query: { queryKey: getListLeadsQueryKey(filterStatus !== "all" ? { status: filterStatus } : undefined) }
   });
+  const { data: enrolledLeadIds } = useGetEnrolledLeadIds();
+  const enrolledSet = new Set(enrolledLeadIds ?? []);
   const createMutation = useCreateLead();
   const deleteMutation = useDeleteLead();
 
@@ -405,7 +408,18 @@ export default function Leads() {
                       <td className="px-4 py-3 text-muted-foreground capitalize">{l.source}</td>
                       <td className="px-4 py-3 text-right font-mono text-sm">{l.value ? `$${parseFloat(String(l.value)).toLocaleString()}` : "—"}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[l.status] ?? ""}`}>{l.status}</span>
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <span className={`text-xs px-2 py-0.5 rounded font-medium ${statusColors[l.status] ?? ""}`}>{l.status}</span>
+                          {enrolledSet.has(l.id) && (
+                            <span
+                              className="text-xs px-1.5 py-0.5 rounded font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400"
+                              data-testid={`badge-in-sequence-${l.id}`}
+                              title="Enrolled in a nurture sequence"
+                            >
+                              In sequence
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <ScoreBadge

@@ -17,6 +17,7 @@ import publicContactRouter from "./public-contact";
 import usageRouter from "./usage";
 import emailWebhooksRouter from "./email-webhooks";
 import conversationsRouter from "./conversations";
+import sequencesRouter from "./sequences";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -44,5 +45,6 @@ router.use(settingsRouter);
 router.use(adminRouter);
 router.use(usageRouter);
 router.use(conversationsRouter);
+router.use(sequencesRouter);
 
 export default router;

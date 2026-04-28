@@ -36,6 +36,7 @@ import type {
   CreateKeywordBody,
   CreateLeadBody,
   CreateMediaAssetBody,
+  CreateSequenceBody,
   CreateSocialPostBody,
   CreateWebsiteBody,
   DetectWebsiteBody,
@@ -54,6 +55,8 @@ import type {
   GenerateSchemaBody,
   GenerateSchemaResponse,
   GenerateSeoBriefBody,
+  GenerateSequenceBody,
+  GenerateSequenceResponse,
   GenerateVideoBody,
   GeneratedContent,
   GeneratedMeta,
@@ -65,6 +68,7 @@ import type {
   KeywordSuggestions,
   Lead,
   LeadScoringConfig,
+  LeadSequenceEnrollment,
   LeadsFunnel,
   LinkSuggestion,
   ListBacklinksParams,
@@ -75,6 +79,7 @@ import type {
   ListSocialPostsParams,
   MediaAsset,
   MyUsageResponse,
+  ProcessSequencesResponse,
   RecalculateScoresResponse,
   ResetUsageBody,
   ResetUserUsage200,
@@ -83,6 +88,8 @@ import type {
   SendMessageBody,
   SendMessageResponse,
   SeoAudit,
+  Sequence,
+  SequenceEnrollment,
   SnapshotKeywordsResponse,
   SocialPost,
   SuggestKeywordsBody,
@@ -95,6 +102,7 @@ import type {
   UpdateEmailProviderBody,
   UpdateKeywordBody,
   UpdateLeadBody,
+  UpdateSequenceBody,
   UpdateSettingsBody,
   UpdateSocialPostBody,
   UpdateUsageLimitsBody,
@@ -2393,6 +2401,765 @@ export function useGetCampaignRecipients<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List all nurture sequences
+ */
+export const getListSequencesUrl = () => {
+  return `/api/sequences`;
+};
+
+export const listSequences = async (
+  options?: RequestInit,
+): Promise<Sequence[]> => {
+  return customFetch<Sequence[]>(getListSequencesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSequencesQueryKey = () => {
+  return [`/api/sequences`] as const;
+};
+
+export const getListSequencesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSequences>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSequences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSequencesQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listSequences>>> = ({
+    signal,
+  }) => listSequences({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSequences>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSequencesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSequences>>
+>;
+export type ListSequencesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all nurture sequences
+ */
+
+export function useListSequences<
+  TData = Awaited<ReturnType<typeof listSequences>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSequences>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSequencesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a nurture sequence
+ */
+export const getCreateSequenceUrl = () => {
+  return `/api/sequences`;
+};
+
+export const createSequence = async (
+  createSequenceBody: CreateSequenceBody,
+  options?: RequestInit,
+): Promise<Sequence> => {
+  return customFetch<Sequence>(getCreateSequenceUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSequenceBody),
+  });
+};
+
+export const getCreateSequenceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSequence>>,
+    TError,
+    { data: BodyType<CreateSequenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSequence>>,
+  TError,
+  { data: BodyType<CreateSequenceBody> },
+  TContext
+> => {
+  const mutationKey = ["createSequence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSequence>>,
+    { data: BodyType<CreateSequenceBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSequence(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSequenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSequence>>
+>;
+export type CreateSequenceMutationBody = BodyType<CreateSequenceBody>;
+export type CreateSequenceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a nurture sequence
+ */
+export const useCreateSequence = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSequence>>,
+    TError,
+    { data: BodyType<CreateSequenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSequence>>,
+  TError,
+  { data: BodyType<CreateSequenceBody> },
+  TContext
+> => {
+  return useMutation(getCreateSequenceMutationOptions(options));
+};
+
+/**
+ * @summary Get a sequence
+ */
+export const getGetSequenceUrl = (id: number) => {
+  return `/api/sequences/${id}`;
+};
+
+export const getSequence = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Sequence> => {
+  return customFetch<Sequence>(getGetSequenceUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSequenceQueryKey = (id: number) => {
+  return [`/api/sequences/${id}`] as const;
+};
+
+export const getGetSequenceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSequence>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSequence>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSequenceQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSequence>>> = ({
+    signal,
+  }) => getSequence(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSequence>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSequenceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSequence>>
+>;
+export type GetSequenceQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a sequence
+ */
+
+export function useGetSequence<
+  TData = Awaited<ReturnType<typeof getSequence>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSequence>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSequenceQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a sequence
+ */
+export const getUpdateSequenceUrl = (id: number) => {
+  return `/api/sequences/${id}`;
+};
+
+export const updateSequence = async (
+  id: number,
+  updateSequenceBody: UpdateSequenceBody,
+  options?: RequestInit,
+): Promise<Sequence> => {
+  return customFetch<Sequence>(getUpdateSequenceUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateSequenceBody),
+  });
+};
+
+export const getUpdateSequenceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSequence>>,
+    TError,
+    { id: number; data: BodyType<UpdateSequenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateSequence>>,
+  TError,
+  { id: number; data: BodyType<UpdateSequenceBody> },
+  TContext
+> => {
+  const mutationKey = ["updateSequence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateSequence>>,
+    { id: number; data: BodyType<UpdateSequenceBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateSequence(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateSequenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateSequence>>
+>;
+export type UpdateSequenceMutationBody = BodyType<UpdateSequenceBody>;
+export type UpdateSequenceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a sequence
+ */
+export const useUpdateSequence = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateSequence>>,
+    TError,
+    { id: number; data: BodyType<UpdateSequenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateSequence>>,
+  TError,
+  { id: number; data: BodyType<UpdateSequenceBody> },
+  TContext
+> => {
+  return useMutation(getUpdateSequenceMutationOptions(options));
+};
+
+/**
+ * @summary Delete a sequence
+ */
+export const getDeleteSequenceUrl = (id: number) => {
+  return `/api/sequences/${id}`;
+};
+
+export const deleteSequence = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteSequenceUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteSequenceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSequence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteSequence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteSequence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteSequence>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteSequence(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteSequenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteSequence>>
+>;
+
+export type DeleteSequenceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a sequence
+ */
+export const useDeleteSequence = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteSequence>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteSequence>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteSequenceMutationOptions(options));
+};
+
+/**
+ * @summary List enrollments for a sequence
+ */
+export const getListSequenceEnrollmentsUrl = (id: number) => {
+  return `/api/sequences/${id}/enrollments`;
+};
+
+export const listSequenceEnrollments = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SequenceEnrollment[]> => {
+  return customFetch<SequenceEnrollment[]>(getListSequenceEnrollmentsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSequenceEnrollmentsQueryKey = (id: number) => {
+  return [`/api/sequences/${id}/enrollments`] as const;
+};
+
+export const getListSequenceEnrollmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSequenceEnrollments>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSequenceEnrollments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSequenceEnrollmentsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSequenceEnrollments>>
+  > = ({ signal }) =>
+    listSequenceEnrollments(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSequenceEnrollments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSequenceEnrollmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSequenceEnrollments>>
+>;
+export type ListSequenceEnrollmentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List enrollments for a sequence
+ */
+
+export function useListSequenceEnrollments<
+  TData = Awaited<ReturnType<typeof listSequenceEnrollments>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSequenceEnrollments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSequenceEnrollmentsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get lead IDs enrolled in active sequences (not completed)
+ */
+export const getGetEnrolledLeadIdsUrl = () => {
+  return `/api/sequences/enrolled-lead-ids`;
+};
+
+export const getEnrolledLeadIds = async (
+  options?: RequestInit,
+): Promise<number[]> => {
+  return customFetch<number[]>(getGetEnrolledLeadIdsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetEnrolledLeadIdsQueryKey = () => {
+  return [`/api/sequences/enrolled-lead-ids`] as const;
+};
+
+export const getGetEnrolledLeadIdsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getEnrolledLeadIds>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEnrolledLeadIds>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetEnrolledLeadIdsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getEnrolledLeadIds>>
+  > = ({ signal }) => getEnrolledLeadIds({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getEnrolledLeadIds>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetEnrolledLeadIdsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getEnrolledLeadIds>>
+>;
+export type GetEnrolledLeadIdsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get lead IDs enrolled in active sequences (not completed)
+ */
+
+export function useGetEnrolledLeadIds<
+  TData = Awaited<ReturnType<typeof getEnrolledLeadIds>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getEnrolledLeadIds>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetEnrolledLeadIdsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get sequence enrollments for a lead
+ */
+export const getGetLeadSequenceEnrollmentsUrl = (leadId: number) => {
+  return `/api/leads/${leadId}/sequence-enrollments`;
+};
+
+export const getLeadSequenceEnrollments = async (
+  leadId: number,
+  options?: RequestInit,
+): Promise<LeadSequenceEnrollment[]> => {
+  return customFetch<LeadSequenceEnrollment[]>(
+    getGetLeadSequenceEnrollmentsUrl(leadId),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetLeadSequenceEnrollmentsQueryKey = (leadId: number) => {
+  return [`/api/leads/${leadId}/sequence-enrollments`] as const;
+};
+
+export const getGetLeadSequenceEnrollmentsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getLeadSequenceEnrollments>>,
+  TError = ErrorType<unknown>,
+>(
+  leadId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeadSequenceEnrollments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetLeadSequenceEnrollmentsQueryKey(leadId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getLeadSequenceEnrollments>>
+  > = ({ signal }) =>
+    getLeadSequenceEnrollments(leadId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!leadId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getLeadSequenceEnrollments>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetLeadSequenceEnrollmentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getLeadSequenceEnrollments>>
+>;
+export type GetLeadSequenceEnrollmentsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get sequence enrollments for a lead
+ */
+
+export function useGetLeadSequenceEnrollments<
+  TData = Awaited<ReturnType<typeof getLeadSequenceEnrollments>>,
+  TError = ErrorType<unknown>,
+>(
+  leadId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getLeadSequenceEnrollments>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetLeadSequenceEnrollmentsQueryOptions(
+    leadId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Manually trigger sequence processing (admin only)
+ */
+export const getProcessSequencesUrl = () => {
+  return `/api/admin/sequences/process`;
+};
+
+export const processSequences = async (
+  options?: RequestInit,
+): Promise<ProcessSequencesResponse> => {
+  return customFetch<ProcessSequencesResponse>(getProcessSequencesUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getProcessSequencesMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof processSequences>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof processSequences>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["processSequences"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof processSequences>>,
+    void
+  > = () => {
+    return processSequences(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ProcessSequencesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof processSequences>>
+>;
+
+export type ProcessSequencesMutationError = ErrorType<void>;
+
+/**
+ * @summary Manually trigger sequence processing (admin only)
+ */
+export const useProcessSequences = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof processSequences>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof processSequences>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getProcessSequencesMutationOptions(options));
+};
 
 /**
  * @summary List backlink opportunities
@@ -5638,6 +6405,92 @@ export const useGenerateAiVideo = <
   TContext
 > => {
   return useMutation(getGenerateAiVideoMutationOptions(options));
+};
+
+/**
+ * @summary AI-generate nurture sequence steps from a goal and audience
+ */
+export const getGenerateSequenceUrl = () => {
+  return `/api/ai/generate-sequence`;
+};
+
+export const generateSequence = async (
+  generateSequenceBody: GenerateSequenceBody,
+  options?: RequestInit,
+): Promise<GenerateSequenceResponse> => {
+  return customFetch<GenerateSequenceResponse>(getGenerateSequenceUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateSequenceBody),
+  });
+};
+
+export const getGenerateSequenceMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateSequence>>,
+    TError,
+    { data: BodyType<GenerateSequenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateSequence>>,
+  TError,
+  { data: BodyType<GenerateSequenceBody> },
+  TContext
+> => {
+  const mutationKey = ["generateSequence"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateSequence>>,
+    { data: BodyType<GenerateSequenceBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateSequence(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateSequenceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateSequence>>
+>;
+export type GenerateSequenceMutationBody = BodyType<GenerateSequenceBody>;
+export type GenerateSequenceMutationError = ErrorType<void>;
+
+/**
+ * @summary AI-generate nurture sequence steps from a goal and audience
+ */
+export const useGenerateSequence = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateSequence>>,
+    TError,
+    { data: BodyType<GenerateSequenceBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateSequence>>,
+  TError,
+  { data: BodyType<GenerateSequenceBody> },
+  TContext
+> => {
+  return useMutation(getGenerateSequenceMutationOptions(options));
 };
 
 /**

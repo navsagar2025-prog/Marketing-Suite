@@ -610,6 +610,206 @@ export const GetCampaignRecipientsResponse = zod.object({
 });
 
 /**
+ * @summary List all nurture sequences
+ */
+export const ListSequencesResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  trigger: zod.object({
+    type: zod.enum(["status", "score", "source"]),
+    value: zod.union([zod.string(), zod.number()]),
+  }),
+  stepsJson: zod.array(
+    zod.object({
+      subject: zod.string(),
+      body: zod.string(),
+      delayDays: zod
+        .number()
+        .describe(
+          "Days to wait before sending this step (0 = send immediately)",
+        ),
+    }),
+  ),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListSequencesResponse = zod.array(ListSequencesResponseItem);
+
+/**
+ * @summary Create a nurture sequence
+ */
+export const CreateSequenceBody = zod.object({
+  name: zod.string(),
+  trigger: zod.object({
+    type: zod.enum(["status", "score", "source"]),
+    value: zod.union([zod.string(), zod.number()]),
+  }),
+  stepsJson: zod
+    .array(
+      zod.object({
+        subject: zod.string(),
+        body: zod.string(),
+        delayDays: zod
+          .number()
+          .describe(
+            "Days to wait before sending this step (0 = send immediately)",
+          ),
+      }),
+    )
+    .optional(),
+  active: zod.boolean().optional(),
+});
+
+/**
+ * @summary Get a sequence
+ */
+export const GetSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSequenceResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  trigger: zod.object({
+    type: zod.enum(["status", "score", "source"]),
+    value: zod.union([zod.string(), zod.number()]),
+  }),
+  stepsJson: zod.array(
+    zod.object({
+      subject: zod.string(),
+      body: zod.string(),
+      delayDays: zod
+        .number()
+        .describe(
+          "Days to wait before sending this step (0 = send immediately)",
+        ),
+    }),
+  ),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update a sequence
+ */
+export const UpdateSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSequenceBody = zod.object({
+  name: zod.string().optional(),
+  trigger: zod
+    .object({
+      type: zod.enum(["status", "score", "source"]),
+      value: zod.union([zod.string(), zod.number()]),
+    })
+    .optional(),
+  stepsJson: zod
+    .array(
+      zod.object({
+        subject: zod.string(),
+        body: zod.string(),
+        delayDays: zod
+          .number()
+          .describe(
+            "Days to wait before sending this step (0 = send immediately)",
+          ),
+      }),
+    )
+    .optional(),
+  active: zod.boolean().optional(),
+});
+
+export const UpdateSequenceResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  trigger: zod.object({
+    type: zod.enum(["status", "score", "source"]),
+    value: zod.union([zod.string(), zod.number()]),
+  }),
+  stepsJson: zod.array(
+    zod.object({
+      subject: zod.string(),
+      body: zod.string(),
+      delayDays: zod
+        .number()
+        .describe(
+          "Days to wait before sending this step (0 = send immediately)",
+        ),
+    }),
+  ),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a sequence
+ */
+export const DeleteSequenceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List enrollments for a sequence
+ */
+export const ListSequenceEnrollmentsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListSequenceEnrollmentsResponseItem = zod.object({
+  id: zod.number(),
+  sequenceId: zod.number(),
+  leadId: zod.number(),
+  leadName: zod.string().nullish(),
+  leadEmail: zod.string().nullish(),
+  currentStep: zod.number(),
+  nextSendAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListSequenceEnrollmentsResponse = zod.array(
+  ListSequenceEnrollmentsResponseItem,
+);
+
+/**
+ * @summary Get lead IDs enrolled in active sequences (not completed)
+ */
+export const GetEnrolledLeadIdsResponseItem = zod.number();
+export const GetEnrolledLeadIdsResponse = zod.array(
+  GetEnrolledLeadIdsResponseItem,
+);
+
+/**
+ * @summary Get sequence enrollments for a lead
+ */
+export const GetLeadSequenceEnrollmentsParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const GetLeadSequenceEnrollmentsResponseItem = zod.object({
+  id: zod.number(),
+  sequenceId: zod.number(),
+  sequenceName: zod.string().nullish(),
+  currentStep: zod.number(),
+  nextSendAt: zod.coerce.date().nullish(),
+  completedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetLeadSequenceEnrollmentsResponse = zod.array(
+  GetLeadSequenceEnrollmentsResponseItem,
+);
+
+/**
+ * @summary Manually trigger sequence processing (admin only)
+ */
+export const ProcessSequencesResponse = zod.object({
+  enrolled: zod.number(),
+  sent: zod.number(),
+  errors: zod.number(),
+  processedAt: zod.coerce.date(),
+});
+
+/**
  * @summary List backlink opportunities
  */
 export const ListBacklinksQueryParams = zod.object({
@@ -1373,6 +1573,37 @@ export const GenerateAiVideoResponse = zod.object({
   websiteId: zod.number().nullish(),
   campaignId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary AI-generate nurture sequence steps from a goal and audience
+ */
+export const GenerateSequenceBody = zod.object({
+  goal: zod
+    .string()
+    .describe(
+      'The conversion goal (e.g. \"convert qualified leads to customers\")',
+    ),
+  audience: zod.string().describe("Description of the target audience"),
+  stepCount: zod
+    .number()
+    .optional()
+    .describe("Number of emails to generate (3-5)"),
+});
+
+export const GenerateSequenceResponse = zod.object({
+  name: zod.string(),
+  steps: zod.array(
+    zod.object({
+      subject: zod.string(),
+      body: zod.string(),
+      delayDays: zod
+        .number()
+        .describe(
+          "Days to wait before sending this step (0 = send immediately)",
+        ),
+    }),
+  ),
 });
 
 /**

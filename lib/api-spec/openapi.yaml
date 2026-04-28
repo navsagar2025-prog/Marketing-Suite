@@ -30,6 +30,8 @@ tags:
     description: Media asset library (AI-generated images and videos)
   - name: settings
     description: Application settings
+  - name: sequences
+    description: Email nurture sequence management
 
 paths:
   /healthz:
@@ -542,6 +544,170 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CampaignRecipientsResponse"
+
+  # ─── Sequences ───────────────────────────────────────────────────────────────
+  /sequences:
+    get:
+      operationId: listSequences
+      tags: [sequences]
+      summary: List all nurture sequences
+      responses:
+        "200":
+          description: List of sequences
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sequence"
+    post:
+      operationId: createSequence
+      tags: [sequences]
+      summary: Create a nurture sequence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSequenceBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+
+  /sequences/{id}:
+    get:
+      operationId: getSequence
+      tags: [sequences]
+      summary: Get a sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sequence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSequence
+      tags: [sequences]
+      summary: Update a sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSequenceBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sequence"
+    delete:
+      operationId: deleteSequence
+      tags: [sequences]
+      summary: Delete a sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /sequences/{id}/enrollments:
+    get:
+      operationId: listSequenceEnrollments
+      tags: [sequences]
+      summary: List enrollments for a sequence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Enrollments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SequenceEnrollment"
+
+  /sequences/enrolled-lead-ids:
+    get:
+      operationId: getEnrolledLeadIds
+      tags: [sequences]
+      summary: Get lead IDs enrolled in active sequences (not completed)
+      responses:
+        "200":
+          description: Array of lead IDs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
+
+  /leads/{leadId}/sequence-enrollments:
+    get:
+      operationId: getLeadSequenceEnrollments
+      tags: [sequences]
+      summary: Get sequence enrollments for a lead
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lead sequence enrollments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadSequenceEnrollment"
+
+  /admin/sequences/process:
+    post:
+      operationId: processSequences
+      tags: [admin]
+      summary: Manually trigger sequence processing (admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Processing result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessSequencesResponse"
+        "401":
+          description: Unauthorized
 
   # ─── Backlinks ────────────────────────────────────────────────────────────────
   /backlinks:
@@ -1320,6 +1486,29 @@ paths:
           description: Bad request
         "503":
           description: Fal.ai API key not configured
+
+  /ai/generate-sequence:
+    post:
+      operationId: generateSequence
+      tags: [ai]
+      summary: AI-generate nurture sequence steps from a goal and audience
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateSequenceBody"
+      responses:
+        "200":
+          description: Generated sequence steps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateSequenceResponse"
+        "400":
+          description: Bad request
+        "503":
+          description: AI provider unavailable
 
   # ─── Media Assets ──────────────────────────────────────────────────────────
   /media-assets:
@@ -3227,3 +3416,193 @@ components:
       required:
         - summary
         - notesSaved
+
+    SequenceStep:
+      type: object
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        delayDays:
+          type: integer
+          description: Days to wait before sending this step (0 = send immediately)
+      required:
+        - subject
+        - body
+        - delayDays
+
+    SequenceTrigger:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [status, score, source]
+        value:
+          oneOf:
+            - type: string
+            - type: number
+      required:
+        - type
+        - value
+
+    Sequence:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        trigger:
+          $ref: "#/components/schemas/SequenceTrigger"
+        stepsJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/SequenceStep"
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - trigger
+        - stepsJson
+        - active
+        - createdAt
+
+    CreateSequenceBody:
+      type: object
+      properties:
+        name:
+          type: string
+        trigger:
+          $ref: "#/components/schemas/SequenceTrigger"
+        stepsJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/SequenceStep"
+        active:
+          type: boolean
+      required:
+        - name
+        - trigger
+
+    UpdateSequenceBody:
+      type: object
+      properties:
+        name:
+          type: string
+        trigger:
+          $ref: "#/components/schemas/SequenceTrigger"
+        stepsJson:
+          type: array
+          items:
+            $ref: "#/components/schemas/SequenceStep"
+        active:
+          type: boolean
+
+    SequenceEnrollment:
+      type: object
+      properties:
+        id:
+          type: integer
+        sequenceId:
+          type: integer
+        leadId:
+          type: integer
+        leadName:
+          type: ["string", "null"]
+        leadEmail:
+          type: ["string", "null"]
+        currentStep:
+          type: integer
+        nextSendAt:
+          type: ["string", "null"]
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sequenceId
+        - leadId
+        - currentStep
+        - createdAt
+
+    LeadSequenceEnrollment:
+      type: object
+      properties:
+        id:
+          type: integer
+        sequenceId:
+          type: integer
+        sequenceName:
+          type: ["string", "null"]
+        currentStep:
+          type: integer
+        nextSendAt:
+          type: ["string", "null"]
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - sequenceId
+        - currentStep
+        - createdAt
+
+    ProcessSequencesResponse:
+      type: object
+      properties:
+        enrolled:
+          type: integer
+        sent:
+          type: integer
+        errors:
+          type: integer
+        processedAt:
+          type: string
+          format: date-time
+      required:
+        - enrolled
+        - sent
+        - errors
+        - processedAt
+
+    GenerateSequenceBody:
+      type: object
+      properties:
+        goal:
+          type: string
+          description: The conversion goal (e.g. "convert qualified leads to customers")
+        audience:
+          type: string
+          description: Description of the target audience
+        stepCount:
+          type: integer
+          description: Number of emails to generate (3-5)
+      required:
+        - goal
+        - audience
+
+    GenerateSequenceResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/SequenceStep"
+      required:
+        - name
+        - steps

@@ -1084,6 +1084,100 @@ export interface SummarizeConversationResponse {
   notesSaved: boolean;
 }
 
+export interface SequenceStep {
+  subject: string;
+  body: string;
+  /** Days to wait before sending this step (0 = send immediately) */
+  delayDays: number;
+}
+
+export type SequenceTriggerType =
+  (typeof SequenceTriggerType)[keyof typeof SequenceTriggerType];
+
+export const SequenceTriggerType = {
+  status: "status",
+  score: "score",
+  source: "source",
+} as const;
+
+export interface SequenceTrigger {
+  type: SequenceTriggerType;
+  value: string | number;
+}
+
+export interface Sequence {
+  id: number;
+  name: string;
+  trigger: SequenceTrigger;
+  stepsJson: SequenceStep[];
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CreateSequenceBody {
+  name: string;
+  trigger: SequenceTrigger;
+  stepsJson?: SequenceStep[];
+  active?: boolean;
+}
+
+export interface UpdateSequenceBody {
+  name?: string;
+  trigger?: SequenceTrigger;
+  stepsJson?: SequenceStep[];
+  active?: boolean;
+}
+
+export interface SequenceEnrollment {
+  id: number;
+  sequenceId: number;
+  leadId: number;
+  /** @nullable */
+  leadName?: string | null;
+  /** @nullable */
+  leadEmail?: string | null;
+  currentStep: number;
+  /** @nullable */
+  nextSendAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export interface LeadSequenceEnrollment {
+  id: number;
+  sequenceId: number;
+  /** @nullable */
+  sequenceName?: string | null;
+  currentStep: number;
+  /** @nullable */
+  nextSendAt?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  createdAt: string;
+}
+
+export interface ProcessSequencesResponse {
+  enrolled: number;
+  sent: number;
+  errors: number;
+  processedAt: string;
+}
+
+export interface GenerateSequenceBody {
+  /** The conversion goal (e.g. "convert qualified leads to customers") */
+  goal: string;
+  /** Description of the target audience */
+  audience: string;
+  /** Number of emails to generate (3-5) */
+  stepCount?: number;
+}
+
+export interface GenerateSequenceResponse {
+  name: string;
+  steps: SequenceStep[];
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };

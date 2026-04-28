@@ -19,6 +19,7 @@ import {
   GenerateSchemaBody,
   GenerateSchemaResponse,
   GenerateBlogDraftBody,
+  GenerateSequenceBody,
 } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -614,6 +615,71 @@ Requirements:
   try {
     const jsonLd = await callAI(prompt, { maxTokens: 2048 });
     res.json(GenerateSchemaResponse.parse({ jsonLd: jsonLd.trim() }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
+});
+
+router.post("/ai/generate-sequence", async (req, res): Promise<void> => {
+  const usageCheck = await checkAndIncrementUsage(req.user!.id, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+  const parsed = GenerateSequenceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { goal, audience, stepCount } = parsed.data;
+  const count = Math.min(Math.max(stepCount ?? 4, 3), 5);
+
+  const prompt = `You are an expert email marketing strategist. Create a nurture email sequence for the following:
+
+Goal: ${goal}
+Target Audience: ${audience}
+Number of emails: ${count}
+
+Design a ${count}-email drip sequence that warms up leads and moves them toward the goal.
+
+Requirements:
+- Each email should have a clear, compelling subject line
+- Email body should be concise (150-250 words), conversational, and valuable
+- Space emails out appropriately (first email immediately, then 2-7 days apart)
+- Each email should serve a distinct purpose in the journey
+- Use {{name}} as a placeholder for the recipient's first name
+
+Return ONLY valid JSON in this exact format (no markdown wrapper):
+{
+  "name": "Short sequence name (e.g. 'Qualified Lead Nurture')",
+  "steps": [
+    {
+      "subject": "Email subject line",
+      "body": "Full email body text. Use {{name}} for personalization.",
+      "delayDays": 0
+    }
+  ]
+}
+
+The first email should have delayDays: 0 (send immediately upon enrollment). Subsequent emails should have increasing delayDays.`;
+
+  try {
+    const raw = await callAI(prompt, { maxTokens: 3000 });
+    let result: { name: string; steps: Array<{ subject: string; body: string; delayDays: number }> } = { name: "", steps: [] };
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try { result = JSON.parse(jsonMatch[0]); } catch { /* fallback */ }
+      }
+    }
+    if (!result.name || !Array.isArray(result.steps) || result.steps.length === 0) {
+      res.status(503).json({ error: "AI returned an incomplete sequence. Please try again." });
+      return;
+    }
+    res.json({ name: result.name.trim(), steps: result.steps });
   } catch (err) {
     const message = err instanceof Error ? err.message : "AI generation failed";
     res.status(503).json({ error: message });

@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import cron from "node-cron";
 import { runRankSnapshot } from "./routes/keywords";
+import { runSequenceEngine } from "./routes/sequences";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
 import { getDbSetting } from "./lib/ai-provider";
 
@@ -80,6 +81,14 @@ seedAdminUser()
         .catch((err) => logger.error({ err }, "Daily keyword rank snapshot failed"));
     }, { timezone: "UTC" });
     logger.info("Daily keyword rank snapshot cron scheduled (00:00 UTC)");
+
+    cron.schedule("0 1 * * *", () => {
+      logger.info("Running daily sequence engine");
+      runSequenceEngine()
+        .then((result) => logger.info(result, "Daily sequence engine complete"))
+        .catch((err) => logger.error({ err }, "Daily sequence engine failed"));
+    }, { timezone: "UTC" });
+    logger.info("Daily sequence engine cron scheduled (01:00 UTC)");
   })
   .catch((err) => {
     logger.error({ err }, "Failed to seed admin user");

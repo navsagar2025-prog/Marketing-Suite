@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Copy, Trash2, ExternalLink, Link2, Plus, CheckCheck, MousePointerClick } from "lucide-react";
+import { Copy, Trash2, ExternalLink, Link2, Plus, CheckCheck, MousePointerClick, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ function authHeaders() {
 
 interface UtmLink {
   id: number;
+  websiteId: number | null;
   destinationUrl: string;
   source: string;
   medium: string;
@@ -28,6 +29,12 @@ interface UtmLink {
   createdAt: string;
 }
 
+interface Website {
+  id: number;
+  name: string;
+  url: string;
+}
+
 function buildUtmUrl(fields: {
   destinationUrl: string;
   source: string;
@@ -37,11 +44,12 @@ function buildUtmUrl(fields: {
   content: string;
 }): string {
   if (!fields.destinationUrl || !fields.source || !fields.medium || !fields.campaign) return "";
+  if (!/^https?:\/\//i.test(fields.destinationUrl)) return "";
   try {
     const url = new URL(fields.destinationUrl);
-    if (fields.source) url.searchParams.set("utm_source", fields.source);
-    if (fields.medium) url.searchParams.set("utm_medium", fields.medium);
-    if (fields.campaign) url.searchParams.set("utm_campaign", fields.campaign);
+    url.searchParams.set("utm_source", fields.source);
+    url.searchParams.set("utm_medium", fields.medium);
+    url.searchParams.set("utm_campaign", fields.campaign);
     if (fields.term) url.searchParams.set("utm_term", fields.term);
     if (fields.content) url.searchParams.set("utm_content", fields.content);
     return url.toString();
@@ -50,10 +58,14 @@ function buildUtmUrl(fields: {
   }
 }
 
+function getApiBase(): string {
+  return typeof window !== "undefined" ? window.location.origin : "";
+}
+
 export default function UtmBuilderPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [copied, setCopied] = useState<number | "preview" | null>(null);
+  const [copied, setCopied] = useState<number | "preview" | "tracked" | null>(null);
 
   const [form, setForm] = useState({
     destinationUrl: "",
@@ -63,6 +75,7 @@ export default function UtmBuilderPage() {
     term: "",
     content: "",
     label: "",
+    websiteId: "",
   });
 
   const previewUrl = useMemo(() => buildUtmUrl(form), [form]);
@@ -76,27 +89,39 @@ export default function UtmBuilderPage() {
     },
   });
 
+  const { data: websites = [] } = useQuery<Website[]>({
+    queryKey: ["websites"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE}/api/websites`, { headers: authHeaders() });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof form) => {
+      const payload: Record<string, unknown> = {
+        destinationUrl: data.destinationUrl,
+        source: data.source,
+        medium: data.medium,
+        campaign: data.campaign,
+      };
+      if (data.term) payload.term = data.term;
+      if (data.content) payload.content = data.content;
+      if (data.label) payload.label = data.label;
+      if (data.websiteId) payload.websiteId = parseInt(data.websiteId, 10);
+
       const res = await fetch(`${BASE}/api/utm-links`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({
-          destinationUrl: data.destinationUrl,
-          source: data.source,
-          medium: data.medium,
-          campaign: data.campaign,
-          term: data.term || undefined,
-          content: data.content || undefined,
-          label: data.label || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Failed to create UTM link");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["utm-links"] });
-      setForm({ destinationUrl: "", source: "", medium: "", campaign: "", term: "", content: "", label: "" });
+      setForm({ destinationUrl: "", source: "", medium: "", campaign: "", term: "", content: "", label: "", websiteId: "" });
       toast({ title: "Link saved", description: "Your UTM link has been saved to history." });
     },
     onError: () => toast({ title: "Error", description: "Could not save the link.", variant: "destructive" }),
@@ -114,7 +139,7 @@ export default function UtmBuilderPage() {
     onError: () => toast({ title: "Error", description: "Could not delete link.", variant: "destructive" }),
   });
 
-  function copyToClipboard(text: string, key: number | "preview") {
+  function copyToClipboard(text: string, key: number | "preview" | "tracked") {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(key);
       setTimeout(() => setCopied(null), 2000);
@@ -132,9 +157,12 @@ export default function UtmBuilderPage() {
     });
   }
 
-  const totalClicks = links.reduce((s, l) => s + l.clicks, 0);
+  function getTrackedUrl(link: UtmLink): string {
+    return `${getApiBase()}/r/${link.id}`;
+  }
 
-  const isValid = form.destinationUrl && form.source && form.medium && form.campaign;
+  const totalClicks = links.reduce((s, l) => s + l.clicks, 0);
+  const isValid = form.destinationUrl && form.source && form.medium && form.campaign && /^https?:\/\//i.test(form.destinationUrl);
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto">
@@ -145,7 +173,7 @@ export default function UtmBuilderPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold">UTM Link Builder</h1>
-          <p className="text-sm text-muted-foreground">Generate campaign-tagged URLs and track clicks</p>
+          <p className="text-sm text-muted-foreground">Generate campaign-tagged URLs, track clicks via short redirect links</p>
         </div>
       </div>
 
@@ -185,14 +213,17 @@ export default function UtmBuilderPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label>Destination URL <span className="text-destructive">*</span></Label>
               <Input
                 placeholder="https://yoursite.com/landing-page"
                 value={form.destinationUrl}
                 onChange={(e) => setForm((f) => ({ ...f, destinationUrl: e.target.value }))}
               />
+              {form.destinationUrl && !/^https?:\/\//i.test(form.destinationUrl) && (
+                <p className="text-xs text-destructive">URL must start with https:// or http://</p>
+              )}
             </div>
           </div>
 
@@ -247,22 +278,46 @@ export default function UtmBuilderPage() {
             </div>
           </div>
 
+          {websites.length > 0 && (
+            <div className="space-y-1.5 max-w-xs">
+              <Label className="flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5" />
+                Associated Website <span className="text-muted-foreground text-xs">(optional)</span>
+              </Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={form.websiteId}
+                onChange={(e) => setForm((f) => ({ ...f, websiteId: e.target.value }))}
+              >
+                <option value="">No website</option>
+                {websites.map((w) => (
+                  <option key={w.id} value={String(w.id)}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Live Preview */}
           {previewUrl && (
-            <div className="rounded-lg border bg-muted/40 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Generated URL</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1.5"
-                  onClick={() => copyToClipboard(previewUrl, "preview")}
-                >
-                  {copied === "preview" ? <CheckCheck className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied === "preview" ? "Copied!" : "Copy"}
-                </Button>
+            <div className="rounded-lg border bg-muted/40 p-3 space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Full UTM URL</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5"
+                    onClick={() => copyToClipboard(previewUrl, "preview")}
+                  >
+                    {copied === "preview" ? <CheckCheck className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied === "preview" ? "Copied!" : "Copy"}
+                  </Button>
+                </div>
+                <p className="text-xs font-mono break-all text-foreground/80">{previewUrl}</p>
               </div>
-              <p className="text-xs font-mono break-all text-foreground/80">{previewUrl}</p>
+              <p className="text-xs text-muted-foreground">
+                After saving, a short tracked redirect URL will be generated at <span className="font-mono">{getApiBase()}/r/&#123;id&#125;</span>
+              </p>
             </div>
           )}
 
@@ -295,58 +350,78 @@ export default function UtmBuilderPage() {
             <div className="space-y-2">
               {links.map((link) => {
                 const fullUrl = getFullUrl(link);
+                const trackedUrl = getTrackedUrl(link);
+                const website = websites.find((w) => w.id === link.websiteId);
                 return (
                   <div
                     key={link.id}
-                    className="rounded-lg border bg-card p-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+                    className="rounded-lg border bg-card p-3 space-y-2"
                   >
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {link.label && (
-                          <span className="font-medium text-sm">{link.label}</span>
-                        )}
-                        <Badge variant="secondary" className="text-xs">{link.source}</Badge>
-                        <Badge variant="outline" className="text-xs">{link.medium}</Badge>
-                        <Badge variant="outline" className="text-xs">{link.campaign}</Badge>
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <MousePointerClick className="h-3 w-3" />
-                          {link.clicks} click{link.clicks !== 1 ? "s" : ""}
-                        </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {link.label && (
+                            <span className="font-medium text-sm">{link.label}</span>
+                          )}
+                          <Badge variant="secondary" className="text-xs">{link.source}</Badge>
+                          <Badge variant="outline" className="text-xs">{link.medium}</Badge>
+                          <Badge variant="outline" className="text-xs">{link.campaign}</Badge>
+                          {website && (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Globe className="h-3 w-3" />
+                              {website.name}
+                            </span>
+                          )}
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <MousePointerClick className="h-3 w-3" />
+                            {link.clicks} click{link.clicks !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <p className="text-xs font-mono text-muted-foreground truncate max-w-xl" title={fullUrl}>
+                          {fullUrl}
+                        </p>
                       </div>
-                      <p className="text-xs font-mono text-muted-foreground truncate max-w-xl" title={fullUrl}>
-                        {fullUrl}
-                      </p>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Delete"
+                          onClick={() => deleteMutation.mutate(link.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Copy URL"
-                        onClick={() => copyToClipboard(fullUrl, link.id)}
-                      >
-                        {copied === link.id
-                          ? <CheckCheck className="h-3.5 w-3.5 text-green-500" />
-                          : <Copy className="h-3.5 w-3.5" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Open URL"
-                        onClick={() => window.open(fullUrl, "_blank")}
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        title="Delete"
-                        onClick={() => deleteMutation.mutate(link.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+
+                    {/* Tracked redirect URL */}
+                    <div className="rounded-md bg-muted/50 px-3 py-2 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground mb-0.5">Tracked redirect URL (use this in ads/emails)</p>
+                        <p className="text-xs font-mono font-medium truncate" title={trackedUrl}>{trackedUrl}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Copy tracked URL"
+                          onClick={() => copyToClipboard(trackedUrl, link.id)}
+                        >
+                          {copied === link.id
+                            ? <CheckCheck className="h-3 w-3 text-green-500" />
+                            : <Copy className="h-3 w-3" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          title="Open tracked URL"
+                          onClick={() => window.open(trackedUrl, "_blank")}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );

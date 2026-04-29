@@ -4,8 +4,16 @@ import { db, utmLinksTable, insertUtmLinkSchema } from "@workspace/db";
 
 const router: IRouter = Router();
 
-router.get("/utm-links", async (_req, res): Promise<void> => {
-  const links = await db.select().from(utmLinksTable).orderBy(desc(utmLinksTable.createdAt));
+router.get("/utm-links", async (req, res): Promise<void> => {
+  const websiteId = req.query.websiteId ? parseInt(req.query.websiteId as string, 10) : undefined;
+  let links;
+  if (websiteId && !isNaN(websiteId)) {
+    links = await db.select().from(utmLinksTable)
+      .where(eq(utmLinksTable.websiteId, websiteId))
+      .orderBy(desc(utmLinksTable.createdAt));
+  } else {
+    links = await db.select().from(utmLinksTable).orderBy(desc(utmLinksTable.createdAt));
+  }
   res.json(links);
 });
 

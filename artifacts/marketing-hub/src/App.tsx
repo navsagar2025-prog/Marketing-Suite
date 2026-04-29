@@ -27,6 +27,7 @@ import BlogPostPage from "@/pages/blog-post";
 import KnowledgeBasePage from "@/pages/knowledge-base";
 import KbArticlePage from "@/pages/kb-article";
 import UtmBuilderPage from "@/pages/utm-builder";
+import AbTestsPage from "@/pages/ab-tests";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Loader2, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -142,6 +143,9 @@ function ProtectedRouter() {
               <PermissionGuard module="media"><MediaAssets /></PermissionGuard>
             </Route>
             <Route path="/utm-builder" component={UtmBuilderPage} />
+            <Route path="/ab-tests">
+              <PermissionGuard module="analytics"><AbTestsPage /></PermissionGuard>
+            </Route>
             <Route path="/blog/:slug">
               {(params) => <BlogPostPage key={params.slug} />}
             </Route>

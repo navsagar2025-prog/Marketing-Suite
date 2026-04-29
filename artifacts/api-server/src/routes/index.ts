@@ -24,6 +24,7 @@ import leadFormsRouter from "./lead-forms";
 import blogRouter from "./blog";
 import kbRouter from "./kb";
 import utmLinksRouter from "./utm-links";
+import abTestsRouter from "./ab-tests";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -54,6 +55,7 @@ router.use("/analytics", requirePermission("analytics"));
 router.use("/ai", requirePermission("ai_tools"));
 router.use("/media-assets", requirePermission("media"));
 router.use("/utm-links", requirePermission("campaigns"));
+router.use("/ab-tests", requirePermission("analytics"));
 
 router.use(websitesRouter);
 router.use(keywordsRouter);
@@ -72,6 +74,7 @@ router.use(leadFormsRouter);
 router.use("/blog", blogRouter);
 router.use("/kb", kbRouter);
 router.use(utmLinksRouter);
+router.use(abTestsRouter);
 router.use(adminRouter);
 
 export default router;

@@ -20,4 +20,5 @@ export * from "./lead-forms";
 export * from "./blog-posts";
 export * from "./kb-articles";
 export * from "./utm-links";
+export * from "./ab-tests";
 export * from "./webhook-events";

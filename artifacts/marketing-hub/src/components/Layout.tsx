@@ -26,6 +26,7 @@ import {
   MessageSquare,
   BookOpen,
   HelpCircle,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ const navItems = [
   { path: "/ai", label: "AI Tools", icon: Sparkles, permission: "ai_tools" },
   { path: "/media", label: "Media Library", icon: ImageIcon, permission: "media" },
   { path: "/utm-builder", label: "UTM Builder", icon: Link2, permission: "campaigns" },
+  { path: "/ab-tests", label: "A/B Tests", icon: FlaskConical, permission: "analytics" },
   { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
   { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
   { path: "/settings", label: "Settings", icon: Settings, permission: null },

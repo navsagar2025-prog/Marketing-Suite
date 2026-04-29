@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { eq, sql } from "drizzle-orm";
-import { db, utmLinksTable } from "@workspace/db";
+import { db, utmLinksTable, abVariantsTable } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -89,6 +89,30 @@ app.get("/r/:id", async (req, res): Promise<void> => {
     res.redirect(302, url.toString());
   } catch {
     res.status(500).send("Could not build redirect URL");
+  }
+});
+
+// Public A/B tracking endpoint — POST /track/ab/:testId/:variantId?event=impression|click
+app.post("/track/ab/:testId/:variantId", async (req, res): Promise<void> => {
+  const testId = parseInt(req.params.testId, 10);
+  const variantId = parseInt(req.params.variantId, 10);
+  const event = req.query.event === "click" ? "click" : "impression";
+  if (isNaN(testId) || isNaN(variantId)) {
+    res.status(400).json({ error: "Invalid ids" });
+    return;
+  }
+  try {
+    const updateField = event === "click"
+      ? { clicks: sql`${abVariantsTable.clicks} + 1` }
+      : { impressions: sql`${abVariantsTable.impressions} + 1` };
+    const [updated] = await db.update(abVariantsTable)
+      .set(updateField)
+      .where(eq(abVariantsTable.id, variantId))
+      .returning({ id: abVariantsTable.id, impressions: abVariantsTable.impressions, clicks: abVariantsTable.clicks });
+    if (!updated) { res.status(404).json({ error: "Variant not found" }); return; }
+    res.json({ ok: true, event, ...updated });
+  } catch {
+    res.status(500).json({ error: "Internal error" });
   }
 });
 

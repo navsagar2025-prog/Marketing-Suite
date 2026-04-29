@@ -19,3 +19,4 @@ export * from "./sequences";
 export * from "./lead-forms";
 export * from "./blog-posts";
 export * from "./kb-articles";
+export * from "./utm-links";

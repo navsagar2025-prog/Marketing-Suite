@@ -1,4 +1,6 @@
 import { Router, type IRouter } from "express";
+import { eq, sql } from "drizzle-orm";
+import { db, utmLinksTable } from "@workspace/db";
 import healthRouter from "./health";
 import websitesRouter from "./websites";
 import keywordsRouter from "./keywords";
@@ -22,6 +24,7 @@ import sequencesRouter from "./sequences";
 import leadFormsRouter from "./lead-forms";
 import blogRouter from "./blog";
 import kbRouter from "./kb";
+import utmLinksRouter from "./utm-links";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -34,6 +37,31 @@ router.use(publicAuditRouter);
 router.use(publicContactRouter);
 router.use(publicFormsRouter);
 router.use(emailWebhooksRouter);
+
+// Public UTM redirect: GET /r/:id — increments click count and redirects
+router.get("/r/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).send("Invalid link"); return; }
+  const [link] = await db.update(utmLinksTable)
+    .set({ clicks: sql`${utmLinksTable.clicks} + 1` })
+    .where(eq(utmLinksTable.id, id))
+    .returning({
+      destinationUrl: utmLinksTable.destinationUrl,
+      source: utmLinksTable.source,
+      medium: utmLinksTable.medium,
+      campaign: utmLinksTable.campaign,
+      term: utmLinksTable.term,
+      content: utmLinksTable.content,
+    });
+  if (!link) { res.status(404).send("Link not found"); return; }
+  const url = new URL(link.destinationUrl);
+  url.searchParams.set("utm_source", link.source);
+  url.searchParams.set("utm_medium", link.medium);
+  url.searchParams.set("utm_campaign", link.campaign);
+  if (link.term) url.searchParams.set("utm_term", link.term);
+  if (link.content) url.searchParams.set("utm_content", link.content);
+  res.redirect(302, url.toString());
+});
 
 router.use(requireAuth);
 
@@ -67,6 +95,7 @@ router.use(sequencesRouter);
 router.use(leadFormsRouter);
 router.use("/blog", blogRouter);
 router.use("/kb", kbRouter);
+router.use(utmLinksRouter);
 router.use(adminRouter);
 
 export default router;

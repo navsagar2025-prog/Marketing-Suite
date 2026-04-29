@@ -117,6 +117,7 @@ import type {
   UpdateUsageLimitsBody,
   UpdateWebsiteBody,
   UsageLimits,
+  WebhookEvent,
   Website,
   WebsiteAnalytics,
 } from "./api.schemas";
@@ -8008,6 +8009,81 @@ export const useTestPaymentConnection = <
 > => {
   return useMutation(getTestPaymentConnectionMutationOptions(options));
 };
+
+/**
+ * @summary List recent payment webhook events (admin only)
+ */
+export const getGetWebhookEventsUrl = () => {
+  return `/api/settings/payment/webhook-events`;
+};
+
+export const getWebhookEvents = async (
+  options?: RequestInit,
+): Promise<WebhookEvent[]> => {
+  return customFetch<WebhookEvent[]>(getGetWebhookEventsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetWebhookEventsQueryKey = () => {
+  return [`/api/settings/payment/webhook-events`] as const;
+};
+
+export const getGetWebhookEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getWebhookEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWebhookEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetWebhookEventsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getWebhookEvents>>
+  > = ({ signal }) => getWebhookEvents({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getWebhookEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetWebhookEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getWebhookEvents>>
+>;
+export type GetWebhookEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List recent payment webhook events (admin only)
+ */
+
+export function useGetWebhookEvents<
+  TData = Awaited<ReturnType<typeof getWebhookEvents>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getWebhookEvents>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetWebhookEventsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get current user AI usage for this month

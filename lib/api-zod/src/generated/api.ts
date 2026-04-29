@@ -1972,6 +1972,24 @@ export const TestPaymentConnectionResponse = zod.object({
 });
 
 /**
+ * @summary List recent payment webhook events (admin only)
+ */
+export const GetWebhookEventsResponseItem = zod.object({
+  id: zod.number(),
+  provider: zod.string().describe("Payment provider — stripe or razorpay"),
+  eventType: zod.string().describe("Event type as reported by the provider"),
+  eventId: zod.string().nullish().describe("Provider-supplied event ID"),
+  status: zod.string().describe("Processing status — received or failed"),
+  payload: zod
+    .record(zod.string(), zod.unknown())
+    .nullish()
+    .describe("Partial payload snapshot (never contains sensitive data)"),
+  error: zod.string().nullish().describe("Error message if status is failed"),
+  receivedAt: zod.coerce.date(),
+});
+export const GetWebhookEventsResponse = zod.array(GetWebhookEventsResponseItem);
+
+/**
  * @summary Get current user AI usage for this month
  */
 export const GetMyUsageResponse = zod.object({

@@ -136,5 +136,7 @@ export * from "./usageEntry";
 export * from "./usageLimits";
 export * from "./usageLimitsLimits";
 export * from "./userUsageSummary";
+export * from "./webhookEvent";
+export * from "./webhookEventPayload";
 export * from "./website";
 export * from "./websiteAnalytics";

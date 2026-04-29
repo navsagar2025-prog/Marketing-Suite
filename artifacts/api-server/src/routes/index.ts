@@ -17,6 +17,7 @@ import publicContactRouter from "./public-contact";
 import publicFormsRouter from "./public-forms";
 import usageRouter from "./usage";
 import emailWebhooksRouter from "./email-webhooks";
+import paymentWebhooksRouter from "./payment-webhooks";
 import conversationsRouter from "./conversations";
 import sequencesRouter from "./sequences";
 import leadFormsRouter from "./lead-forms";
@@ -35,6 +36,7 @@ router.use(publicAuditRouter);
 router.use(publicContactRouter);
 router.use(publicFormsRouter);
 router.use(emailWebhooksRouter);
+router.use(paymentWebhooksRouter);
 
 router.use(requireAuth);
 

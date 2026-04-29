@@ -1051,6 +1051,28 @@ export interface TestPaymentResponse {
   provider: string;
 }
 
+/**
+ * Partial payload snapshot (never contains sensitive data)
+ */
+export type WebhookEventPayload = { [key: string]: unknown } | null;
+
+export interface WebhookEvent {
+  id: number;
+  /** Payment provider — stripe or razorpay */
+  provider: string;
+  /** Event type as reported by the provider */
+  eventType: string;
+  /** Provider-supplied event ID */
+  eventId?: string | null;
+  /** Processing status — received or failed */
+  status: string;
+  /** Partial payload snapshot (never contains sensitive data) */
+  payload?: WebhookEventPayload;
+  /** Error message if status is failed */
+  error?: string | null;
+  receivedAt: string;
+}
+
 export interface SendCampaignEmailBody {
   subject: string;
   body: string;

@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -122,6 +122,7 @@ export default function SettingsPage() {
   const { data: paymentSettings, refetch: refetchPaymentSettings } = useGetPaymentSettings({ query: { enabled: isAdmin, queryKey: getGetPaymentSettingsQueryKey() } });
   const updatePaymentMutation = useUpdatePaymentSettings();
   const testPaymentMutation = useTestPaymentConnection();
+  const { data: webhookEvents, refetch: refetchWebhookEvents } = useGetWebhookEvents({ query: { enabled: isAdmin, queryKey: getGetWebhookEventsQueryKey() } });
 
   const activeEmailProvider = (emailProvider ?? emailSettings?.provider ?? null) as EmailProvider | null;
   const activeProviderInfo = EMAIL_PROVIDERS.find(p => p.value === activeEmailProvider);
@@ -1466,6 +1467,109 @@ export default function SettingsPage() {
                   : <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 }
                 <span>{paymentTestResult.message}</span>
+              </div>
+            )}
+
+            {/* Webhook endpoint info */}
+            <div className="space-y-2 p-4 rounded-md border bg-muted/30">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Webhook Endpoints</p>
+              <p className="text-xs text-muted-foreground">
+                Point your payment provider's webhook settings to these URLs. Events will be logged in the Webhook Events section below.
+              </p>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs font-mono shrink-0">POST</Badge>
+                  <code className="text-xs font-mono text-foreground break-all">/api/webhooks/stripe</code>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs font-mono shrink-0">POST</Badge>
+                  <code className="text-xs font-mono text-foreground break-all">/api/webhooks/razorpay</code>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Webhook Events Log (admin only) */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-primary/10">
+                <Activity className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-base">Webhook Events</CardTitle>
+                  {webhookEvents && (
+                    <Badge variant="secondary" className="text-xs" data-testid="badge-webhook-event-count">
+                      {webhookEvents.length} recent
+                    </Badge>
+                  )}
+                </div>
+                <CardDescription className="mt-1">
+                  Real-time payment events received from Stripe and Razorpay. The last 100 events are shown.
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 h-8 w-8"
+                title="Refresh events"
+                data-testid="button-refresh-webhook-events"
+                onClick={() => refetchWebhookEvents()}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!webhookEvents && (
+              <p className="text-sm text-muted-foreground">Loading events...</p>
+            )}
+            {webhookEvents && webhookEvents.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Activity className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">No webhook events yet.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Events will appear here once your payment provider starts sending them to the webhook endpoints above.
+                </p>
+              </div>
+            )}
+            {webhookEvents && webhookEvents.length > 0 && (
+              <div className="space-y-2" data-testid="list-webhook-events">
+                {webhookEvents.map(event => (
+                  <div
+                    key={event.id}
+                    className="flex items-start gap-3 p-3 rounded-md border text-sm"
+                    data-testid={`webhook-event-${event.id}`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {event.status === "received"
+                        ? <CheckCircle className="h-4 w-4 text-green-500" />
+                        : <XCircle className="h-4 w-4 text-destructive" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs capitalize shrink-0">
+                          {event.provider}
+                        </Badge>
+                        <span className="font-mono text-xs font-medium truncate">{event.eventType}</span>
+                        {event.eventId && (
+                          <span className="text-xs text-muted-foreground font-mono truncate">{event.eventId}</span>
+                        )}
+                      </div>
+                      {event.error && (
+                        <p className="text-xs text-destructive">{event.error}</p>
+                      )}
+                    </div>
+                    <div className="shrink-0 text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                      {new Date(event.receivedAt).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

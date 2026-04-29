@@ -1832,6 +1832,21 @@ paths:
               schema:
                 $ref: "#/components/schemas/TestPaymentResponse"
 
+  /settings/payment/webhook-events:
+    get:
+      operationId: getWebhookEvents
+      tags: [settings]
+      summary: List recent payment webhook events (admin only)
+      responses:
+        "200":
+          description: List of recent webhook events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WebhookEvent"
+
   # ─── Usage ────────────────────────────────────────────────────────────────
   /usage/me:
     get:
@@ -3510,6 +3525,43 @@ components:
         - success
         - message
         - provider
+
+    WebhookEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        provider:
+          type: string
+          description: Payment provider — stripe or razorpay
+        eventType:
+          type: string
+          description: Event type as reported by the provider
+        eventId:
+          type: string
+          nullable: true
+          description: Provider-supplied event ID
+        status:
+          type: string
+          description: Processing status — received or failed
+        payload:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Partial payload snapshot (never contains sensitive data)
+        error:
+          type: string
+          nullable: true
+          description: Error message if status is failed
+        receivedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - provider
+        - eventType
+        - status
+        - receivedAt
 
     # ─── Campaign Email Send ───────────────────────────────────────────────────
     SendCampaignEmailBody:

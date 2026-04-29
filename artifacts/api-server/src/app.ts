@@ -33,7 +33,11 @@ app.use(cors());
 app.use(
   express.json({
     verify: (req, _res, buf) => {
-      if (req.url?.startsWith("/api/webhooks/email/")) {
+      if (
+        req.url?.startsWith("/api/webhooks/email/") ||
+        req.url?.startsWith("/api/webhooks/stripe") ||
+        req.url?.startsWith("/api/webhooks/razorpay")
+      ) {
         (req as typeof req & { rawBody: Buffer }).rawBody = buf;
       }
     },

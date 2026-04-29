@@ -92,8 +92,9 @@ app.get("/r/:id", async (req, res): Promise<void> => {
   }
 });
 
-// Public A/B tracking endpoint — POST /track/ab/:testId/:variantId?event=impression|click
-app.post("/track/ab/:testId/:variantId", async (req, res): Promise<void> => {
+// Public A/B tracking endpoint — GET or POST /track/ab/:testId/:variantId?event=impression|click
+// Supports both POST (programmatic) and GET (pixel/link-based tracking)
+async function handleAbTrack(req: import("express").Request, res: import("express").Response): Promise<void> {
   const testId = parseInt(req.params.testId, 10);
   const variantId = parseInt(req.params.variantId, 10);
   const event = req.query.event === "click" ? "click" : "impression";
@@ -114,7 +115,9 @@ app.post("/track/ab/:testId/:variantId", async (req, res): Promise<void> => {
   } catch {
     res.status(500).json({ error: "Internal error" });
   }
-});
+}
+app.get("/track/ab/:testId/:variantId", handleAbTrack);
+app.post("/track/ab/:testId/:variantId", handleAbTrack);
 
 app.use("/api", router);
 

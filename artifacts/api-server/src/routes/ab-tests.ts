@@ -2,6 +2,38 @@ import { Router, type IRouter } from "express";
 import { and, eq, sql } from "drizzle-orm";
 import { db, abTestsTable, abVariantsTable, insertAbTestSchema, insertAbVariantSchema } from "@workspace/db";
 
+const AB_STATUSES = ["active", "closed"] as const;
+
+function validatePatchBody(body: Record<string, unknown>): { data: Record<string, unknown>; error?: string } {
+  const data: Record<string, unknown> = {};
+  if (body.status !== undefined) {
+    if (!AB_STATUSES.includes(body.status as (typeof AB_STATUSES)[number])) {
+      return { data, error: `status must be one of: ${AB_STATUSES.join(", ")}` };
+    }
+    data.status = body.status;
+  }
+  if (body.name !== undefined) {
+    if (typeof body.name !== "string" || body.name.trim().length === 0) {
+      return { data, error: "name must be a non-empty string" };
+    }
+    data.name = body.name;
+  }
+  if (body.notes !== undefined) {
+    if (body.notes !== null && typeof body.notes !== "string") {
+      return { data, error: "notes must be a string or null" };
+    }
+    data.notes = body.notes;
+  }
+  if (body.winnerThreshold !== undefined) {
+    const t = Number(body.winnerThreshold);
+    if (!Number.isInteger(t) || t < 1) {
+      return { data, error: "winnerThreshold must be a positive integer" };
+    }
+    data.winnerThreshold = t;
+  }
+  return { data };
+}
+
 const router: IRouter = Router();
 
 // List all tests with their variants
@@ -61,12 +93,10 @@ router.post("/ab-tests", async (req, res): Promise<void> => {
 router.patch("/ab-tests/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const allowed: Record<string, unknown> = {};
-  if (req.body.status) allowed.status = req.body.status;
-  if (req.body.name) allowed.name = req.body.name;
-  if (req.body.notes !== undefined) allowed.notes = req.body.notes;
-  if (req.body.winnerThreshold !== undefined) allowed.winnerThreshold = req.body.winnerThreshold;
-  const [test] = await db.update(abTestsTable).set(allowed).where(eq(abTestsTable.id, id)).returning();
+  const { data, error } = validatePatchBody(req.body as Record<string, unknown>);
+  if (error) { res.status(400).json({ error }); return; }
+  if (Object.keys(data).length === 0) { res.status(400).json({ error: "No valid fields to update" }); return; }
+  const [test] = await db.update(abTestsTable).set(data).where(eq(abTestsTable.id, id)).returning();
   if (!test) { res.status(404).json({ error: "Test not found" }); return; }
   res.json(test);
 });
@@ -84,6 +114,9 @@ router.delete("/ab-tests/:id", async (req, res): Promise<void> => {
 router.post("/ab-tests/:testId/variants", async (req, res): Promise<void> => {
   const testId = parseInt(req.params.testId, 10);
   if (isNaN(testId)) { res.status(400).json({ error: "Invalid testId" }); return; }
+  // Verify test exists before inserting variant
+  const [test] = await db.select({ id: abTestsTable.id }).from(abTestsTable).where(eq(abTestsTable.id, testId));
+  if (!test) { res.status(404).json({ error: "Test not found" }); return; }
   const parsed = insertAbVariantSchema.safeParse({ ...req.body, testId });
   if (!parsed.success) { res.status(400).json({ error: String(parsed.error) }); return; }
   const [variant] = await db.insert(abVariantsTable).values(parsed.data).returning();

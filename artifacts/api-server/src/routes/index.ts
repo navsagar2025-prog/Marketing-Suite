@@ -51,6 +51,7 @@ router.use("/conversations", requirePermission("conversations"));
 router.use("/analytics", requirePermission("analytics"));
 router.use("/ai", requirePermission("ai_tools"));
 router.use("/media-assets", requirePermission("media"));
+router.use("/utm-links", requirePermission("campaigns"));
 
 router.use(websitesRouter);
 router.use(keywordsRouter);

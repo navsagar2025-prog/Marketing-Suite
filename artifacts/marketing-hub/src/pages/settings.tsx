@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey } from "@workspace/api-client-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { ALL_MODULES, MODULE_LABELS } from "@workspace/api-zod";
 import { cn } from "@/lib/utils";
 
 type EmailProvider = "smtp" | "sendgrid" | "mailgun" | "resend" | "mailchimp";
@@ -57,7 +58,9 @@ const PROVIDER_MODELS: Record<AiProvider, string[]> = {
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { permissions } = usePermissions();
   const isAdmin = user?.role === "admin";
+  const hasFullAccess = !isAdmin && permissions === null;
 
   // Fal.ai state
   const [falApiKey, setFalApiKey] = useState("");
@@ -416,6 +419,63 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Settings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Configure integrations and API keys</p>
       </div>
+
+      {/* My Access — shown only to staff users, not admins */}
+      {!isAdmin && (
+        <Card data-testid="card-my-access">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-md bg-indigo-500/10">
+                <Lock className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div>
+                <CardTitle className="text-base">My Access</CardTitle>
+                <CardDescription className="mt-0.5">
+                  {hasFullAccess
+                    ? "You have full access to all modules."
+                    : permissions && permissions.length === 0
+                    ? "You don't have access to any modules yet. Contact an admin."
+                    : "The modules you can access in this workspace."}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {hasFullAccess ? (
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                <ShieldCheck className="h-4 w-4" />
+                Full access — all modules enabled
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {ALL_MODULES.map((mod) => {
+                  const granted = permissions?.includes(mod) ?? false;
+                  return (
+                    <div
+                      key={mod}
+                      className={cn(
+                        "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                        granted
+                          ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30"
+                          : "border-border bg-muted/30 opacity-60"
+                      )}
+                    >
+                      {granted ? (
+                        <ShieldCheck className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      ) : (
+                        <ShieldOff className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      )}
+                      <span className={cn("font-medium", granted ? "text-foreground" : "text-muted-foreground")}>
+                        {MODULE_LABELS[mod]}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Provider Configuration */}
       <Card>

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db, abTestsTable, abVariantsTable, insertAbTestSchema, insertAbVariantSchema } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -25,7 +25,7 @@ router.get("/ab-tests/:id", async (req, res): Promise<void> => {
   res.json({ ...test, variants });
 });
 
-// Create a new test (with variants inline)
+// Create a new test (with variants inline) — fully transactional
 router.post("/ab-tests", async (req, res): Promise<void> => {
   const { variants: rawVariants, ...testData } = req.body;
   const parsedTest = insertAbTestSchema.safeParse(testData);
@@ -37,14 +37,24 @@ router.post("/ab-tests", async (req, res): Promise<void> => {
     res.status(400).json({ error: "At least 2 variants are required" });
     return;
   }
-  const [test] = await db.insert(abTestsTable).values(parsedTest.data).returning();
-  const variantRows = rawVariants.map((v: unknown) => {
-    const parsed = insertAbVariantSchema.safeParse({ ...(v as object), testId: test.id });
-    if (!parsed.success) throw new Error(`Invalid variant: ${parsed.error}`);
-    return parsed.data;
+  // Pre-validate all variants before touching the DB
+  const variantDataList: ReturnType<typeof insertAbVariantSchema.parse>[] = [];
+  for (const v of rawVariants) {
+    const parsed = insertAbVariantSchema.safeParse({ ...(v as object), testId: 0 }); // testId placeholder
+    if (!parsed.success) {
+      res.status(400).json({ error: `Invalid variant: ${parsed.error}` });
+      return;
+    }
+    variantDataList.push(parsed.data);
+  }
+  // Wrap test + variant inserts in a single transaction
+  const result = await db.transaction(async (tx) => {
+    const [test] = await tx.insert(abTestsTable).values(parsedTest.data).returning();
+    const variantRows = variantDataList.map((v) => ({ ...v, testId: test.id }));
+    const variants = await tx.insert(abVariantsTable).values(variantRows).returning();
+    return { ...test, variants };
   });
-  const variants = await db.insert(abVariantsTable).values(variantRows).returning();
-  res.status(201).json({ ...test, variants });
+  res.status(201).json(result);
 });
 
 // Update test status or notes
@@ -80,11 +90,14 @@ router.post("/ab-tests/:testId/variants", async (req, res): Promise<void> => {
   res.status(201).json(variant);
 });
 
-// Delete a variant
+// Delete a variant — scoped by both testId and variantId
 router.delete("/ab-tests/:testId/variants/:variantId", async (req, res): Promise<void> => {
+  const testId = parseInt(req.params.testId, 10);
   const variantId = parseInt(req.params.variantId, 10);
-  if (isNaN(variantId)) { res.status(400).json({ error: "Invalid variantId" }); return; }
-  const [deleted] = await db.delete(abVariantsTable).where(eq(abVariantsTable.id, variantId)).returning();
+  if (isNaN(testId) || isNaN(variantId)) { res.status(400).json({ error: "Invalid ids" }); return; }
+  const [deleted] = await db.delete(abVariantsTable)
+    .where(and(eq(abVariantsTable.id, variantId), eq(abVariantsTable.testId, testId)))
+    .returning();
   if (!deleted) { res.status(404).json({ error: "Variant not found" }); return; }
   res.sendStatus(204);
 });

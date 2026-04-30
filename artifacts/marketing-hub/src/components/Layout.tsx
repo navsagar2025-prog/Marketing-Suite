@@ -114,6 +114,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside
         data-testid="sidebar"
+        data-tour="sidebar-nav"
         className={cn(
           "flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-200",
           sidebarOpen ? "w-56" : "w-14"
@@ -141,11 +142,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 py-2 overflow-y-auto">
           {allNavItems.map(({ path, label, icon: Icon }) => {
             const active = location === path || (path !== "/" && location.startsWith(path));
+            const tourAttr =
+              label === "Keywords"
+                ? "nav-keywords"
+                : label === "Campaigns"
+                ? "nav-campaigns"
+                : label === "Backlinks"
+                ? "nav-backlinks"
+                : undefined;
             return (
               <Link
                 key={path}
                 href={path}
                 data-testid={`link-nav-${label.toLowerCase().replace(/\s/g, "-")}`}
+                {...(tourAttr ? { "data-tour": tourAttr } : {})}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 mx-1 rounded-md text-sm font-medium transition-colors cursor-pointer",
                   active

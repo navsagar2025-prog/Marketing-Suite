@@ -144,6 +144,17 @@ Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaig
 - Frontend: `usePermissions()` hook in `AuthContext.tsx`; sidebar filters nav items; `PermissionGuard` wraps page routes; `AccessDenied` component shown on blocked pages
 - Admin UI: StaffTab in `/admin` page lets admins set per-module permissions when creating or editing staff accounts
 
+## Product Tour
+
+A custom guided tour component lives in `artifacts/marketing-hub/src/components/ProductTour.tsx`.
+
+- 7-step spotlight tour highlighting: welcome banner → sidebar nav → keywords → campaigns → backlinks → stats grid → getting started checklist
+- Auto-starts on first login (checks `localStorage.getItem('product_tour_completed')`)
+- "Take the tour" button on the dashboard welcome banner for manual re-launch
+- Persists completion state via `localStorage` key `product_tour_completed`
+- Uses React portals + SVG mask for the spotlight overlay, no external tour library
+- `data-tour` attributes on target elements: `welcome-banner`, `sidebar-nav`, `nav-keywords`, `nav-campaigns`, `nav-backlinks`, `stats-grid`, `getting-started`
+
 ## Important Notes
 
 - PostgreSQL `numeric` columns (`budget`, `spend`, `value`) return as strings from node-postgres; must call `parseFloat(String(val))` before Zod parsing

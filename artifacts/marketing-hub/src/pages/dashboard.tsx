@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   Globe, Search, Megaphone, Users, Link2, TrendingUp, Target, Calendar,
   Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2, CheckCircle2, Circle, X
 } from "lucide-react";
+import { ProductTour, TourLaunchButton, useTour } from "@/components/ProductTour";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -295,6 +296,12 @@ export default function Dashboard() {
   const { data: funnel, isLoading: funnelLoading } = useGetLeadsFunnel();
   const { data: campaignAnalytics, isLoading: campaignLoading } = useGetCampaignAnalytics();
   const { data: websites, isLoading: websitesLoading } = useListWebsites();
+  const { active: tourActive, setActive: setTourActive, startTour, autoStart } = useTour();
+
+  useEffect(() => {
+    const t = setTimeout(() => autoStart(), 600);
+    return () => clearTimeout(t);
+  }, [autoStart]);
 
   const funnelData = funnel
     ? [
@@ -310,10 +317,13 @@ export default function Dashboard() {
   return (
     <div className="p-6 space-y-8">
 
+      <ProductTour active={tourActive} onClose={() => setTourActive(false)} />
+
       {/* Welcome Banner */}
       <div
         className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground p-8"
         data-testid="text-page-title"
+        data-tour="welcome-banner"
       >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white via-transparent to-transparent pointer-events-none" />
         <div className="relative z-10">
@@ -339,15 +349,18 @@ export default function Dashboard() {
                 </Button>
               </Link>
             ))}
+            <TourLaunchButton onStart={startTour} />
           </div>
         </div>
       </div>
 
       {/* Getting Started checklist */}
-      <GettingStartedCard />
+      <div data-tour="getting-started">
+        <GettingStartedCard />
+      </div>
 
       {/* Stats grid */}
-      <div>
+      <div data-tour="stats-grid">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">At a Glance</h2>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <StatCard label="Websites" value={summary?.totalWebsites} icon={Globe} href="/websites" loading={summaryLoading} colorIndex={0} />

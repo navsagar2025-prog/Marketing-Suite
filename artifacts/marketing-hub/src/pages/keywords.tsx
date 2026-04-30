@@ -225,6 +225,12 @@ function KeywordRowWithHistory({
   );
 }
 
+const DATE_RANGE_OPTIONS = [
+  { label: "7d", days: 7 },
+  { label: "30d", days: 30 },
+  { label: "90d", days: 90 },
+] as const;
+
 function KeywordDetailPanel({
   keyword,
   open,
@@ -234,9 +240,11 @@ function KeywordDetailPanel({
   open: boolean;
   onClose: () => void;
 }) {
+  const [selectedDays, setSelectedDays] = useState<7 | 30 | 90>(90);
+
   const { data: history90, isLoading } = useGetKeywordRankHistory(
     keyword?.id ?? 0,
-    { days: 90 },
+    { days: selectedDays },
     { query: { enabled: !!keyword && open } },
   );
 
@@ -248,15 +256,10 @@ function KeywordDetailPanel({
     const best = Math.min(...ranks);
     const worst = Math.max(...ranks);
     const sorted = [...ranked].sort((a, b) => a.recordedDate.localeCompare(b.recordedDate));
-    const thirtyDaysAgoStr = (() => {
-      const d = new Date();
-      d.setDate(d.getDate() - 30);
-      return d.toISOString().slice(0, 10);
-    })();
-    const oldest30 = sorted.find((h) => h.recordedDate >= thirtyDaysAgoStr);
+    const oldest = sorted[0];
     const newest = sorted[sorted.length - 1];
-    const change30 = oldest30 && newest ? oldest30.rank - newest.rank : null;
-    return { best, worst, change30 };
+    const changePeriod = oldest && newest ? oldest.rank - newest.rank : null;
+    return { best, worst, changePeriod };
   }, [history90]);
 
   const chartData = useMemo(() => {
@@ -286,22 +289,39 @@ function KeywordDetailPanel({
                 <div className="text-xs text-muted-foreground mt-0.5">Worst rank</div>
               </div>
               <div className="rounded-lg border p-3 text-center">
-                {stats.change30 === null ? (
+                {stats.changePeriod === null ? (
                   <div className="text-xl font-bold font-mono text-muted-foreground">—</div>
-                ) : stats.change30 > 0 ? (
-                  <div className="text-xl font-bold font-mono text-green-600 dark:text-green-400">+{stats.change30}</div>
-                ) : stats.change30 < 0 ? (
-                  <div className="text-xl font-bold font-mono text-red-600 dark:text-red-400">{stats.change30}</div>
+                ) : stats.changePeriod > 0 ? (
+                  <div className="text-xl font-bold font-mono text-green-600 dark:text-green-400">+{stats.changePeriod}</div>
+                ) : stats.changePeriod < 0 ? (
+                  <div className="text-xl font-bold font-mono text-red-600 dark:text-red-400">{stats.changePeriod}</div>
                 ) : (
                   <div className="text-xl font-bold font-mono text-muted-foreground">0</div>
                 )}
-                <div className="text-xs text-muted-foreground mt-0.5">30-day change</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{selectedDays}d change</div>
               </div>
             </div>
           )}
 
           <div>
-            <h3 className="text-sm font-medium mb-3">Rank history (last 90 days)</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium">Rank history</h3>
+              <div className="flex gap-1">
+                {DATE_RANGE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.days}
+                    onClick={() => setSelectedDays(opt.days)}
+                    className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
+                      selectedDays === opt.days
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {isLoading ? (
               <Skeleton className="h-52 w-full" />
             ) : chartData.length < 2 ? (

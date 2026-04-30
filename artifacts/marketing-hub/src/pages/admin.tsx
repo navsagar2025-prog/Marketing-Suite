@@ -6,7 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -713,6 +715,252 @@ function StaffTab() {
   );
 }
 
+interface OnboardingStepConfig {
+  id: string;
+  label: string;
+  href: string;
+  enabled: boolean;
+}
+
+const STEP_ID_LABELS: Record<string, string> = {
+  add_website: "Add your first website",
+  run_audit: "Run a site audit",
+  track_keyword: "Track a keyword",
+  create_campaign: "Create a campaign",
+};
+
+function OnboardingTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { token } = useAuth();
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+  const { data, isLoading } = useQuery<OnboardingStepConfig[]>({
+    queryKey: ["admin-onboarding-steps"],
+    queryFn: async () => {
+      const res = await fetch(`${base}/api/admin/onboarding-steps`, { headers });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  const [draft, setDraft] = useState<OnboardingStepConfig[] | null>(null);
+  const steps = draft ?? data ?? [];
+
+  function initDraft(current: OnboardingStepConfig[]) {
+    if (!draft) setDraft(current.map(s => ({ ...s })));
+  }
+
+  function updateStep(id: string, changes: Partial<OnboardingStepConfig>) {
+    setDraft(prev => {
+      const current = prev ?? (data ?? []).map(s => ({ ...s }));
+      return current.map(s => s.id === id ? { ...s, ...changes } : s);
+    });
+  }
+
+  function moveStep(id: string, direction: "up" | "down") {
+    setDraft(prev => {
+      const current = (prev ?? (data ?? [])).map(s => ({ ...s }));
+      const idx = current.findIndex(s => s.id === id);
+      if (idx === -1) return current;
+      const newIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= current.length) return current;
+      const reordered = [...current];
+      [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+      return reordered;
+    });
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: async (steps: OnboardingStepConfig[]) => {
+      const res = await fetch(`${base}/api/admin/onboarding-steps`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(steps),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed to save");
+      }
+      return res.json();
+    },
+    onSuccess: (saved) => {
+      qc.invalidateQueries({ queryKey: ["admin-onboarding-steps"] });
+      qc.invalidateQueries({ queryKey: ["onboarding-step-configs"] });
+      setDraft(saved);
+      toast({ title: "Onboarding steps saved" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const defaults = [
+        { id: "add_website", label: "Add your first website", href: "/websites", enabled: true },
+        { id: "run_audit", label: "Run a site audit", href: "/websites", enabled: true },
+        { id: "track_keyword", label: "Track a keyword", href: "/keywords", enabled: true },
+        { id: "create_campaign", label: "Create a campaign", href: "/campaigns", enabled: true },
+      ];
+      const res = await fetch(`${base}/api/admin/onboarding-steps`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(defaults),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed to reset");
+      }
+      return res.json();
+    },
+    onSuccess: (saved) => {
+      qc.invalidateQueries({ queryKey: ["admin-onboarding-steps"] });
+      qc.invalidateQueries({ queryKey: ["onboarding-step-configs"] });
+      setDraft(saved);
+      toast({ title: "Onboarding steps reset to defaults" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4 text-primary" />
+            <CardTitle className="text-base">Onboarding Checklist Steps</CardTitle>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Customise the steps shown to new users in the Getting Started checklist. Toggle steps on or off, and edit their label and link.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+          ) : (
+            <>
+              <div className="space-y-3">
+                {steps.map((step, idx) => (
+                  <div
+                    key={step.id}
+                    className="border rounded-lg p-4 space-y-3"
+                    data-testid={`onboarding-step-${step.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Switch
+                          id={`step-enabled-${step.id}`}
+                          checked={step.enabled}
+                          onCheckedChange={(checked) => {
+                            initDraft(data ?? []);
+                            updateStep(step.id, { enabled: checked });
+                          }}
+                          aria-label={`Enable step: ${STEP_ID_LABELS[step.id] ?? step.id}`}
+                        />
+                        <Label
+                          htmlFor={`step-enabled-${step.id}`}
+                          className="text-xs text-muted-foreground cursor-pointer select-none"
+                        >
+                          {step.enabled ? "Enabled" : "Disabled"}
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          aria-label="Move step up"
+                          disabled={idx === 0}
+                          onClick={() => {
+                            initDraft(data ?? []);
+                            moveStep(step.id, "up");
+                          }}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                          aria-label="Move step down"
+                          disabled={idx === steps.length - 1}
+                          onClick={() => {
+                            initDraft(data ?? []);
+                            moveStep(step.id, "down");
+                          }}
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Badge variant="outline" className="text-xs ml-1">
+                          {STEP_ID_LABELS[step.id] ?? step.id}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor={`step-label-${step.id}`} className="text-xs font-medium">
+                          Label
+                        </Label>
+                        <Input
+                          id={`step-label-${step.id}`}
+                          value={step.label}
+                          onChange={(e) => {
+                            initDraft(data ?? []);
+                            updateStep(step.id, { label: e.target.value });
+                          }}
+                          placeholder="Step label"
+                          className="text-sm h-8"
+                          disabled={!step.enabled}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor={`step-href-${step.id}`} className="text-xs font-medium">
+                          Link (path)
+                        </Label>
+                        <Input
+                          id={`step-href-${step.id}`}
+                          value={step.href}
+                          onChange={(e) => {
+                            initDraft(data ?? []);
+                            updateStep(step.id, { href: e.target.value });
+                          }}
+                          placeholder="/page-path"
+                          className="text-sm h-8 font-mono"
+                          disabled={!step.enabled}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={() => saveMutation.mutate(steps)}
+                  disabled={saveMutation.isPending || !draft}
+                  data-testid="save-onboarding-steps"
+                >
+                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  Save Changes
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => resetMutation.mutate()}
+                  disabled={resetMutation.isPending}
+                  data-testid="reset-onboarding-steps"
+                >
+                  {resetMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                  Reset to Defaults
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -738,6 +986,7 @@ export default function AdminPage() {
           <TabsTrigger value="visitors">Visitors</TabsTrigger>
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="staff">Staff Accounts</TabsTrigger>
+          <TabsTrigger value="onboarding">Onboarding Checklist</TabsTrigger>
         </TabsList>
         <TabsContent value="visitors" className="mt-4">
           <VisitorsTab />
@@ -747,6 +996,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="staff" className="mt-4">
           <StaffTab />
+        </TabsContent>
+        <TabsContent value="onboarding" className="mt-4">
+          <OnboardingTab />
         </TabsContent>
       </Tabs>
     </div>

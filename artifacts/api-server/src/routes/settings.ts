@@ -3,6 +3,7 @@ import { getAiConfig, setDbSetting, callAI, getDbSetting, PROVIDER_MODELS, FAL_I
 import { getEmailProviderConfig, testEmailConnection, setSecretSetting, type EmailProvider } from "../lib/email-sender.js";
 import { getPaymentSettings, savePaymentSettings, testPaymentConnection } from "../lib/payment.js";
 import { requireAdmin } from "../lib/auth.js";
+import { getOnboardingSteps } from "./admin.js";
 
 const router: IRouter = Router();
 
@@ -252,6 +253,11 @@ router.post("/settings/payment", requireAdmin, async (req, res): Promise<void> =
 router.post("/settings/payment/test", requireAdmin, async (_req, res): Promise<void> => {
   const result = await testPaymentConnection();
   res.json(result);
+});
+
+router.get("/settings/onboarding-steps", async (_req, res): Promise<void> => {
+  const steps = await getOnboardingSteps();
+  res.json(steps);
 });
 
 export default router;

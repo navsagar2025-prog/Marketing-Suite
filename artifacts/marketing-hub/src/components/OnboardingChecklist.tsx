@@ -10,9 +10,41 @@ import {
   useListKeywords,
   useListCampaigns,
 } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 
 const DISMISSED_KEY = "onboarding_checklist_dismissed";
 const COLLAPSED_KEY = "onboarding_checklist_collapsed";
+
+interface OnboardingStepConfig {
+  id: string;
+  label: string;
+  href: string;
+  enabled: boolean;
+}
+
+const DEFAULT_STEP_CONFIGS: OnboardingStepConfig[] = [
+  { id: "add_website", label: "Add your first website", href: "/websites", enabled: true },
+  { id: "run_audit", label: "Run a site audit", href: "/websites", enabled: true },
+  { id: "track_keyword", label: "Track a keyword", href: "/keywords", enabled: true },
+  { id: "create_campaign", label: "Create a campaign", href: "/campaigns", enabled: true },
+];
+
+function useOnboardingStepConfigs() {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  return useQuery<OnboardingStepConfig[]>({
+    queryKey: ["onboarding-step-configs"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`${base}/api/settings/onboarding-steps`);
+        if (!res.ok) return DEFAULT_STEP_CONFIGS;
+        return res.json();
+      } catch {
+        return DEFAULT_STEP_CONFIGS;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 export function useOnboardingChecklist() {
   const [dismissed, setDismissed] = useState(
@@ -25,8 +57,9 @@ export function useOnboardingChecklist() {
   const { data: websites, isLoading: websitesLoading } = useListWebsites();
   const { data: keywords, isLoading: keywordsLoading } = useListKeywords();
   const { data: campaigns, isLoading: campaignsLoading } = useListCampaigns();
+  const { data: stepConfigs, isLoading: configLoading } = useOnboardingStepConfigs();
 
-  const isLoading = websitesLoading || keywordsLoading || campaignsLoading;
+  const isLoading = websitesLoading || keywordsLoading || campaignsLoading || configLoading;
 
   const hasWebsite = (websites ?? []).length > 0;
   const hasAudit = (websites ?? []).some(
@@ -35,39 +68,41 @@ export function useOnboardingChecklist() {
   const hasKeyword = (keywords ?? []).length > 0;
   const hasCampaign = (campaigns ?? []).length > 0;
 
-  const steps = [
-    {
-      done: hasWebsite,
-      label: "Add your first website",
-      description: "Connect a website so we can track its SEO health.",
-      href: "/websites",
-      cta: "Add Website",
-    },
-    {
-      done: hasAudit,
-      label: "Run a site audit",
-      description: 'Open your website and click "Run Audit" to get an SEO score.',
-      href: "/websites",
-      cta: "Go to Websites",
-    },
-    {
-      done: hasKeyword,
-      label: "Track a keyword",
-      description: "Add keywords to monitor your search rankings over time.",
-      href: "/keywords",
-      cta: "Add Keyword",
-    },
-    {
-      done: hasCampaign,
-      label: "Create a campaign",
-      description: "Set up an email or marketing campaign to reach your audience.",
-      href: "/campaigns",
-      cta: "New Campaign",
-    },
-  ];
+  const doneByStepId: Record<string, boolean> = {
+    add_website: hasWebsite,
+    run_audit: hasAudit,
+    track_keyword: hasKeyword,
+    create_campaign: hasCampaign,
+  };
+
+  const descriptionByStepId: Record<string, string> = {
+    add_website: "Connect a website so we can track its SEO health.",
+    run_audit: 'Open your website and click "Run Audit" to get an SEO score.',
+    track_keyword: "Add keywords to monitor your search rankings over time.",
+    create_campaign: "Set up an email or marketing campaign to reach your audience.",
+  };
+
+  const ctaByStepId: Record<string, string> = {
+    add_website: "Add Website",
+    run_audit: "Go to Websites",
+    track_keyword: "Add Keyword",
+    create_campaign: "New Campaign",
+  };
+
+  const configs = stepConfigs ?? DEFAULT_STEP_CONFIGS;
+  const steps = configs
+    .filter((cfg) => cfg.enabled)
+    .map((cfg) => ({
+      id: cfg.id,
+      done: doneByStepId[cfg.id] ?? false,
+      label: cfg.label,
+      description: descriptionByStepId[cfg.id] ?? "",
+      href: cfg.href,
+      cta: ctaByStepId[cfg.id] ?? "Go →",
+    }));
 
   const completedCount = steps.filter((s) => s.done).length;
-  const allDone = completedCount === steps.length;
+  const allDone = steps.length > 0 && completedCount === steps.length;
 
   function dismiss() {
     localStorage.setItem(DISMISSED_KEY, "true");
@@ -104,7 +139,7 @@ export function OnboardingDashboardCard() {
     toggleCollapsed,
   } = useOnboardingChecklist();
 
-  if (dismissed) return null;
+  if (dismissed || steps.length === 0) return null;
 
   return (
     <Card
@@ -152,7 +187,7 @@ export function OnboardingDashboardCard() {
           <div
             className="h-full rounded-full bg-primary transition-all duration-500"
             style={{
-              width: isLoading
+              width: isLoading || steps.length === 0
                 ? "0%"
                 : `${(completedCount / steps.length) * 100}%`,
             }}
@@ -176,7 +211,7 @@ export function OnboardingDashboardCard() {
           ) : (
             steps.map((step) => (
               <div
-                key={step.label}
+                key={step.id}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ${
                   step.done ? "opacity-50" : ""
                 }`}
@@ -231,7 +266,7 @@ export function OnboardingFloatWidget() {
     dismiss,
   } = useOnboardingChecklist();
 
-  if (dismissed) return null;
+  if (dismissed || steps.length === 0) return null;
 
   const pct = isLoading ? 0 : (completedCount / steps.length) * 100;
   const radius = 10;
@@ -295,7 +330,7 @@ export function OnboardingFloatWidget() {
             ) : (
               steps.map((step) => (
                 <div
-                  key={step.label}
+                  key={step.id}
                   className={`flex items-center gap-2.5 rounded-lg px-2 py-2 ${
                     step.done ? "opacity-50" : "hover:bg-muted/50"
                   } transition-colors`}

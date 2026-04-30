@@ -287,4 +287,89 @@ router.post("/admin/leads/recalculate-scores", async (_req, res): Promise<void> 
   res.json({ updated, date: new Date().toISOString().slice(0, 10) });
 });
 
+export interface OnboardingStepConfig {
+  id: string;
+  label: string;
+  href: string;
+  enabled: boolean;
+}
+
+export const DEFAULT_ONBOARDING_STEPS: OnboardingStepConfig[] = [
+  { id: "add_website", label: "Add your first website", href: "/websites", enabled: true },
+  { id: "run_audit", label: "Run a site audit", href: "/websites", enabled: true },
+  { id: "track_keyword", label: "Track a keyword", href: "/keywords", enabled: true },
+  { id: "create_campaign", label: "Create a campaign", href: "/campaigns", enabled: true },
+];
+
+export async function getOnboardingSteps(): Promise<OnboardingStepConfig[]> {
+  try {
+    const raw = await getDbSetting("onboarding_steps");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed as OnboardingStepConfig[];
+    }
+  } catch {
+  }
+  return DEFAULT_ONBOARDING_STEPS;
+}
+
+router.get("/admin/onboarding-steps", async (_req, res): Promise<void> => {
+  const steps = await getOnboardingSteps();
+  res.json(steps);
+});
+
+router.put("/admin/onboarding-steps", async (req, res): Promise<void> => {
+  const steps = req.body;
+  if (!Array.isArray(steps)) {
+    res.status(400).json({ error: "Request body must be an array of steps" });
+    return;
+  }
+  const VALID_IDS = DEFAULT_ONBOARDING_STEPS.map(s => s.id);
+  for (const step of steps) {
+    if (typeof step !== "object" || step === null) {
+      res.status(400).json({ error: "Each step must be an object" });
+      return;
+    }
+    if (!VALID_IDS.includes(step.id)) {
+      res.status(400).json({ error: `Invalid step id: ${step.id}` });
+      return;
+    }
+    if (typeof step.label !== "string" || !step.label.trim()) {
+      res.status(400).json({ error: `Step "${step.id}" must have a non-empty label` });
+      return;
+    }
+    if (typeof step.href !== "string" || !step.href.trim()) {
+      res.status(400).json({ error: `Step "${step.id}" must have a non-empty href` });
+      return;
+    }
+    if (!step.href.trim().startsWith("/")) {
+      res.status(400).json({ error: `Step "${step.id}" href must be a relative path starting with "/"` });
+      return;
+    }
+    if (typeof step.enabled !== "boolean") {
+      res.status(400).json({ error: `Step "${step.id}" must have a boolean enabled field` });
+      return;
+    }
+  }
+  const seenIds = new Set<string>();
+  const normalized: OnboardingStepConfig[] = [];
+  for (const step of steps) {
+    if (seenIds.has(step.id)) continue;
+    seenIds.add(step.id);
+    normalized.push({
+      id: step.id,
+      label: step.label.trim(),
+      href: step.href.trim(),
+      enabled: step.enabled,
+    });
+  }
+  for (const id of VALID_IDS) {
+    if (!seenIds.has(id)) {
+      normalized.push(DEFAULT_ONBOARDING_STEPS.find(s => s.id === id)!);
+    }
+  }
+  await setDbSetting("onboarding_steps", JSON.stringify(normalized));
+  res.json(normalized);
+});
+
 export default router;

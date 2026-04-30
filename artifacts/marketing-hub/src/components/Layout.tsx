@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { OnboardingFloatWidget } from "@/components/OnboardingChecklist";
 import {
   LayoutDashboard,
   Globe,
@@ -289,6 +290,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 overflow-y-auto">
         {children}
       </main>
+
+      {/* Floating onboarding checklist — visible on all pages except the dashboard */}
+      {location !== "/" && <OnboardingFloatWidget />}
     </div>
   );
 }

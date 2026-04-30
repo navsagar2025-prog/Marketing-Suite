@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import {
   Globe, Search, Megaphone, Users, Link2, TrendingUp, Target, Calendar,
-  Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2
+  Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2, CheckCircle2, Circle, X
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,8 @@ import {
   useGetLeadsFunnel,
   useGetCampaignAnalytics,
   useListWebsites,
+  useListKeywords,
+  useListCampaigns,
 } from "@workspace/api-client-react";
 
 const STAT_COLORS = [
@@ -141,6 +144,120 @@ const QUICK_ACTIONS = [
 
 const FUNNEL_COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
 
+const CHECKLIST_STORAGE_KEY = "getting_started_dismissed";
+
+function GettingStartedCard() {
+  const [dismissed, setDismissed] = useState(() =>
+    localStorage.getItem(CHECKLIST_STORAGE_KEY) === "true"
+  );
+  const { data: websites } = useListWebsites();
+  const { data: keywords } = useListKeywords();
+  const { data: campaigns } = useListCampaigns();
+
+  if (dismissed) return null;
+
+  const hasWebsite = (websites ?? []).length > 0;
+  const hasAudit = (websites ?? []).some(
+    (w) => w.seoScore !== null && w.seoScore !== undefined
+  );
+  const hasKeyword = (keywords ?? []).length > 0;
+  const hasCampaign = (campaigns ?? []).length > 0;
+
+  const steps = [
+    {
+      done: hasWebsite,
+      label: "Add your first website",
+      description: "Connect a website so we can track its SEO health.",
+      href: "/websites",
+    },
+    {
+      done: hasAudit,
+      label: "Run a site audit",
+      description: "Open your website and click \"Run Audit\" to get an SEO score.",
+      href: "/websites",
+    },
+    {
+      done: hasKeyword,
+      label: "Track a keyword",
+      description: "Add keywords to monitor your search rankings over time.",
+      href: "/keywords",
+    },
+    {
+      done: hasCampaign,
+      label: "Create a campaign",
+      description: "Set up an email or marketing campaign to reach your audience.",
+      href: "/campaigns",
+    },
+  ];
+
+  const completedCount = steps.filter((s) => s.done).length;
+  const allDone = completedCount === steps.length;
+
+  function dismiss() {
+    localStorage.setItem(CHECKLIST_STORAGE_KEY, "true");
+    setDismissed(true);
+  }
+
+  return (
+    <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">
+              {allDone ? "You're all set! 🎉" : "Getting Started"}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {allDone
+                ? "All setup steps are complete. Explore the platform to grow your traffic."
+                : `${completedCount} of ${steps.length} steps complete — finish setting up your workspace.`}
+            </p>
+          </div>
+          <button
+            aria-label="Dismiss"
+            onClick={dismiss}
+            className="text-muted-foreground hover:text-foreground mt-0.5 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${(completedCount / steps.length) * 100}%` }}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-2">
+        {steps.map((step) => (
+          <Link key={step.label} href={step.href}>
+            <div
+              className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                step.done
+                  ? "opacity-60"
+                  : "hover:bg-primary/5"
+              }`}
+            >
+              {step.done ? (
+                <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className={`text-sm font-medium leading-tight ${step.done ? "line-through text-muted-foreground" : ""}`}>
+                  {step.label}
+                </p>
+                {!step.done && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
+                )}
+              </div>
+            </div>
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SeoScoreBar({ score }: { score: number }) {
   const color =
     score >= 70 ? "bg-emerald-500" : score >= 40 ? "bg-amber-400" : "bg-red-500";
@@ -216,6 +333,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Getting Started checklist */}
+      <GettingStartedCard />
 
       {/* Stats grid */}
       <div>

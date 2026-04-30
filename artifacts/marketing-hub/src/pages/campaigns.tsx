@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail, Eye, EyeOff, List, ChevronDown, ChevronUp, Pencil, PlayCircle, PauseCircle } from "lucide-react";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -706,7 +707,10 @@ export default function Campaigns() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Campaigns</h1>
+          <h1 className="text-2xl font-bold font-display flex items-center gap-2" data-testid="text-page-title">
+            Campaigns
+            <HelpTooltip text="A campaign is a coordinated marketing effort with a specific goal — like driving signups or announcing a product. You can set budgets, track start/end dates, and use AI to generate copy for each campaign." />
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">Manage and track all marketing campaigns</p>
         </div>
         {activeTab === "campaigns" && (
@@ -882,9 +886,14 @@ export default function Campaigns() {
           {isLoading ? (
             <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-14 text-muted-foreground">
               <Megaphone className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">{search ? "No campaigns match" : "No campaigns yet"}</p>
+              <p className="font-medium text-sm">{search ? "No campaigns match your search" : "No campaigns yet"}</p>
+              {!search && (
+                <p className="text-xs mt-2 max-w-sm mx-auto leading-relaxed">
+                  Campaigns let you plan and track focused marketing pushes — whether that's an email series, a paid ad run, or a social media blitz. Click "New Campaign" to get started.
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-3">

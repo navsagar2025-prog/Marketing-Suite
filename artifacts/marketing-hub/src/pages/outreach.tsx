@@ -13,6 +13,7 @@ import {
   X,
   Bell,
 } from "lucide-react";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -266,6 +267,7 @@ export default function OutreachPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <Mail className="h-6 w-6" /> Outreach Tracker
+            <HelpTooltip text="Outreach is the process of contacting other websites or journalists to secure backlinks, guest posts, or press coverage. Track every contact here — from first email through to a won deal — so nothing slips through the cracks." />
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Track guest posts, link requests, partnerships, and PR outreach.

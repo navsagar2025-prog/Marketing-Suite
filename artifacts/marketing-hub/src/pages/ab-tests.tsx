@@ -5,6 +5,7 @@ import {
   Trash2, ToggleLeft, ToggleRight, Copy, CheckCheck,
   MousePointerClick, Eye
 } from "lucide-react";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
@@ -505,7 +506,10 @@ export default function AbTestsPage() {
             <FlaskConical className="h-6 w-6 text-indigo-500" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">A/B Test Manager</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              A/B Test Manager
+              <HelpTooltip text="An A/B test compares two (or more) versions of content — like two different headlines — to see which one gets more clicks. Show each version to a portion of your audience and let the data pick a winner." />
+            </h1>
             <p className="text-sm text-muted-foreground">Test headlines, CTAs, and copy — find what converts best</p>
           </div>
         </div>
@@ -562,7 +566,9 @@ export default function AbTestsPage() {
           <FlaskConical className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium">No {filter === "all" ? "" : filter} tests yet</p>
           {filter === "all" && (
-            <p className="text-xs mt-1">Create your first A/B test to start comparing variants.</p>
+            <p className="text-xs mt-2 max-w-sm mx-auto leading-relaxed">
+              A/B testing shows different versions of your content to different visitors and measures which performs better. Great for optimising headlines, call-to-action buttons, and ad copy. Click "New Test" to set one up.
+            </p>
           )}
         </div>
       ) : (

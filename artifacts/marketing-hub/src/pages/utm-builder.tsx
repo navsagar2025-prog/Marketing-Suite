@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Copy, Trash2, ExternalLink, Link2, Plus, CheckCheck, MousePointerClick, Globe } from "lucide-react";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -172,7 +173,10 @@ export default function UtmBuilderPage() {
           <Link2 className="h-6 w-6 text-blue-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">UTM Link Builder</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            UTM Link Builder
+            <HelpTooltip text="UTM parameters are short tags you add to a URL so analytics tools know where visitors came from. For example, adding ?utm_source=newsletter tells Google Analytics the visitor clicked a link in your email newsletter — not just that they visited." />
+          </h1>
           <p className="text-sm text-muted-foreground">Generate campaign-tagged URLs, track clicks via short redirect links</p>
         </div>
       </div>
@@ -342,9 +346,12 @@ export default function UtmBuilderPage() {
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground text-sm">Loading...</div>
           ) : links.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
+            <div className="text-center py-12 text-muted-foreground">
               <Link2 className="h-8 w-8 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No links yet. Build your first UTM link above.</p>
+              <p className="font-medium text-sm">No links saved yet</p>
+              <p className="text-xs mt-2 max-w-xs mx-auto leading-relaxed">
+                Fill in the form above to build a UTM link. Once saved, a short tracked redirect URL is generated so you can count exactly how many clicks your campaign receives.
+              </p>
             </div>
           ) : (
             <div className="space-y-2">

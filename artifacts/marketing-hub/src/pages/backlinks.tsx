@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Link2, Trash2, Search } from "lucide-react";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -90,7 +91,10 @@ export default function Backlinks() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Backlinks</h1>
+          <h1 className="text-2xl font-bold font-display flex items-center gap-2" data-testid="text-page-title">
+            Backlinks
+            <HelpTooltip text="Backlinks are links from other websites pointing to yours. More high-quality backlinks can improve your search engine rankings. Use this page to track outreach prospects and record which sites have agreed to link to you." />
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">Track your backlink outreach pipeline</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -198,9 +202,14 @@ export default function Backlinks() {
           {isLoading ? (
             <div className="p-4 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Link2 className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">{search ? "No backlinks match" : "No backlink opportunities yet"}</p>
+            <div className="text-center py-14 text-muted-foreground">
+              <Link2 className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium text-sm">{search ? "No backlinks match your search" : "No backlink opportunities yet"}</p>
+              {!search && (
+                <p className="text-xs mt-2 max-w-sm mx-auto leading-relaxed">
+                  A backlink is when another website links to yours — search engines use these as a trust signal. Start by adding domains you'd like to reach out to, then track each outreach attempt as it progresses.
+                </p>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

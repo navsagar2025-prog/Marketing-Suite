@@ -96,31 +96,33 @@ router.get("/outreach", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-// GET /outreach/stats — summary counts
+// GET /outreach/stats — summary counts (single query aggregated in JS)
 router.get("/outreach/stats", async (_req, res): Promise<void> => {
-  const [total] = await db.select({ count: count() }).from(outreachContactsTable);
-  const [won] = await db.select({ count: count() }).from(outreachContactsTable).where(eq(outreachContactsTable.status, "won"));
-  const [replied] = await db.select({ count: count() }).from(outreachContactsTable).where(eq(outreachContactsTable.status, "replied"));
-  const [rejected] = await db.select({ count: count() }).from(outreachContactsTable).where(eq(outreachContactsTable.status, "rejected"));
-  const [followupsDue] = await db
-    .select({ count: count() })
-    .from(outreachContactsTable)
-    .where(and(lte(outreachContactsTable.followUpDate, today()), eq(outreachContactsTable.status, "sent")));
+  const todayStr = today();
+  const rows = await db
+    .select({ status: outreachContactsTable.status, followUpDate: outreachContactsTable.followUpDate })
+    .from(outreachContactsTable);
 
-  const totalCount = total?.count ?? 0;
-  const repliedCount = replied?.count ?? 0;
-  const wonCount = won?.count ?? 0;
-  const rejectedCount = rejected?.count ?? 0;
-  const contacted = totalCount - (await db.select({ count: count() }).from(outreachContactsTable).where(eq(outreachContactsTable.status, "not_sent"))).reduce((a, r) => a + r.count, 0);
+  let totalCount = 0;
+  let wonCount = 0;
+  let repliedCount = 0;
+  let rejectedCount = 0;
+  let notSentCount = 0;
+  let followupsDue = 0;
+
+  for (const row of rows) {
+    totalCount++;
+    if (row.status === "won") wonCount++;
+    if (row.status === "replied") repliedCount++;
+    if (row.status === "rejected") rejectedCount++;
+    if (row.status === "not_sent") notSentCount++;
+    if (row.status === "sent" && row.followUpDate != null && row.followUpDate <= todayStr) followupsDue++;
+  }
+
+  const contacted = totalCount - notSentCount;
   const replyRate = contacted > 0 ? Math.round(((repliedCount + wonCount + rejectedCount) / contacted) * 100) : 0;
 
-  res.json({
-    total: totalCount,
-    won: wonCount,
-    replied: repliedCount,
-    replyRate,
-    followupsDue: followupsDue?.count ?? 0,
-  });
+  res.json({ total: totalCount, won: wonCount, replied: repliedCount, replyRate, followupsDue });
 });
 
 // POST /outreach
@@ -128,11 +130,6 @@ router.post("/outreach", async (req, res): Promise<void> => {
   const { data, error } = validateBody(req.body as Record<string, unknown>, true);
   if (error) {
     res.status(400).json({ error });
-    return;
-  }
-
-  if (!data.name || !data.domain) {
-    res.status(400).json({ error: "name and domain are required" });
     return;
   }
 

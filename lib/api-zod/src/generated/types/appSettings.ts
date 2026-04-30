@@ -14,4 +14,5 @@ export interface AppSettings {
   aiModel: string;
   aiEnabled: boolean;
   aiApiKeyConfigured: boolean;
+  dismissedTips: string[];
 }

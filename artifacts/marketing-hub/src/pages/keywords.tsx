@@ -28,10 +28,12 @@ import {
   useClusterKeywords,
   useListWebsites,
   useGetSettings,
+  useUpdateSettings,
   useGetKeywordRankHistory,
   useSnapshotKeywordRanks,
   getListKeywordsQueryKey,
   getGetKeywordRankHistoryQueryKey,
+  getGetSettingsQueryKey,
 } from "@workspace/api-client-react";
 import type { Keyword, KeywordRankHistory } from "@workspace/api-client-react";
 
@@ -531,7 +533,7 @@ export default function Keywords() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [kwTipDismissed, setKwTipDismissed] = useState(() => localStorage.getItem(KEYWORD_TIP_KEY) === "true");
+  const [kwTipDismissedLocal, setKwTipDismissedLocal] = useState(() => localStorage.getItem(KEYWORD_TIP_KEY) === "true");
   const [aiNiche, setAiNiche] = useState("");
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
@@ -549,9 +551,13 @@ export default function Keywords() {
   const updateMutation = useUpdateKeyword();
   const suggestMutation = useSuggestKeywords();
   const snapshotMutation = useSnapshotKeywordRanks();
+  const updateSettingsMutation = useUpdateSettings();
   const { data: settings } = useGetSettings();
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
+
+  const serverDismissedTips = settings?.dismissedTips ?? null;
+  const kwTipDismissed = kwTipDismissedLocal || (serverDismissedTips?.includes(KEYWORD_TIP_KEY) ?? false);
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
@@ -620,7 +626,14 @@ export default function Keywords() {
 
   const dismissKwTip = () => {
     localStorage.setItem(KEYWORD_TIP_KEY, "true");
-    setKwTipDismissed(true);
+    setKwTipDismissedLocal(true);
+    const current = serverDismissedTips ?? [];
+    if (!current.includes(KEYWORD_TIP_KEY)) {
+      updateSettingsMutation.mutate(
+        { data: { dismissedTips: [...current, KEYWORD_TIP_KEY] } },
+        { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) },
+      );
+    }
   };
 
   const showFirstKeywordTip = !kwTipDismissed && (keywords ?? []).length === 1;

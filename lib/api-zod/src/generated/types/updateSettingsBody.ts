@@ -16,4 +16,5 @@ export interface UpdateSettingsBody {
   aiEnabled?: boolean;
   /** @nullable */
   aiApiKey?: string | null;
+  dismissedTips?: string[];
 }

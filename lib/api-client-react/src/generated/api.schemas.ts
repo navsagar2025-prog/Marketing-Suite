@@ -878,6 +878,7 @@ export interface AppSettings {
   aiModel: string;
   aiEnabled: boolean;
   aiApiKeyConfigured: boolean;
+  dismissedTips: string[];
 }
 
 export interface UpdateSettingsBody {
@@ -890,6 +891,7 @@ export interface UpdateSettingsBody {
   aiEnabled?: boolean;
   /** @nullable */
   aiApiKey?: string | null;
+  dismissedTips?: string[];
 }
 
 export interface TestAiResponse {

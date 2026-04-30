@@ -21,6 +21,9 @@ import {
   useDeleteWebsite,
   useDetectWebsite,
   getListWebsitesQueryKey,
+  useGetSettings,
+  useUpdateSettings,
+  getGetSettingsQueryKey,
 } from "@workspace/api-client-react";
 
 const urlOnlySchema = z.object({
@@ -45,13 +48,18 @@ export default function Websites() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"url" | "details">("url");
   const [search, setSearch] = useState("");
-  const [tipDismissed, setTipDismissed] = useState(() => localStorage.getItem(WEBSITE_TIP_KEY) === "true");
+  const [tipDismissedLocal, setTipDismissedLocal] = useState(() => localStorage.getItem(WEBSITE_TIP_KEY) === "true");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: websites, isLoading } = useListWebsites();
+  const { data: settings } = useGetSettings();
+  const updateSettingsMutation = useUpdateSettings();
   const createMutation = useCreateWebsite();
   const deleteMutation = useDeleteWebsite();
   const detectMutation = useDetectWebsite();
+
+  const serverDismissedTips = settings?.dismissedTips ?? null;
+  const tipDismissed = tipDismissedLocal || (serverDismissedTips?.includes(WEBSITE_TIP_KEY) ?? false);
 
   const urlForm = useForm<UrlOnlyForm>({
     resolver: zodResolver(urlOnlySchema),
@@ -116,7 +124,14 @@ export default function Websites() {
 
   const dismissTip = () => {
     localStorage.setItem(WEBSITE_TIP_KEY, "true");
-    setTipDismissed(true);
+    setTipDismissedLocal(true);
+    const current = serverDismissedTips ?? [];
+    if (!current.includes(WEBSITE_TIP_KEY)) {
+      updateSettingsMutation.mutate(
+        { data: { dismissedTips: [...current, WEBSITE_TIP_KEY] } },
+        { onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() }) },
+      );
+    }
   };
 
   const filtered = (websites ?? []).filter(w =>

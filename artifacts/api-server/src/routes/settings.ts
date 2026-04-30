@@ -13,7 +13,26 @@ export function getSetting(key: string): string | null {
   return null;
 }
 
-router.get("/settings", async (_req, res): Promise<void> => {
+function dismissedTipsKey(userId: number): string {
+  return `ui_dismissed_tips_user_${userId}`;
+}
+
+async function getDismissedTips(userId: number): Promise<string[]> {
+  const raw = await getDbSetting(dismissedTipsKey(userId));
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function setDismissedTips(userId: number, tips: string[]): Promise<void> {
+  await setDbSetting(dismissedTipsKey(userId), JSON.stringify(tips));
+}
+
+router.get("/settings", async (req, res): Promise<void> => {
   const falConfigured = !!(process.env.FAL_KEY ?? process.env.FAL_AI_API_KEY);
   const aiConfig = await getAiConfig();
   const savedImageModel = await getDbSetting("fal_image_model");
@@ -24,6 +43,7 @@ router.get("/settings", async (_req, res): Promise<void> => {
   const falVideoModel = (savedVideoModel && FAL_VIDEO_MODELS.some(m => m.value === savedVideoModel))
     ? savedVideoModel
     : FAL_VIDEO_MODELS[0].value;
+  const dismissedTips = req.user ? await getDismissedTips(req.user.id) : [];
   res.json({
     falApiKeyConfigured: falConfigured,
     falImageModel,
@@ -32,11 +52,12 @@ router.get("/settings", async (_req, res): Promise<void> => {
     aiModel: aiConfig.model,
     aiEnabled: aiConfig.enabled,
     aiApiKeyConfigured: aiConfig.apiKeyConfigured,
+    dismissedTips,
   });
 });
 
 router.patch("/settings", async (req, res): Promise<void> => {
-  const { falApiKey, falImageModel, falVideoModel, aiProvider, aiModel, aiEnabled, aiApiKey } = req.body ?? {};
+  const { falApiKey, falImageModel, falVideoModel, aiProvider, aiModel, aiEnabled, aiApiKey, dismissedTips } = req.body ?? {};
 
   if (falApiKey !== undefined) {
     if (falApiKey === null || falApiKey === "") {
@@ -95,6 +116,12 @@ router.patch("/settings", async (req, res): Promise<void> => {
     }
   }
 
+  if (req.user && Array.isArray(dismissedTips) && dismissedTips.every((t: unknown) => typeof t === "string")) {
+    const existing = await getDismissedTips(req.user.id);
+    const merged = Array.from(new Set([...existing, ...dismissedTips]));
+    await setDismissedTips(req.user.id, merged);
+  }
+
   const falConfigured = !!(process.env.FAL_KEY ?? process.env.FAL_AI_API_KEY);
   const aiConfig = await getAiConfig();
   const savedImageModel = await getDbSetting("fal_image_model");
@@ -103,6 +130,7 @@ router.patch("/settings", async (req, res): Promise<void> => {
     ? savedImageModel : FAL_IMAGE_MODELS[0].value;
   const resolvedVideoModel = (savedVideoModel && FAL_VIDEO_MODELS.some(m => m.value === savedVideoModel))
     ? savedVideoModel : FAL_VIDEO_MODELS[0].value;
+  const resolvedDismissedTips = req.user ? await getDismissedTips(req.user.id) : [];
   res.json({
     falApiKeyConfigured: falConfigured,
     falImageModel: resolvedImageModel,
@@ -111,6 +139,7 @@ router.patch("/settings", async (req, res): Promise<void> => {
     aiModel: aiConfig.model,
     aiEnabled: aiConfig.enabled,
     aiApiKeyConfigured: aiConfig.apiKeyConfigured,
+    dismissedTips: resolvedDismissedTips,
   });
 });
 

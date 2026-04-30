@@ -3242,6 +3242,10 @@ components:
           type: boolean
         aiApiKeyConfigured:
           type: boolean
+        dismissedTips:
+          type: array
+          items:
+            type: string
       required:
         - falApiKeyConfigured
         - falImageModel
@@ -3250,6 +3254,7 @@ components:
         - aiModel
         - aiEnabled
         - aiApiKeyConfigured
+        - dismissedTips
 
     UpdateSettingsBody:
       type: object
@@ -3268,6 +3273,10 @@ components:
           type: boolean
         aiApiKey:
           type: ["string", "null"]
+        dismissedTips:
+          type: array
+          items:
+            type: string
 
     TestAiResponse:
       type: object

@@ -1794,6 +1794,7 @@ export const GetSettingsResponse = zod.object({
   aiModel: zod.string(),
   aiEnabled: zod.boolean(),
   aiApiKeyConfigured: zod.boolean(),
+  dismissedTips: zod.array(zod.string()),
 });
 
 /**
@@ -1807,6 +1808,7 @@ export const UpdateSettingsBody = zod.object({
   aiModel: zod.string().optional(),
   aiEnabled: zod.boolean().optional(),
   aiApiKey: zod.string().nullish(),
+  dismissedTips: zod.array(zod.string()).optional(),
 });
 
 export const UpdateSettingsResponse = zod.object({
@@ -1817,6 +1819,7 @@ export const UpdateSettingsResponse = zod.object({
   aiModel: zod.string(),
   aiEnabled: zod.boolean(),
   aiApiKeyConfigured: zod.boolean(),
+  dismissedTips: zod.array(zod.string()),
 });
 
 /**

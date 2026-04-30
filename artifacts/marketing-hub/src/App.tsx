@@ -20,6 +20,7 @@ import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
 import ReportPage from "@/pages/report";
 import LandingPage from "@/pages/landing";
+import PricingPage from "@/pages/pricing";
 import AdminPage from "@/pages/admin";
 import ConversationsPage from "@/pages/conversations";
 import BlogPage from "@/pages/blog";
@@ -89,6 +90,7 @@ function ProtectedRouter() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
+        <Route path="/pricing" component={PricingPage} />
         <Route path="/report/:token">
           {(params) => <SharedReportPage token={params.token ?? ""} />}
         </Route>
@@ -109,6 +111,7 @@ function ProtectedRouter() {
       <Route path="/login">
         <Redirect to="/" />
       </Route>
+      <Route path="/pricing" component={PricingPage} />
       <Route path="/report/:token">
         {(params) => <SharedReportPage token={params.token ?? ""} />}
       </Route>

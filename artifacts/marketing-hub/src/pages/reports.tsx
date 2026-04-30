@@ -111,7 +111,7 @@ function SectionBadge({ section }: { section: string }) {
 
 function ShareDialog({ report, onClose }: { report: ReportListItem; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
-  const shareUrl = `${window.location.origin}${BASE}/shared-report/${report.shareToken}`;
+  const shareUrl = `${window.location.origin}${BASE}/report/${report.shareToken}`;
 
   const copy = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -345,7 +345,7 @@ export default function ReportsPage() {
 
           {/* Step indicator */}
           <div className="flex items-center gap-2 text-xs mb-2">
-            {[1, 2, 3].map((s) => (
+            {[1, 2, 3, 4].map((s) => (
               <div key={s} className="flex items-center gap-1">
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
@@ -358,11 +358,11 @@ export default function ReportsPage() {
                 >
                   {step > s ? <Check className="h-3 w-3" /> : s}
                 </div>
-                {s < 3 && <div className={`w-8 h-px ${step > s ? "bg-green-500" : "bg-muted"}`} />}
+                {s < 4 && <div className={`w-6 h-px ${step > s ? "bg-green-500" : "bg-muted"}`} />}
               </div>
             ))}
             <span className="ml-2 text-muted-foreground">
-              {step === 1 ? "Website & Title" : step === 2 ? "Date Range" : "Sections"}
+              {step === 1 ? "Website & Title" : step === 2 ? "Date Range" : step === 3 ? "Sections" : "Preview"}
             </span>
           </div>
 
@@ -455,6 +455,38 @@ export default function ReportsPage() {
             </div>
           )}
 
+          {/* Step 4: Preview */}
+          {step === 4 && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Review your report before generating it.</p>
+              <div className="rounded-lg border divide-y text-sm">
+                <div className="flex gap-3 px-4 py-2.5">
+                  <span className="text-muted-foreground w-28 shrink-0">Title</span>
+                  <span className="font-medium">{reportTitle}</span>
+                </div>
+                <div className="flex gap-3 px-4 py-2.5">
+                  <span className="text-muted-foreground w-28 shrink-0">Website</span>
+                  <div>
+                    <p className="font-medium">{selectedWebsiteData?.name}</p>
+                    <p className="text-xs text-muted-foreground">{selectedWebsiteData?.url}</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 px-4 py-2.5">
+                  <span className="text-muted-foreground w-28 shrink-0">Date Range</span>
+                  <span className="font-medium">{dateFrom} → {dateTo}</span>
+                </div>
+                <div className="flex gap-3 px-4 py-2.5">
+                  <span className="text-muted-foreground w-28 shrink-0">Sections</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedSections.map(s => (
+                      <SectionBadge key={s} section={s} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <DialogFooter className="flex-row justify-between mt-2">
             <div>
               {step > 1 && (
@@ -464,10 +496,10 @@ export default function ReportsPage() {
               )}
             </div>
             <div>
-              {step < 3 ? (
+              {step < 4 ? (
                 <Button
                   onClick={() => setStep(s => s + 1)}
-                  disabled={(step === 1 && !canNext1) || (step === 2 && !canNext2)}
+                  disabled={(step === 1 && !canNext1) || (step === 2 && !canNext2) || (step === 3 && !canGenerate)}
                 >
                   Next <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>

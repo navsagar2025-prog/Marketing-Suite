@@ -88,6 +88,9 @@ function ProtectedRouter() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
+        <Route path="/report/:token">
+          {(params) => <SharedReportPage token={params.token ?? ""} />}
+        </Route>
         <Route path="/report" component={ReportPage} />
         <Route path="/shared-report/:token">
           {(params) => <SharedReportPage token={params.token ?? ""} />}
@@ -104,6 +107,9 @@ function ProtectedRouter() {
     <Switch>
       <Route path="/login">
         <Redirect to="/" />
+      </Route>
+      <Route path="/report/:token">
+        {(params) => <SharedReportPage token={params.token ?? ""} />}
       </Route>
       <Route path="/report" component={ReportPage} />
       <Route path="/shared-report/:token">

@@ -262,4 +262,33 @@ router.delete("/reports/:id", async (req, res): Promise<void> => {
   res.json({ success: true });
 });
 
+router.post("/reports/:id/regenerate", async (req, res): Promise<void> => {
+  const id = parseInt(req.params["id"] ?? "", 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid report ID" });
+    return;
+  }
+  const [existing] = await db.select().from(clientReportsTable).where(eq(clientReportsTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+
+  const sections = existing.sections as string[];
+  const validSections = sections.filter((s): s is Section => VALID_SECTIONS.includes(s as Section));
+  const snapshot = await buildSnapshot(existing.websiteId, existing.dateRangeStart, existing.dateRangeEnd, validSections);
+  if (!snapshot) {
+    res.status(404).json({ error: "Associated website not found" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(clientReportsTable)
+    .set({ snapshot, updatedAt: new Date() })
+    .where(eq(clientReportsTable.id, id))
+    .returning();
+
+  res.json(updated);
+});
+
 export default router;

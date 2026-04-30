@@ -16,6 +16,7 @@ import {
   Link2,
   Megaphone,
   Search,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -414,6 +415,23 @@ export default function ReportDetailPage({ id }: { id: string }) {
     onError: () => toast({ title: "Error deleting report", variant: "destructive" }),
   });
 
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE}/api/reports/${reportId}/regenerate`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to regenerate");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["report", reportId] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      toast({ title: "Report regenerated", description: "Data has been refreshed from current records." });
+    },
+    onError: () => toast({ title: "Error regenerating report", variant: "destructive" }),
+  });
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -431,7 +449,7 @@ export default function ReportDetailPage({ id }: { id: string }) {
     );
   }
 
-  const shareUrl = `${window.location.origin}${BASE}/shared-report/${report.shareToken}`;
+  const shareUrl = `${window.location.origin}${BASE}/report/${report.shareToken}`;
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -447,6 +465,17 @@ export default function ReportDetailPage({ id }: { id: string }) {
           <ArrowLeft className="h-4 w-4 mr-1.5" /> Reports
         </Button>
         <div className="flex-1" />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => regenerateMutation.mutate()}
+          disabled={regenerateMutation.isPending}
+          data-testid="button-regenerate"
+        >
+          {regenerateMutation.isPending
+            ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Regenerating…</>
+            : <><RefreshCw className="h-4 w-4 mr-1.5" /> Regenerate</>}
+        </Button>
         <Button size="sm" variant="outline" onClick={() => setShareOpen(true)} data-testid="button-share">
           <Share2 className="h-4 w-4 mr-1.5" /> Share
         </Button>

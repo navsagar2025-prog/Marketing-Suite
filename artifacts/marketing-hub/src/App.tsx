@@ -28,6 +28,9 @@ import KnowledgeBasePage from "@/pages/knowledge-base";
 import KbArticlePage from "@/pages/kb-article";
 import UtmBuilderPage from "@/pages/utm-builder";
 import AbTestsPage from "@/pages/ab-tests";
+import ReportsPage from "@/pages/reports";
+import ReportDetailPage from "@/pages/report-detail";
+import SharedReportPage from "@/pages/shared-report";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Loader2, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -86,6 +89,9 @@ function ProtectedRouter() {
       <Switch>
         <Route path="/login" component={LoginPage} />
         <Route path="/report" component={ReportPage} />
+        <Route path="/shared-report/:token">
+          {(params) => <SharedReportPage token={params.token ?? ""} />}
+        </Route>
         <Route path="/" component={LandingPage} />
         <Route>
           <Redirect to="/" />
@@ -100,6 +106,9 @@ function ProtectedRouter() {
         <Redirect to="/" />
       </Route>
       <Route path="/report" component={ReportPage} />
+      <Route path="/shared-report/:token">
+        {(params) => <SharedReportPage token={params.token ?? ""} />}
+      </Route>
       <Route>
         <Layout>
           <Switch>
@@ -145,6 +154,14 @@ function ProtectedRouter() {
             <Route path="/utm-builder" component={UtmBuilderPage} />
             <Route path="/ab-tests">
               <PermissionGuard module="analytics"><AbTestsPage /></PermissionGuard>
+            </Route>
+            <Route path="/reports/:id">
+              {(params) => (
+                <PermissionGuard module="analytics"><ReportDetailPage id={params.id ?? ""} /></PermissionGuard>
+              )}
+            </Route>
+            <Route path="/reports">
+              <PermissionGuard module="analytics"><ReportsPage /></PermissionGuard>
             </Route>
             <Route path="/blog/:slug">
               {(params) => <BlogPostPage key={params.slug} />}

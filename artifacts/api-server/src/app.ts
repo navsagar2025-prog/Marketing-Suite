@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { and, eq, sql } from "drizzle-orm";
-import { db, utmLinksTable, abVariantsTable } from "@workspace/db";
+import { db, utmLinksTable, abVariantsTable, clientReportsTable, websitesTable } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -118,6 +118,36 @@ async function handleAbTrack(req: import("express").Request, res: import("expres
 }
 app.get("/track/ab/:testId/:variantId", handleAbTrack);
 app.post("/track/ab/:testId/:variantId", handleAbTrack);
+
+// Public client report by share token — no auth required
+app.get("/public/report/:token", async (req, res): Promise<void> => {
+  const token = req.params.token;
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "Invalid token" });
+    return;
+  }
+  const [report] = await db
+    .select({
+      id: clientReportsTable.id,
+      title: clientReportsTable.title,
+      dateRangeStart: clientReportsTable.dateRangeStart,
+      dateRangeEnd: clientReportsTable.dateRangeEnd,
+      sections: clientReportsTable.sections,
+      snapshot: clientReportsTable.snapshot,
+      createdAt: clientReportsTable.createdAt,
+      websiteName: websitesTable.name,
+      websiteUrl: websitesTable.url,
+    })
+    .from(clientReportsTable)
+    .leftJoin(websitesTable, eq(clientReportsTable.websiteId, websitesTable.id))
+    .where(eq(clientReportsTable.shareToken, token));
+
+  if (!report) {
+    res.status(404).json({ error: "Report not found" });
+    return;
+  }
+  res.json(report);
+});
 
 app.use("/api", router);
 

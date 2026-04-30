@@ -70,10 +70,15 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `POST /api/websites/:id/audit` — Run full SEO audit (crawl URL + AI analysis, store snapshot)
 - `GET /api/websites/:id/audits` — List audit history for a website
 - `POST /api/ai/fix-issue` — AI-generated fix for a specific SEO audit issue
+- `GET /api/reports` — List all client reports (analytics permission)
+- `GET /api/reports/:id` — Get single report with full snapshot
+- `POST /api/reports` — Generate and save a new report (body: websiteId, title, dateRangeStart, dateRangeEnd, sections[])
+- `DELETE /api/reports/:id` — Delete a report
+- `GET /public/report/:token` — Public report access by share token (no auth required)
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `staff_users`
+Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `staff_users`, `client_reports`
 
 ### keyword_rank_history table
 - `id`: serial PK

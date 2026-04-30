@@ -27,6 +27,7 @@ import {
   BookOpen,
   HelpCircle,
   FlaskConical,
+  FileBarChart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ const navItems = [
   { path: "/media", label: "Media Library", icon: ImageIcon, permission: "media" },
   { path: "/utm-builder", label: "UTM Builder", icon: Link2, permission: "campaigns" },
   { path: "/ab-tests", label: "A/B Tests", icon: FlaskConical, permission: "analytics" },
+  { path: "/reports", label: "Reports", icon: FileBarChart, permission: "analytics" },
   { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
   { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
   { path: "/settings", label: "Settings", icon: Settings, permission: null },

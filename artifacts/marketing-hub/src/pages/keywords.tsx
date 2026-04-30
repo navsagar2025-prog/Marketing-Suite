@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties } from "lucide-react";
+import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -525,10 +525,13 @@ function ClustersView({
   );
 }
 
+const KEYWORD_TIP_KEY = "tip_first_keyword_dismissed";
+
 export default function Keywords() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [kwTipDismissed, setKwTipDismissed] = useState(() => localStorage.getItem(KEYWORD_TIP_KEY) === "true");
   const [aiNiche, setAiNiche] = useState("");
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
@@ -614,6 +617,13 @@ export default function Keywords() {
       },
     );
   };
+
+  const dismissKwTip = () => {
+    localStorage.setItem(KEYWORD_TIP_KEY, "true");
+    setKwTipDismissed(true);
+  };
+
+  const showFirstKeywordTip = !kwTipDismissed && (keywords ?? []).length === 1;
 
   const allClusters = useMemo(() => {
     const names = new Set<string>();
@@ -821,6 +831,27 @@ export default function Keywords() {
           </Select>
         )}
       </div>
+
+      {/* First keyword tip */}
+      {showFirstKeywordTip && (
+        <div
+          data-testid="banner-first-keyword-tip"
+          className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-4 py-3 text-sm"
+        >
+          <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+          <p className="flex-1 text-blue-900 dark:text-blue-200">
+            Your first snapshot will appear within 24 hours. Check back here to see ranking trends.
+          </p>
+          <button
+            data-testid="button-dismiss-first-keyword-tip"
+            onClick={dismissKwTip}
+            className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-200 transition-colors shrink-0"
+            aria-label="Dismiss tip"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="flex gap-1 border-b">

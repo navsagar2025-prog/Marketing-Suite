@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Plus, Globe, ExternalLink, Trash2, Search, Loader2, Sparkles, CheckCircle } from "lucide-react";
+import { Plus, Globe, ExternalLink, Trash2, Search, Loader2, Sparkles, CheckCircle, X, Rocket } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -39,10 +39,13 @@ const createSchema = z.object({
 type UrlOnlyForm = z.infer<typeof urlOnlySchema>;
 type CreateForm = z.infer<typeof createSchema>;
 
+const WEBSITE_TIP_KEY = "tip_first_website_dismissed";
+
 export default function Websites() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"url" | "details">("url");
   const [search, setSearch] = useState("");
+  const [tipDismissed, setTipDismissed] = useState(() => localStorage.getItem(WEBSITE_TIP_KEY) === "true");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: websites, isLoading } = useListWebsites();
@@ -111,9 +114,16 @@ export default function Websites() {
     }
   };
 
+  const dismissTip = () => {
+    localStorage.setItem(WEBSITE_TIP_KEY, "true");
+    setTipDismissed(true);
+  };
+
   const filtered = (websites ?? []).filter(w =>
     !search || w.name.toLowerCase().includes(search.toLowerCase()) || w.url.toLowerCase().includes(search.toLowerCase())
   );
+
+  const showFirstWebsiteTip = !tipDismissed && (websites ?? []).length === 1;
 
   return (
     <div className="p-6 space-y-6">
@@ -282,6 +292,31 @@ export default function Websites() {
           onChange={e => setSearch(e.target.value)}
         />
       </div>
+
+      {/* First website tip */}
+      {showFirstWebsiteTip && (
+        <div
+          data-testid="banner-first-website-tip"
+          className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm"
+        >
+          <Rocket className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <span className="font-medium text-primary">Great!</span>{" "}
+            <span className="text-foreground">Now run an audit to get your SEO score</span>{" "}
+            <Link href={`/websites/${(websites ?? [])[0]?.id}`} className="text-primary font-medium underline underline-offset-2 hover:no-underline">
+              Run audit →
+            </Link>
+          </div>
+          <button
+            data-testid="button-dismiss-first-website-tip"
+            onClick={dismissTip}
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            aria-label="Dismiss tip"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Grid */}
       {isLoading ? (

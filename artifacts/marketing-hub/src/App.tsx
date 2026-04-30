@@ -28,6 +28,7 @@ import KnowledgeBasePage from "@/pages/knowledge-base";
 import KbArticlePage from "@/pages/kb-article";
 import UtmBuilderPage from "@/pages/utm-builder";
 import AbTestsPage from "@/pages/ab-tests";
+import OutreachPage from "@/pages/outreach";
 import ReportsPage from "@/pages/reports";
 import ReportDetailPage from "@/pages/report-detail";
 import SharedReportPage from "@/pages/shared-report";
@@ -160,6 +161,9 @@ function ProtectedRouter() {
             <Route path="/utm-builder" component={UtmBuilderPage} />
             <Route path="/ab-tests">
               <PermissionGuard module="analytics"><AbTestsPage /></PermissionGuard>
+            </Route>
+            <Route path="/outreach">
+              <PermissionGuard module="backlinks"><OutreachPage /></PermissionGuard>
             </Route>
             <Route path="/reports/:id">
               {(params) => (

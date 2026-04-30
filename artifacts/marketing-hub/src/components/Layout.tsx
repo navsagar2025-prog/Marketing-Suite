@@ -28,6 +28,7 @@ import {
   HelpCircle,
   FlaskConical,
   FileBarChart,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const navItems = [
   { path: "/calendar", label: "Calendar", icon: CalendarDays, permission: "calendar" },
   { path: "/campaigns", label: "Campaigns", icon: Megaphone, permission: "campaigns" },
   { path: "/backlinks", label: "Backlinks", icon: Link2, permission: "backlinks" },
+  { path: "/outreach", label: "Outreach", icon: Send, permission: "backlinks" },
   { path: "/leads", label: "Leads", icon: Users, permission: "leads" },
   { path: "/conversations", label: "Conversations", icon: MessageSquare, permission: "conversations" },
   { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "analytics" },

@@ -26,6 +26,7 @@ import kbRouter from "./kb";
 import utmLinksRouter from "./utm-links";
 import abTestsRouter from "./ab-tests";
 import clientReportsRouter from "./client-reports";
+import outreachRouter from "./outreach";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -58,6 +59,7 @@ router.use("/media-assets", requirePermission("media"));
 router.use("/utm-links", requirePermission("campaigns"));
 router.use("/ab-tests", requirePermission("analytics"));
 router.use("/reports", requirePermission("analytics"));
+router.use("/outreach", requirePermission("backlinks"));
 
 router.use(websitesRouter);
 router.use(keywordsRouter);
@@ -78,6 +80,7 @@ router.use("/kb", kbRouter);
 router.use(utmLinksRouter);
 router.use(abTestsRouter);
 router.use(clientReportsRouter);
+router.use(outreachRouter);
 router.use(adminRouter);
 
 export default router;

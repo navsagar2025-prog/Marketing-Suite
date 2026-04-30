@@ -114,6 +114,20 @@ Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaig
 - `createdAt`: timestamp
 - Populated by `POST /api/websites/:id/link-suggestions` (AI-powered)
 
+### outreach_contacts table
+- `id`: serial PK
+- `name`, `domain`: text (required)
+- `email`: text (nullable)
+- `type`: text — `guest_post`, `link_request`, `partnership`, `pr`
+- `status`: text — `not_sent`, `sent`, `opened`, `replied`, `rejected`, `won`
+- `dateSent`: date (nullable)
+- `followUpDate`: date (nullable) — "Follow-ups Due" filter matches rows where date ≤ today AND status = "sent"
+- `notes`: text (nullable)
+- `createdAt`, `updatedAt`: timestamps
+- API: `GET/POST /api/outreach`, `PATCH/DELETE /api/outreach/:id`, `GET /api/outreach/stats`
+- Permission guard: `backlinks`
+- Frontend: `/outreach` page with stat cards (total, reply rate, won, follow-ups due), filter tabs per status, sortable table, slide-in sheet form
+
 ### competitor_analyses table
 - `id`: serial PK
 - `websiteId`: FK → websites (cascade delete)

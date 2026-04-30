@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const staffRoleEnum = pgEnum("staff_role", ["admin", "staff"]);
+export const planEnum = pgEnum("staff_plan", ["starter", "growth", "agency"]);
 
 export const staffUsersTable = pgTable("staff_users", {
   id: serial("id").primaryKey(),
@@ -10,6 +11,7 @@ export const staffUsersTable = pgTable("staff_users", {
   passwordHash: text("password_hash").notNull(),
   role: staffRoleEnum("role").notNull().default("staff"),
   permissions: jsonb("permissions").$type<string[] | null>().default(null),
+  plan: planEnum("plan").notNull().default("starter"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -1306,6 +1306,39 @@ export interface LeadFormSubmitResponse {
   ok: boolean;
 }
 
+export interface BillingUsage {
+  websites: number;
+  keywords: number;
+  campaigns: number;
+  aiGenerations: number;
+}
+
+export interface BillingLimits {
+  /** -1 means unlimited */
+  websites: number;
+  /** -1 means unlimited */
+  keywords: number;
+  /** -1 means unlimited */
+  campaigns: number;
+  aiGenerations: number;
+}
+
+export type BillingMePlan = (typeof BillingMePlan)[keyof typeof BillingMePlan];
+
+export const BillingMePlan = {
+  starter: "starter",
+  growth: "growth",
+  agency: "agency",
+} as const;
+
+export interface BillingMe {
+  plan: BillingMePlan;
+  planName: string;
+  monthlyPrice: number;
+  limits: BillingLimits;
+  usage: BillingUsage;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };

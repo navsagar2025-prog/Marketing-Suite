@@ -22,6 +22,7 @@ import type {
   AnalyticsSummary,
   AppSettings,
   Backlink,
+  BillingMe,
   Campaign,
   CampaignAnalytics,
   CampaignRecipientsResponse,
@@ -8406,3 +8407,78 @@ export const useResetUserUsage = <
 > => {
   return useMutation(getResetUserUsageMutationOptions(options));
 };
+
+/**
+ * @summary Get current user plan and usage
+ */
+export const getGetBillingMeUrl = () => {
+  return `/api/billing/me`;
+};
+
+export const getBillingMe = async (
+  options?: RequestInit,
+): Promise<BillingMe> => {
+  return customFetch<BillingMe>(getGetBillingMeUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBillingMeQueryKey = () => {
+  return [`/api/billing/me`] as const;
+};
+
+export const getGetBillingMeQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBillingMe>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBillingMeQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBillingMe>>> = ({
+    signal,
+  }) => getBillingMe({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingMe>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBillingMeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBillingMe>>
+>;
+export type GetBillingMeQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current user plan and usage
+ */
+
+export function useGetBillingMe<
+  TData = Awaited<ReturnType<typeof getBillingMe>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getBillingMe>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBillingMeQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

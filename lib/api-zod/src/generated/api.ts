@@ -2070,3 +2070,24 @@ export const ResetUserUsageResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary Get current user plan and usage
+ */
+export const GetBillingMeResponse = zod.object({
+  plan: zod.enum(["starter", "growth", "agency"]),
+  planName: zod.string(),
+  monthlyPrice: zod.number(),
+  limits: zod.object({
+    websites: zod.number().describe("-1 means unlimited"),
+    keywords: zod.number().describe("-1 means unlimited"),
+    campaigns: zod.number().describe("-1 means unlimited"),
+    aiGenerations: zod.number(),
+  }),
+  usage: zod.object({
+    websites: zod.number(),
+    keywords: zod.number(),
+    campaigns: zod.number(),
+    aiGenerations: zod.number(),
+  }),
+});

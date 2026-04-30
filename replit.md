@@ -75,10 +75,15 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `POST /api/reports` — Generate and save a new report (body: websiteId, title, dateRangeStart, dateRangeEnd, sections[])
 - `DELETE /api/reports/:id` — Delete a report
 - `GET /public/report/:token` — Public report access by share token (no auth required)
+- `GET /api/billing/me` — Get current user's plan, limits, and monthly usage counts (websites, keywords, campaigns, AI generations); plan is display-only (set via DB/admin)
 
 ## Database Schema (lib/db)
 
 Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `staff_users`, `client_reports`
+
+### staff_users.plan
+- `plan`: pgEnum `staff_plan` — values: `starter`, `growth`, `agency` — defaults to `starter`
+- Plan limits (used in billing endpoint): Starter: 1 website, 25 keywords, 1 campaign, 50 AI gens; Growth: 5, 200, unlimited, 300; Agency: unlimited, unlimited, unlimited, 1000
 
 ### keyword_rank_history table
 - `id`: serial PK

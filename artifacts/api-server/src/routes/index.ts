@@ -27,6 +27,7 @@ import utmLinksRouter from "./utm-links";
 import abTestsRouter from "./ab-tests";
 import clientReportsRouter from "./client-reports";
 import outreachRouter from "./outreach";
+import billingRouter from "./billing";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -81,6 +82,7 @@ router.use(utmLinksRouter);
 router.use(abTestsRouter);
 router.use(clientReportsRouter);
 router.use(outreachRouter);
+router.use(billingRouter);
 router.use(adminRouter);
 
 export default router;

@@ -1,15 +1,48 @@
 import { useState } from "react";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock } from "lucide-react";
+import { useLocation } from "wouter";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey, useGetBillingMe, getGetBillingMeQueryKey } from "@workspace/api-client-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { ALL_MODULES, MODULE_LABELS } from "@workspace/api-zod";
 import { cn } from "@/lib/utils";
+
+const PLAN_COLORS: Record<string, string> = {
+  starter: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700",
+  growth: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-700",
+  agency: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-700",
+};
+
+function UsageMeter({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const unlimited = limit === -1;
+  const pct = unlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
+  const isNear = !unlimited && pct >= 80;
+  const isExhausted = !unlimited && pct >= 100;
+  const fmt = (n: number) => n.toLocaleString("en-IN");
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground font-medium">{label}</span>
+        <span className={cn("tabular-nums", isExhausted ? "text-destructive font-semibold" : isNear ? "text-amber-600" : "text-muted-foreground")}>
+          {unlimited ? `${fmt(used)} / ∞` : `${fmt(used)} / ${fmt(limit)}`}
+        </span>
+      </div>
+      {!unlimited && (
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn("h-full rounded-full transition-all", isExhausted ? "bg-destructive" : isNear ? "bg-amber-400" : "bg-primary/70")}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 type EmailProvider = "smtp" | "sendgrid" | "mailgun" | "resend" | "mailchimp";
 
@@ -59,6 +92,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { permissions } = usePermissions();
+  const [, setLocation] = useLocation();
   const isAdmin = user?.role === "admin";
   const hasFullAccess = !isAdmin && permissions === null;
 
@@ -93,6 +127,7 @@ export default function SettingsPage() {
   const [emailTestResult, setEmailTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [emailDirty, setEmailDirty] = useState(false);
 
+  const { data: billing } = useGetBillingMe({ query: { queryKey: getGetBillingMeQueryKey() } });
   const { data: settings, isLoading, refetch } = useGetSettings();
   const updateMutation = useUpdateSettings();
   const testMutation = useTestAiConnection();
@@ -419,6 +454,91 @@ export default function SettingsPage() {
         <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Settings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Configure integrations and API keys</p>
       </div>
+
+      {/* Billing & Plan */}
+      <Card data-testid="card-billing-plan">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-md bg-violet-500/10">
+              <Zap className="h-5 w-5 text-violet-500" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-base">Billing &amp; Plan</CardTitle>
+                {billing && (
+                  <Badge
+                    data-testid="badge-current-plan"
+                    variant="outline"
+                    className={cn("text-xs capitalize font-semibold border", PLAN_COLORS[billing.plan])}
+                  >
+                    {billing.planName}
+                  </Badge>
+                )}
+              </div>
+              <CardDescription className="mt-0.5">
+                Your current subscription and monthly usage
+              </CardDescription>
+            </div>
+            <Button
+              data-testid="button-change-plan"
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => setLocation("/pricing")}
+            >
+              {billing?.plan === "agency" ? "View Plans" : "Upgrade Plan"}
+              <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {billing ? (
+            <>
+              {/* Plan summary */}
+              <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold">{billing.planName} Plan</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(billing.monthlyPrice)}/month
+                  </p>
+                </div>
+                <Badge variant="outline" className={cn("text-xs capitalize font-semibold border", PLAN_COLORS[billing.plan])}>
+                  {billing.planName}
+                </Badge>
+              </div>
+
+              {/* Usage meters */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium">This month&apos;s usage</p>
+                <div className="space-y-3 rounded-lg border px-4 py-3">
+                  <UsageMeter
+                    label="Websites"
+                    used={billing.usage.websites}
+                    limit={billing.limits.websites}
+                  />
+                  <UsageMeter
+                    label="Keywords tracked"
+                    used={billing.usage.keywords}
+                    limit={billing.limits.keywords}
+                  />
+                  <UsageMeter
+                    label="Campaigns"
+                    used={billing.usage.campaigns}
+                    limit={billing.limits.campaigns}
+                  />
+                  <UsageMeter
+                    label="AI generations"
+                    used={billing.usage.aiGenerations}
+                    limit={billing.limits.aiGenerations}
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Loading billing information...</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* My Access — shown only to staff users, not admins */}
       {!isAdmin && (

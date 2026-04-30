@@ -34,6 +34,8 @@ tags:
     description: Email nurture sequence management
   - name: lead-forms
     description: Embeddable lead capture form management
+  - name: billing
+    description: Plan and usage billing information
 
 paths:
   /healthz:
@@ -1921,6 +1923,20 @@ paths:
                     items:
                       $ref: "#/components/schemas/UsageEntry"
                 required: [userId, type, summary]
+
+  # ─── Billing ──────────────────────────────────────────────────────────────
+  /billing/me:
+    get:
+      operationId: getBillingMe
+      tags: [billing]
+      summary: Get current user plan and usage
+      responses:
+        "200":
+          description: Billing summary with plan and usage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingMe"
 
 components:
   schemas:
@@ -4021,3 +4037,49 @@ components:
           type: boolean
       required:
         - ok
+
+    BillingUsage:
+      type: object
+      properties:
+        websites:
+          type: integer
+        keywords:
+          type: integer
+        campaigns:
+          type: integer
+        aiGenerations:
+          type: integer
+      required: [websites, keywords, campaigns, aiGenerations]
+
+    BillingLimits:
+      type: object
+      properties:
+        websites:
+          type: integer
+          description: "-1 means unlimited"
+        keywords:
+          type: integer
+          description: "-1 means unlimited"
+        campaigns:
+          type: integer
+          description: "-1 means unlimited"
+        aiGenerations:
+          type: integer
+      required: [websites, keywords, campaigns, aiGenerations]
+
+    BillingMe:
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [starter, growth, agency]
+        planName:
+          type: string
+        monthlyPrice:
+          type: integer
+        limits:
+          $ref: "#/components/schemas/BillingLimits"
+        usage:
+          $ref: "#/components/schemas/BillingUsage"
+      required: [plan, planName, monthlyPrice, limits, usage]
+

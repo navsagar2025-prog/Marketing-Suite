@@ -150,11 +150,11 @@ function GettingStartedCard() {
   const [dismissed, setDismissed] = useState(() =>
     localStorage.getItem(CHECKLIST_STORAGE_KEY) === "true"
   );
-  const { data: websites } = useListWebsites();
-  const { data: keywords } = useListKeywords();
-  const { data: campaigns } = useListCampaigns();
+  const { data: websites, isLoading: websitesLoading } = useListWebsites();
+  const { data: keywords, isLoading: keywordsLoading } = useListKeywords();
+  const { data: campaigns, isLoading: campaignsLoading } = useListCampaigns();
 
-  if (dismissed) return null;
+  const isLoading = websitesLoading || keywordsLoading || campaignsLoading;
 
   const hasWebsite = (websites ?? []).length > 0;
   const hasAudit = (websites ?? []).some(
@@ -169,24 +169,28 @@ function GettingStartedCard() {
       label: "Add your first website",
       description: "Connect a website so we can track its SEO health.",
       href: "/websites",
+      cta: "Add Website",
     },
     {
       done: hasAudit,
       label: "Run a site audit",
       description: "Open your website and click \"Run Audit\" to get an SEO score.",
       href: "/websites",
+      cta: "Go to Websites",
     },
     {
       done: hasKeyword,
       label: "Track a keyword",
       description: "Add keywords to monitor your search rankings over time.",
       href: "/keywords",
+      cta: "Add Keyword",
     },
     {
       done: hasCampaign,
       label: "Create a campaign",
       description: "Set up an email or marketing campaign to reach your audience.",
       href: "/campaigns",
+      cta: "New Campaign",
     },
   ];
 
@@ -198,22 +202,23 @@ function GettingStartedCard() {
     setDismissed(true);
   }
 
+  if (dismissed) return null;
+  if (!isLoading && allDone) return null;
+
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <CardTitle className="text-base">
-              {allDone ? "You're all set! 🎉" : "Getting Started"}
-            </CardTitle>
+            <CardTitle className="text-base">Getting Started</CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {allDone
-                ? "All setup steps are complete. Explore the platform to grow your traffic."
+              {isLoading
+                ? "Loading your workspace..."
                 : `${completedCount} of ${steps.length} steps complete — finish setting up your workspace.`}
             </p>
           </div>
           <button
-            aria-label="Dismiss"
+            aria-label="Dismiss getting started checklist"
             onClick={dismiss}
             className="text-muted-foreground hover:text-foreground mt-0.5 transition-colors"
           >
@@ -223,35 +228,39 @@ function GettingStartedCard() {
         <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full bg-primary transition-all duration-500"
-            style={{ width: `${(completedCount / steps.length) * 100}%` }}
+            style={{ width: isLoading ? "0%" : `${(completedCount / steps.length) * 100}%` }}
           />
         </div>
       </CardHeader>
-      <CardContent className="pt-0 space-y-2">
+      <CardContent className="pt-0 space-y-1">
         {steps.map((step) => (
-          <Link key={step.label} href={step.href}>
-            <div
-              className={`flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
-                step.done
-                  ? "opacity-60"
-                  : "hover:bg-primary/5"
-              }`}
-            >
-              {step.done ? (
-                <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-              ) : (
-                <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+          <div
+            key={step.label}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ${
+              step.done ? "opacity-50" : ""
+            }`}
+          >
+            {step.done ? (
+              <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+            ) : (
+              <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium leading-tight ${step.done ? "line-through text-muted-foreground" : ""}`}>
+                {step.label}
+              </p>
+              {!step.done && (
+                <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
               )}
-              <div className="min-w-0">
-                <p className={`text-sm font-medium leading-tight ${step.done ? "line-through text-muted-foreground" : ""}`}>
-                  {step.label}
-                </p>
-                {!step.done && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
-                )}
-              </div>
             </div>
-          </Link>
+            {!step.done && (
+              <Link href={step.href}>
+                <Button size="sm" variant="outline" className="text-xs h-7 shrink-0">
+                  {step.cta}
+                </Button>
+              </Link>
+            )}
+          </div>
         ))}
       </CardContent>
     </Card>

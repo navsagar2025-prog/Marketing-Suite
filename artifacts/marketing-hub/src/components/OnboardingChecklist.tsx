@@ -412,6 +412,9 @@ export function OnboardingFloatWidget() {
                     >
                       {step.label}
                     </p>
+                    {!step.done && step.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{step.description}</p>
+                    )}
                   </div>
                   {!step.done && (
                     step.isCustom ? (

@@ -1151,7 +1151,8 @@ function CompetitorsTab({ websiteId }: { websiteId: number }) {
 export default function WebsiteDetail() {
   const [, params] = useRoute("/websites/:id");
   const id = params?.id ? parseInt(params.id) : 0;
-  const [activeTab, setActiveTab] = useState("overview");
+  const initialTab = new URLSearchParams(window.location.search).get("tab") ?? "overview";
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const { data: website, isLoading: websiteLoading } = useGetWebsite(id, {
     query: { enabled: !!id, queryKey: getGetWebsiteQueryKey(id) }

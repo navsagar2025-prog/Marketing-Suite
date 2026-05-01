@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey, useGetBillingMe, getGetBillingMeQueryKey } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey, useGetBillingMe, getGetBillingMeQueryKey, useListWebsites, useGetGoogleIntegrationStatus, useDisconnectGoogleIntegration, getGetGoogleIntegrationStatusQueryKey } from "@workspace/api-client-react";
+import type { Website } from "@workspace/api-client-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { ALL_MODULES, MODULE_LABELS } from "@workspace/api-zod";
 import { cn } from "@/lib/utils";
@@ -88,6 +90,81 @@ const PROVIDER_MODELS: Record<AiProvider, string[]> = {
   gemini: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash"],
 };
 
+function GscWebsiteRow({ website }: { website: Website }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data: status, isLoading } = useGetGoogleIntegrationStatus(website.id, {
+    query: { queryKey: getGetGoogleIntegrationStatusQueryKey(website.id) },
+  });
+  const disconnectMutation = useDisconnectGoogleIntegration();
+
+  const handleConnect = () => {
+    if (!status?.configured) {
+      toast({ title: "Google OAuth not configured", description: "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first.", variant: "destructive" });
+      return;
+    }
+    window.location.href = `/api/integrations/google/auth?websiteId=${website.id}`;
+  };
+
+  const handleDisconnect = () => {
+    disconnectMutation.mutate(
+      { websiteId: website.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Google Search Console disconnected" });
+          qc.invalidateQueries({ queryKey: getGetGoogleIntegrationStatusQueryKey(website.id) });
+        },
+        onError: () => toast({ title: "Failed to disconnect", variant: "destructive" }),
+      }
+    );
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 border rounded-md px-3 py-2.5">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium truncate">{website.url}</p>
+        {isLoading ? (
+          <p className="text-xs text-muted-foreground">Checking status…</p>
+        ) : status?.connected ? (
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+            <span className="text-xs text-green-600 font-medium">Connected</span>
+            {status.email && <span className="text-xs text-muted-foreground">· {status.email}</span>}
+            {status.propertyUrl && <span className="text-xs text-muted-foreground truncate">· {status.propertyUrl}</span>}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <XCircle className="h-3 w-3 text-muted-foreground shrink-0" />
+            <span className="text-xs text-muted-foreground">Not connected</span>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {status?.connected ? (
+          <>
+            <Link href={`/websites/${website.id}?tab=search-performance`}>
+              <Button size="sm" variant="outline" className="text-xs h-7 px-2">View data</Button>
+            </Link>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive"
+              onClick={handleDisconnect}
+              disabled={disconnectMutation.isPending}
+            >
+              Disconnect
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" className="text-xs h-7 px-2" onClick={handleConnect} disabled={isLoading}>
+            Connect
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -159,6 +236,7 @@ export default function SettingsPage() {
   const [paymentTestResult, setPaymentTestResult] = useState<{ success: boolean; message: string; provider: string } | null>(null);
   const { data: paymentSettings, refetch: refetchPaymentSettings } = useGetPaymentSettings({ query: { enabled: isAdmin, queryKey: getGetPaymentSettingsQueryKey() } });
   const updatePaymentMutation = useUpdatePaymentSettings();
+  const { data: websites, isLoading: websitesLoading } = useListWebsites({ query: { enabled: isAdmin } });
   const testPaymentMutation = useTestPaymentConnection();
   const { data: webhookEvents, refetch: refetchWebhookEvents } = useGetWebhookEvents({ query: { enabled: isAdmin, queryKey: getGetWebhookEventsQueryKey() } });
 
@@ -1767,23 +1845,40 @@ export default function SettingsPage() {
               <div>
                 <CardTitle className="text-base">Google Search Console</CardTitle>
                 <CardDescription className="mt-0.5">
-                  Connect per-website via the Search Performance tab on each website detail page.
+                  Connect each website to Google Search Console to show real organic traffic data.
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              To enable the Google OAuth flow, set the following environment variables on your server:
-            </p>
-            <div className="rounded-md bg-muted/60 px-4 py-3 space-y-1.5 font-mono text-xs">
-              <div><span className="text-primary">GOOGLE_CLIENT_ID</span>=your-client-id.apps.googleusercontent.com</div>
-              <div><span className="text-primary">GOOGLE_CLIENT_SECRET</span>=your-client-secret</div>
-              <div><span className="text-primary">GOOGLE_REDIRECT_URI</span>=https://your-domain/api/integrations/google/callback</div>
+          <CardContent className="space-y-4">
+            {/* Website connection list */}
+            {websitesLoading ? (
+              <div className="space-y-2">
+                <div className="h-12 rounded-md bg-muted animate-pulse" />
+                <div className="h-12 rounded-md bg-muted animate-pulse" />
+              </div>
+            ) : !websites || websites.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No websites found. Add a website first.</p>
+            ) : (
+              <div className="space-y-2">
+                {websites.map(site => (
+                  <GscWebsiteRow key={site.id} website={site} />
+                ))}
+              </div>
+            )}
+
+            {/* Setup instructions */}
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">Required environment variables for OAuth:</p>
+              <div className="rounded-md bg-muted/60 px-3 py-2 space-y-1 font-mono text-xs">
+                <div><span className="text-primary">GOOGLE_CLIENT_ID</span>=your-client-id.apps.googleusercontent.com</div>
+                <div><span className="text-primary">GOOGLE_CLIENT_SECRET</span>=your-client-secret</div>
+                <div><span className="text-primary">GOOGLE_REDIRECT_URI</span>=https://your-domain/api/integrations/google/callback</div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Create credentials at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary underline">console.cloud.google.com</a>. Enable the <strong>Search Console API</strong> and add the callback URI to your OAuth client.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Create credentials at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary underline">console.cloud.google.com</a>. Enable the <strong>Search Console API</strong> and add the redirect URI above to your OAuth client's allowed redirect URIs. Once set, users can connect their Google account from the "Search Performance" tab on any website detail page.
-            </p>
           </CardContent>
         </Card>
       )}

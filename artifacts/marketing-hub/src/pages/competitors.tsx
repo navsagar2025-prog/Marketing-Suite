@@ -121,10 +121,16 @@ export default function CompetitorsPage() {
     setTrackedKeywords(new Set());
   }
 
+  const websiteIdNum = selectedWebsiteId ? parseInt(selectedWebsiteId) : null;
+  const canTrack = websiteIdNum != null;
+
   function handleTrack(kw: CompetitorGapOpportunity) {
-    const websiteId = selectedWebsiteId ? parseInt(selectedWebsiteId) : undefined;
+    if (!canTrack) {
+      toast({ title: "Select a website first", description: "Choose which website to track this keyword for.", variant: "destructive" });
+      return;
+    }
     createKeyword.mutate(
-      { data: { keyword: kw.keyword, websiteId } },
+      { data: { keyword: kw.keyword, websiteId: websiteIdNum!, status: "tracking" } },
       {
         onSuccess: () => {
           setTrackedKeywords(prev => new Set([...prev, kw.keyword]));
@@ -139,13 +145,16 @@ export default function CompetitorsPage() {
 
   function handleTrackAll() {
     if (!result) return;
+    if (!canTrack) {
+      toast({ title: "Select a website first", description: "Choose which website to track keywords for.", variant: "destructive" });
+      return;
+    }
     const untracked = result.gapOpportunities.filter(g => !trackedKeywords.has(g.keyword));
     if (untracked.length === 0) return;
     let done = 0;
-    const websiteId = selectedWebsiteId ? parseInt(selectedWebsiteId) : undefined;
     untracked.forEach(kw => {
       createKeyword.mutate(
-        { data: { keyword: kw.keyword, websiteId } },
+        { data: { keyword: kw.keyword, websiteId: websiteIdNum!, status: "tracking" } },
         {
           onSuccess: () => {
             setTrackedKeywords(prev => new Set([...prev, kw.keyword]));
@@ -344,7 +353,8 @@ export default function CompetitorsPage() {
                     size="sm"
                     variant="outline"
                     onClick={handleTrackAll}
-                    disabled={result.gapOpportunities.every(g => trackedKeywords.has(g.keyword))}
+                    disabled={!canTrack || result.gapOpportunities.every(g => trackedKeywords.has(g.keyword))}
+                    title={!canTrack ? "Select a website first" : undefined}
                   >
                     Add all to tracking
                   </Button>
@@ -373,7 +383,8 @@ export default function CompetitorsPage() {
                         variant={isTracked ? "ghost" : "outline"}
                         className={cn("shrink-0 h-7 text-xs", isTracked && "text-green-600 dark:text-green-400")}
                         onClick={() => !isTracked && handleTrack(gap)}
-                        disabled={isTracked}
+                        disabled={isTracked || (!isTracked && !canTrack)}
+                        title={!canTrack && !isTracked ? "Select a website first" : undefined}
                       >
                         {isTracked ? (
                           <><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Tracked</>

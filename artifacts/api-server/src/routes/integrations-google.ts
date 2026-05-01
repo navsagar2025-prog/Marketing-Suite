@@ -12,7 +12,9 @@ const router: IRouter = Router();
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
-const SESSION_SECRET = process.env.SESSION_SECRET ?? "dev-secret";
+const _rawSecret = process.env.SESSION_SECRET;
+if (!_rawSecret) throw new Error("SESSION_SECRET environment variable is required");
+const SESSION_SECRET: string = _rawSecret;
 
 const SCOPES = [
   "openid",
@@ -211,32 +213,39 @@ async function fetchGscAnalytics(
   dimensions: string[],
   rowLimit = 50,
 ): Promise<Array<{ keys: string[]; clicks: number; impressions: number; ctr: number; position: number }>> {
+  const body: Record<string, unknown> = { startDate, endDate, rowLimit, startRow: 0 };
+  if (dimensions.length > 0) body.dimensions = dimensions;
   const res = await fetch(
     `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(propertyUrl)}/searchAnalytics/query`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ startDate, endDate, dimensions, rowLimit, startRow: 0 }),
+      body: JSON.stringify(body),
     }
   );
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`GSC searchAnalytics.query failed (${res.status}): ${body}`);
+    const body2 = await res.text();
+    throw new Error(`GSC searchAnalytics.query failed (${res.status}): ${body2}`);
   }
   const data = await res.json() as { rows?: Array<{ keys: string[]; clicks: number; impressions: number; ctr: number; position: number }> };
   return data.rows ?? [];
 }
 
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+/** Fetch property-level totals (no dimensions = aggregate over whole property) */
+async function fetchGscPropertyTotals(
+  accessToken: string,
+  propertyUrl: string,
+  startDate: string,
+  endDate: string,
+): Promise<{ clicks: number; impressions: number; ctr: number; position: number }> {
+  const rows = await fetchGscAnalytics(accessToken, propertyUrl, startDate, endDate, []);
+  if (rows.length === 0) return { clicks: 0, impressions: 0, ctr: 0, position: 0 };
+  const r = rows[0];
+  return { clicks: r.clicks, impressions: r.impressions, ctr: r.ctr, position: r.position };
 }
 
-function sumRows(rows: Array<{ clicks: number; impressions: number; ctr: number; position: number }>) {
-  const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
-  const totalImpressions = rows.reduce((s, r) => s + r.impressions, 0);
-  const avgCtr = totalImpressions > 0 ? totalClicks / totalImpressions : 0;
-  const avgPosition = rows.length > 0 ? rows.reduce((s, r) => s + r.position, 0) / rows.length : 0;
-  return { clicks: totalClicks, impressions: totalImpressions, ctr: avgCtr, avgPosition };
+function formatDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 /** GET /integrations/google/gsc/:websiteId?dateRange=28days */
@@ -281,15 +290,16 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
     const priorEnd = formatDate(new Date(Date.now() - (days + 1) * 24 * 60 * 60 * 1000));
     const priorStart = formatDate(new Date(Date.now() - (days * 2 + 1) * 24 * 60 * 60 * 1000));
 
-    const [queryRows, pageRows, queryRowsPrior, allPositionRows] = await Promise.all([
-      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["query"], 50),
-      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["page"], 50),
-      fetchGscAnalytics(accessToken, token.gscPropertyUrl, priorStart, priorEnd, ["query"], 50),
+    // Fetch property-level totals (no dimensions) for accurate summary metrics,
+    // plus per-query/page rows (limited) for the tables, plus wide query set for position distribution.
+    const [totals, priorTotals, queryRows, pageRows, allPositionRows] = await Promise.all([
+      fetchGscPropertyTotals(accessToken, token.gscPropertyUrl, startDate, endDate),
+      fetchGscPropertyTotals(accessToken, token.gscPropertyUrl, priorStart, priorEnd),
+      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["query"], 25),
+      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["page"], 25),
       fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["query"], 1000),
     ]);
 
-    const summary = sumRows(queryRows);
-    const prior = sumRows(queryRowsPrior);
     const pct = (a: number, b: number) => b === 0 ? null : ((a - b) / b) * 100;
 
     const positionDistribution = [
@@ -301,14 +311,14 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
 
     const responseData = {
       summary: {
-        clicks: summary.clicks,
-        impressions: summary.impressions,
-        ctr: summary.ctr,
-        avgPosition: summary.avgPosition,
-        clicksDelta: pct(summary.clicks, prior.clicks),
-        impressionsDelta: pct(summary.impressions, prior.impressions),
-        ctrDelta: pct(summary.ctr, prior.ctr),
-        positionDelta: prior.avgPosition === 0 ? null : summary.avgPosition - prior.avgPosition,
+        clicks: totals.clicks,
+        impressions: totals.impressions,
+        ctr: totals.ctr,
+        avgPosition: Math.round(totals.position * 10) / 10,
+        clicksDelta: pct(totals.clicks, priorTotals.clicks),
+        impressionsDelta: pct(totals.impressions, priorTotals.impressions),
+        ctrDelta: pct(totals.ctr, priorTotals.ctr),
+        positionDelta: priorTotals.position === 0 ? null : Math.round((totals.position - priorTotals.position) * 10) / 10,
       },
       queries: queryRows.map(r => ({
         query: r.keys[0], clicks: r.clicks, impressions: r.impressions,

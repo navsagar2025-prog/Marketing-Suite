@@ -13,7 +13,9 @@ const router: IRouter = Router();
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
-const SESSION_SECRET = process.env.SESSION_SECRET ?? "dev-secret";
+const _rawSecret = process.env.SESSION_SECRET;
+if (!_rawSecret) throw new Error("SESSION_SECRET environment variable is required");
+const SESSION_SECRET: string = _rawSecret;
 
 function getRedirectUri(): string {
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;

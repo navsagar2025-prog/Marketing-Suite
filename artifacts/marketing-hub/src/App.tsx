@@ -34,6 +34,7 @@ import ReportsPage from "@/pages/reports";
 import CompetitorsPage from "@/pages/competitors";
 import ReportDetailPage from "@/pages/report-detail";
 import SharedReportPage from "@/pages/shared-report";
+import WelcomePage from "@/pages/welcome";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Loader2, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,10 @@ function PermissionGuard({ module, children }: { module: string; children: React
 function ProtectedRouter() {
   const { user, isLoading } = useAuth();
 
+  if (window.location.pathname.replace(/\/$/, "").endsWith("/welcome")) {
+    return <WelcomePage />;
+  }
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -91,6 +96,7 @@ function ProtectedRouter() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
+        <Route path="/welcome" component={WelcomePage} />
         <Route path="/pricing" component={PricingPage} />
         <Route path="/report/:token">
           {(params) => <SharedReportPage token={params.token ?? ""} />}
@@ -112,6 +118,7 @@ function ProtectedRouter() {
       <Route path="/login">
         <Redirect to="/" />
       </Route>
+      <Route path="/welcome" component={WelcomePage} />
       <Route path="/pricing" component={PricingPage} />
       <Route path="/report/:token">
         {(params) => <SharedReportPage token={params.token ?? ""} />}

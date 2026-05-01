@@ -1,11 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { Loader2, ShieldCheck, Sparkles } from "lucide-react";
+
+const PLAN_META: Record<string, { label: string }> = {
+  starter: { label: "Starter" },
+  growth: { label: "Growth" },
+  agency: { label: "Agency" },
+};
+
+function getPlanFromSearch(): string | null {
+  const params = new URLSearchParams(window.location.search);
+  const plan = params.get("plan")?.toLowerCase() ?? null;
+  if (plan && plan in PLAN_META) return plan;
+  return null;
+}
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -14,6 +27,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedPlan(getPlanFromSearch());
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +43,7 @@ export default function LoginPage() {
       const res = await fetch(`${base}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, plan: selectedPlan ?? undefined }),
       });
 
       if (!res.ok) {
@@ -34,9 +52,16 @@ export default function LoginPage() {
         return;
       }
 
-      const { token, user } = await res.json();
+      const { token, user, planSelected, canSetPlan } = await res.json();
+
       login(token, user);
-      setLocation("/");
+
+      if (planSelected && canSetPlan) {
+        const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+        window.location.href = `${base}/welcome?plan=${planSelected}`;
+      } else {
+        setLocation("/");
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -55,6 +80,19 @@ export default function LoginPage() {
           <CardDescription>Sign in to access the platform</CardDescription>
         </CardHeader>
         <CardContent>
+          {selectedPlan && (
+            <div
+              className="mb-4 flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5"
+              data-testid="plan-banner"
+            >
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              <p className="text-sm text-foreground">
+                You selected the{" "}
+                <span className="font-semibold text-primary">{PLAN_META[selectedPlan].label}</span> plan —
+                sign in to activate your free trial.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="username">Username</Label>
@@ -90,7 +128,13 @@ export default function LoginPage() {
               data-testid="button-login"
               disabled={loading}
             >
-              {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing in...</> : "Sign in"}
+              {loading ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Signing in…</>
+              ) : selectedPlan ? (
+                `Sign in & start ${PLAN_META[selectedPlan].label} trial`
+              ) : (
+                "Sign in"
+              )}
             </Button>
           </form>
         </CardContent>

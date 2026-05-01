@@ -127,6 +127,11 @@ const FAQ = [
   },
 ];
 
+function navigateToLogin(plan?: string) {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  window.location.href = `${base}/login${plan ? `?plan=${plan}` : ""}`;
+}
+
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
   const [, setLocation] = useLocation();
@@ -244,7 +249,7 @@ export default function PricingPage() {
                     <Button
                       className="w-full"
                       variant={plan.popular ? "default" : "outline"}
-                      onClick={() => setLocation("/login")}
+                      onClick={() => navigateToLogin(plan.id)}
                     >
                       {plan.cta}
                       <ArrowRight className="h-4 w-4 ml-2" />
@@ -349,7 +354,7 @@ export default function PricingPage() {
             Every plan includes a 7-day free trial. Cancel anytime.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button size="lg" onClick={() => setLocation("/login")} className="w-full sm:w-auto">
+            <Button size="lg" onClick={() => navigateToLogin("growth")} className="w-full sm:w-auto">
               Start your free trial
               <ArrowRight className="h-4 w-4 ml-2" />
             </Button>

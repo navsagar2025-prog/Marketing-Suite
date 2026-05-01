@@ -40,6 +40,8 @@ tags:
     description: AI-powered competitor domain analysis
   - name: site-audit
     description: Full-site technical SEO crawler
+  - name: integrations
+    description: Third-party integrations (Google Search Console, etc.)
 
 paths:
   /healthz:
@@ -337,6 +339,162 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CompetitorHistoryItem"
+
+  # ─── Google / GSC Integration ────────────────────────────────────────────────
+  /integrations/google/auth:
+    get:
+      operationId: initiateGoogleAuth
+      tags: [integrations]
+      summary: Start Google OAuth flow — redirects browser to Google consent page
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "302":
+          description: Redirect to Google OAuth
+        "400":
+          description: Missing websiteId
+        "503":
+          description: Google OAuth not configured
+
+  /integrations/google/status/{websiteId}:
+    get:
+      operationId: getGoogleIntegrationStatus
+      tags: [integrations]
+      summary: Check whether Google Search Console is connected for a website
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GscStatus"
+
+  /integrations/google/properties/{websiteId}:
+    get:
+      operationId: listGscProperties
+      tags: [integrations]
+      summary: List Google Search Console properties available for the connected account
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of GSC properties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GscProperty"
+        "404":
+          description: Google not connected for this website
+
+  /integrations/google/properties/connect:
+    post:
+      operationId: connectGscProperty
+      tags: [integrations]
+      summary: Link a specific GSC property to a website
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GscConnectBody"
+      responses:
+        "200":
+          description: Property linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  propertyUrl:
+                    type: string
+        "400":
+          description: Missing parameters
+        "404":
+          description: Google not connected
+
+  /integrations/google/disconnect/{websiteId}:
+    delete:
+      operationId: disconnectGoogleIntegration
+      tags: [integrations]
+      summary: Disconnect Google Search Console from a website
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Disconnected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /integrations/google/gsc/{websiteId}:
+    get:
+      operationId: getGscSearchPerformance
+      tags: [integrations]
+      summary: Get Google Search Console search performance data for a website
+      description: Returns cached data (TTL 1 hour). Queries, pages, summary metrics and position distribution for the chosen date range.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dateRange
+          in: query
+          schema:
+            type: string
+            enum: [7days, 28days, 90days]
+          description: Date range for the report (default 28days)
+      responses:
+        "200":
+          description: Search performance data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GscSearchPerformance"
+        "400":
+          description: No property selected
+        "404":
+          description: Google not connected
+        "502":
+          description: GSC API error
 
   # ─── Site Audit ───────────────────────────────────────────────────────────────
   /audit/site/{websiteId}:
@@ -4469,6 +4627,128 @@ components:
           type: string
           format: date-time
       required: [id, domain, domainOverview, keywordThemes, contentTopics, gapOpportunities, cachedUntil, createdAt]
+
+    # ─── Google / GSC Schemas ─────────────────────────────────────────────────────
+    GscStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        email:
+          type: string
+          nullable: true
+        propertyUrl:
+          type: string
+          nullable: true
+        configured:
+          type: boolean
+      required: [connected, email, propertyUrl, configured]
+
+    GscProperty:
+      type: object
+      properties:
+        siteUrl:
+          type: string
+        permissionLevel:
+          type: string
+      required: [siteUrl, permissionLevel]
+
+    GscConnectBody:
+      type: object
+      properties:
+        websiteId:
+          type: integer
+        propertyUrl:
+          type: string
+      required: [websiteId, propertyUrl]
+
+    GscSummaryMetrics:
+      type: object
+      properties:
+        clicks:
+          type: number
+        impressions:
+          type: number
+        ctr:
+          type: number
+        avgPosition:
+          type: number
+        clicksDelta:
+          type: number
+          nullable: true
+        impressionsDelta:
+          type: number
+          nullable: true
+        ctrDelta:
+          type: number
+          nullable: true
+        positionDelta:
+          type: number
+          nullable: true
+      required: [clicks, impressions, ctr, avgPosition]
+
+    GscQueryRow:
+      type: object
+      properties:
+        query:
+          type: string
+        clicks:
+          type: number
+        impressions:
+          type: number
+        ctr:
+          type: number
+        position:
+          type: number
+      required: [query, clicks, impressions, ctr, position]
+
+    GscPageRow:
+      type: object
+      properties:
+        page:
+          type: string
+        clicks:
+          type: number
+        impressions:
+          type: number
+        ctr:
+          type: number
+        position:
+          type: number
+      required: [page, clicks, impressions, ctr, position]
+
+    GscPositionBucket:
+      type: object
+      properties:
+        bucket:
+          type: string
+        count:
+          type: number
+      required: [bucket, count]
+
+    GscSearchPerformance:
+      type: object
+      properties:
+        summary:
+          $ref: "#/components/schemas/GscSummaryMetrics"
+        queries:
+          type: array
+          items:
+            $ref: "#/components/schemas/GscQueryRow"
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/GscPageRow"
+        positionDistribution:
+          type: array
+          items:
+            $ref: "#/components/schemas/GscPositionBucket"
+        dateRange:
+          type: string
+        cachedAt:
+          type: string
+          format: date-time
+      required: [summary, queries, pages, positionDistribution, dateRange, cachedAt]
 
     # ─── Site Audit Schemas ──────────────────────────────────────────────────────
     SiteAuditStatus:

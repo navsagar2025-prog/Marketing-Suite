@@ -41,6 +41,7 @@ import {
   getGetSiteAuditResultsQueryKey,
 } from "@workspace/api-client-react";
 import type { SeoAudit, SeoAuditIssue, LinkSuggestion, CompetitorAnalysis, SiteAuditIssueResult, SiteAuditPageResult } from "@workspace/api-client-react";
+import SearchPerformanceTab from "@/components/SearchPerformanceTab";
 
 function severityIcon(severity: string) {
   if (severity === "critical") return <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />;
@@ -1244,6 +1245,7 @@ export default function WebsiteDetail() {
           <TabsTrigger value="site-audit" data-testid="tab-site-audit">Full Site Audit</TabsTrigger>
           <TabsTrigger value="internal-links" data-testid="tab-internal-links">Internal Links</TabsTrigger>
           <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
+          <TabsTrigger value="search-performance" data-testid="tab-search-performance">Search Performance</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
@@ -1369,6 +1371,10 @@ export default function WebsiteDetail() {
 
         <TabsContent value="competitors" className="mt-4">
           <CompetitorsTab websiteId={id} />
+        </TabsContent>
+
+        <TabsContent value="search-performance" className="mt-4">
+          <SearchPerformanceTab websiteId={id} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1752,6 +1752,38 @@ export default function SettingsPage() {
                 ))}
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Google Search Console Integration (admin only) */}
+      {isAdmin && (
+        <Card data-testid="card-google-integration">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded bg-muted">
+                <Search className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Google Search Console</CardTitle>
+                <CardDescription className="mt-0.5">
+                  Connect per-website via the Search Performance tab on each website detail page.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              To enable the Google OAuth flow, set the following environment variables on your server:
+            </p>
+            <div className="rounded-md bg-muted/60 px-4 py-3 space-y-1.5 font-mono text-xs">
+              <div><span className="text-primary">GOOGLE_CLIENT_ID</span>=your-client-id.apps.googleusercontent.com</div>
+              <div><span className="text-primary">GOOGLE_CLIENT_SECRET</span>=your-client-secret</div>
+              <div><span className="text-primary">GOOGLE_REDIRECT_URI</span>=https://your-domain/api/integrations/google/callback</div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Create credentials at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary underline">console.cloud.google.com</a>. Enable the <strong>Search Console API</strong> and add the redirect URI above to your OAuth client's allowed redirect URIs. Once set, users can connect their Google account from the "Search Performance" tab on any website detail page.
+            </p>
           </CardContent>
         </Card>
       )}

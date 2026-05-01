@@ -27,3 +27,5 @@ export * from "./client-reports";
 export * from "./outreach-contacts";
 export * from "./keyword-research";
 export * from "./site-audits";
+export * from "./oauth-tokens";
+export * from "./gsc-cache";

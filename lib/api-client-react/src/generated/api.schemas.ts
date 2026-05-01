@@ -1520,6 +1520,64 @@ export interface CompetitorHistoryItem {
   createdAt: string;
 }
 
+export interface GscStatus {
+  connected: boolean;
+  email: string | null;
+  propertyUrl: string | null;
+  configured: boolean;
+}
+
+export interface GscProperty {
+  siteUrl: string;
+  permissionLevel: string;
+}
+
+export interface GscConnectBody {
+  websiteId: number;
+  propertyUrl: string;
+}
+
+export interface GscSummaryMetrics {
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  avgPosition: number;
+  clicksDelta?: number | null;
+  impressionsDelta?: number | null;
+  ctrDelta?: number | null;
+  positionDelta?: number | null;
+}
+
+export interface GscQueryRow {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface GscPageRow {
+  page: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
+export interface GscPositionBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface GscSearchPerformance {
+  summary: GscSummaryMetrics;
+  queries: GscQueryRow[];
+  pages: GscPageRow[];
+  positionDistribution: GscPositionBucket[];
+  dateRange: string;
+  cachedAt: string;
+}
+
 export type SiteAuditStatusStatus =
   (typeof SiteAuditStatusStatus)[keyof typeof SiteAuditStatusStatus];
 
@@ -1606,6 +1664,35 @@ export type GetKeywordRankHistoryParams = {
    */
   days?: number;
 };
+
+export type InitiateGoogleAuthParams = {
+  websiteId: number;
+};
+
+export type ConnectGscProperty200 = {
+  success?: boolean;
+  propertyUrl?: string;
+};
+
+export type DisconnectGoogleIntegration200 = {
+  success?: boolean;
+};
+
+export type GetGscSearchPerformanceParams = {
+  /**
+   * Date range for the report (default 28days)
+   */
+  dateRange?: GetGscSearchPerformanceDateRange;
+};
+
+export type GetGscSearchPerformanceDateRange =
+  (typeof GetGscSearchPerformanceDateRange)[keyof typeof GetGscSearchPerformanceDateRange];
+
+export const GetGscSearchPerformanceDateRange = {
+  "7days": "7days",
+  "28days": "28days",
+  "90days": "90days",
+} as const;
 
 export type ListSocialPostsParams = {
   websiteId?: number;

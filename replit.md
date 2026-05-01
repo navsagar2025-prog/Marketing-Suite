@@ -149,6 +149,43 @@ Tables: `websites`, `keywords`, `keyword_rank_history`, `keyword_research_sessio
 - Permission guard: `backlinks`
 - Frontend: `/outreach` page with stat cards (total, reply rate, won, follow-ups due), filter tabs per status, sortable table, slide-in sheet form
 
+### oauth_tokens table
+- `id`: serial PK
+- `userId`: FK → staff_users (cascade delete)
+- `websiteId`: FK → websites (cascade delete) (nullable)
+- `provider`: text — `google`
+- `encryptedAccessToken`, `encryptedRefreshToken`: text (AES-256-GCM encrypted)
+- `tokenExpiry`: timestamp (nullable)
+- `email`: text (nullable) — Google account email
+- `scopes`: text (nullable)
+- `gscPropertyUrl`: text (nullable) — selected Search Console property
+- `createdAt`, `updatedAt`: timestamps
+- Unique: (userId, provider, websiteId)
+
+### gsc_cache table
+- `id`: serial PK
+- `websiteId`: FK → websites (cascade delete)
+- `dateRange`: text — `7days`, `28days`, `90days`
+- `dataJson`: jsonb — full GSC response (summary, queries, pages, positionDistribution)
+- `cachedAt`: timestamp
+- `expiresAt`: timestamp — 1 hour TTL
+- Unique: (websiteId, dateRange)
+
+## Google Search Console Integration
+
+GSC integration routes are in `artifacts/api-server/src/routes/integrations-google.ts` (authenticated) and `artifacts/api-server/src/routes/integrations-google-callback.ts` (public OAuth callback).
+
+- **Auth flow**: `GET /api/integrations/google/auth?websiteId=N` — redirects to Google OAuth. State is HMAC-signed with `SESSION_SECRET`. Callback at `GET /api/integrations/google/callback` exchanges the code for tokens, encrypts and stores them, then redirects to the website detail page.
+- **Token encryption**: AES-256-GCM with key derived from `HMAC-SHA256(SESSION_SECRET, "gsc-token")`
+- **Required env vars**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+- **Status**: `GET /api/integrations/google/status/:websiteId` — returns `{connected, email, propertyUrl, configured}`
+- **Properties**: `GET /api/integrations/google/properties/:websiteId` — lists available GSC properties
+- **Connect**: `POST /api/integrations/google/properties/connect` — sets `gscPropertyUrl`
+- **Disconnect**: `DELETE /api/integrations/google/disconnect/:websiteId` — removes token row + clears cache
+- **Data**: `GET /api/integrations/google/gsc/:websiteId?dateRange=28days` — returns cached (1h TTL) GSC data: summary metrics (clicks, impressions, CTR, position + period-over-period deltas), top queries, top pages, position distribution buckets
+- **Frontend**: "Search Performance" tab on `/websites/:id` detail page; GSC settings card at bottom of `/settings` (admin only)
+- **Permission guard**: `/integrations/*` requires `websites` permission
+
 ### competitor_analyses table
 - `id`: serial PK
 - `websiteId`: FK → websites (cascade delete)

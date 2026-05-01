@@ -476,6 +476,120 @@ export const GetCompetitorHistoryResponse = zod.array(
 );
 
 /**
+ * @summary Start Google OAuth flow — redirects browser to Google consent page
+ */
+export const InitiateGoogleAuthQueryParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+/**
+ * @summary Check whether Google Search Console is connected for a website
+ */
+export const GetGoogleIntegrationStatusParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const GetGoogleIntegrationStatusResponse = zod.object({
+  connected: zod.boolean(),
+  email: zod.string().nullable(),
+  propertyUrl: zod.string().nullable(),
+  configured: zod.boolean(),
+});
+
+/**
+ * @summary List Google Search Console properties available for the connected account
+ */
+export const ListGscPropertiesParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const ListGscPropertiesResponseItem = zod.object({
+  siteUrl: zod.string(),
+  permissionLevel: zod.string(),
+});
+export const ListGscPropertiesResponse = zod.array(
+  ListGscPropertiesResponseItem,
+);
+
+/**
+ * @summary Link a specific GSC property to a website
+ */
+export const ConnectGscPropertyBody = zod.object({
+  websiteId: zod.number(),
+  propertyUrl: zod.string(),
+});
+
+export const ConnectGscPropertyResponse = zod.object({
+  success: zod.boolean().optional(),
+  propertyUrl: zod.string().optional(),
+});
+
+/**
+ * @summary Disconnect Google Search Console from a website
+ */
+export const DisconnectGoogleIntegrationParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const DisconnectGoogleIntegrationResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
+ * Returns cached data (TTL 1 hour). Queries, pages, summary metrics and position distribution for the chosen date range.
+ * @summary Get Google Search Console search performance data for a website
+ */
+export const GetGscSearchPerformanceParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const GetGscSearchPerformanceQueryParams = zod.object({
+  dateRange: zod
+    .enum(["7days", "28days", "90days"])
+    .optional()
+    .describe("Date range for the report (default 28days)"),
+});
+
+export const GetGscSearchPerformanceResponse = zod.object({
+  summary: zod.object({
+    clicks: zod.number(),
+    impressions: zod.number(),
+    ctr: zod.number(),
+    avgPosition: zod.number(),
+    clicksDelta: zod.number().nullish(),
+    impressionsDelta: zod.number().nullish(),
+    ctrDelta: zod.number().nullish(),
+    positionDelta: zod.number().nullish(),
+  }),
+  queries: zod.array(
+    zod.object({
+      query: zod.string(),
+      clicks: zod.number(),
+      impressions: zod.number(),
+      ctr: zod.number(),
+      position: zod.number(),
+    }),
+  ),
+  pages: zod.array(
+    zod.object({
+      page: zod.string(),
+      clicks: zod.number(),
+      impressions: zod.number(),
+      ctr: zod.number(),
+      position: zod.number(),
+    }),
+  ),
+  positionDistribution: zod.array(
+    zod.object({
+      bucket: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  dateRange: zod.string(),
+  cachedAt: zod.coerce.date(),
+});
+
+/**
  * @summary Start a full-site background crawl audit
  */
 export const StartSiteAuditParams = zod.object({
@@ -501,7 +615,13 @@ export const GetSiteAuditStatusResponse = zod.object({
 });
 
 /**
- * @summary Get full results of the latest completed site audit
+ * Returns crawl results for the most recent audit for this website,
+regardless of completion state. When `status` is `crawling` or `queued`,
+the response contains partial data accumulated so far — `pages` and `issues`
+reflect what has been crawled to date. Callers should re-poll until
+`status` equals `complete` or `failed` to obtain final results.
+
+ * @summary Get results of the latest site audit (partial or complete)
  */
 export const GetSiteAuditResultsParams = zod.object({
   websiteId: zod.coerce.number(),

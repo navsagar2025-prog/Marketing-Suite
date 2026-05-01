@@ -32,6 +32,7 @@ import type {
   CompetitorAnalysis,
   CompetitorAnalysisResult,
   CompetitorHistoryItem,
+  ConnectGscProperty200,
   Conversation,
   ConversationMessage,
   CreateBacklinkBody,
@@ -46,6 +47,7 @@ import type {
   CreateWebsiteBody,
   DetectWebsiteBody,
   DetectedWebsiteInfo,
+  DisconnectGoogleIntegration200,
   EmailProviderSettings,
   FixSeoIssueBody,
   FixSeoIssueResponse,
@@ -66,8 +68,14 @@ import type {
   GeneratedContent,
   GeneratedMeta,
   GetCampaignRecipientsParams,
+  GetGscSearchPerformanceParams,
   GetKeywordRankHistoryParams,
+  GscConnectBody,
+  GscProperty,
+  GscSearchPerformance,
+  GscStatus,
   HealthStatus,
+  InitiateGoogleAuthParams,
   Keyword,
   KeywordRankHistory,
   KeywordResearchBody,
@@ -1429,6 +1437,582 @@ export function useGetCompetitorHistory<
 }
 
 /**
+ * @summary Start Google OAuth flow — redirects browser to Google consent page
+ */
+export const getInitiateGoogleAuthUrl = (params: InitiateGoogleAuthParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/integrations/google/auth?${stringifiedParams}`
+    : `/api/integrations/google/auth`;
+};
+
+export const initiateGoogleAuth = async (
+  params: InitiateGoogleAuthParams,
+  options?: RequestInit,
+): Promise<unknown> => {
+  return customFetch<unknown>(getInitiateGoogleAuthUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getInitiateGoogleAuthQueryKey = (
+  params?: InitiateGoogleAuthParams,
+) => {
+  return [
+    `/api/integrations/google/auth`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getInitiateGoogleAuthQueryOptions = <
+  TData = Awaited<ReturnType<typeof initiateGoogleAuth>>,
+  TError = ErrorType<void>,
+>(
+  params: InitiateGoogleAuthParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof initiateGoogleAuth>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getInitiateGoogleAuthQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof initiateGoogleAuth>>
+  > = ({ signal }) => initiateGoogleAuth(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof initiateGoogleAuth>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type InitiateGoogleAuthQueryResult = NonNullable<
+  Awaited<ReturnType<typeof initiateGoogleAuth>>
+>;
+export type InitiateGoogleAuthQueryError = ErrorType<void>;
+
+/**
+ * @summary Start Google OAuth flow — redirects browser to Google consent page
+ */
+
+export function useInitiateGoogleAuth<
+  TData = Awaited<ReturnType<typeof initiateGoogleAuth>>,
+  TError = ErrorType<void>,
+>(
+  params: InitiateGoogleAuthParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof initiateGoogleAuth>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getInitiateGoogleAuthQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Check whether Google Search Console is connected for a website
+ */
+export const getGetGoogleIntegrationStatusUrl = (websiteId: number) => {
+  return `/api/integrations/google/status/${websiteId}`;
+};
+
+export const getGoogleIntegrationStatus = async (
+  websiteId: number,
+  options?: RequestInit,
+): Promise<GscStatus> => {
+  return customFetch<GscStatus>(getGetGoogleIntegrationStatusUrl(websiteId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGoogleIntegrationStatusQueryKey = (websiteId: number) => {
+  return [`/api/integrations/google/status/${websiteId}`] as const;
+};
+
+export const getGetGoogleIntegrationStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGoogleIntegrationStatus>>,
+  TError = ErrorType<unknown>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGoogleIntegrationStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetGoogleIntegrationStatusQueryKey(websiteId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGoogleIntegrationStatus>>
+  > = ({ signal }) =>
+    getGoogleIntegrationStatus(websiteId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!websiteId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGoogleIntegrationStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGoogleIntegrationStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGoogleIntegrationStatus>>
+>;
+export type GetGoogleIntegrationStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check whether Google Search Console is connected for a website
+ */
+
+export function useGetGoogleIntegrationStatus<
+  TData = Awaited<ReturnType<typeof getGoogleIntegrationStatus>>,
+  TError = ErrorType<unknown>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGoogleIntegrationStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGoogleIntegrationStatusQueryOptions(
+    websiteId,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List Google Search Console properties available for the connected account
+ */
+export const getListGscPropertiesUrl = (websiteId: number) => {
+  return `/api/integrations/google/properties/${websiteId}`;
+};
+
+export const listGscProperties = async (
+  websiteId: number,
+  options?: RequestInit,
+): Promise<GscProperty[]> => {
+  return customFetch<GscProperty[]>(getListGscPropertiesUrl(websiteId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGscPropertiesQueryKey = (websiteId: number) => {
+  return [`/api/integrations/google/properties/${websiteId}`] as const;
+};
+
+export const getListGscPropertiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGscProperties>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGscProperties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListGscPropertiesQueryKey(websiteId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listGscProperties>>
+  > = ({ signal }) =>
+    listGscProperties(websiteId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!websiteId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGscProperties>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGscPropertiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGscProperties>>
+>;
+export type ListGscPropertiesQueryError = ErrorType<void>;
+
+/**
+ * @summary List Google Search Console properties available for the connected account
+ */
+
+export function useListGscProperties<
+  TData = Awaited<ReturnType<typeof listGscProperties>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGscProperties>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGscPropertiesQueryOptions(websiteId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Link a specific GSC property to a website
+ */
+export const getConnectGscPropertyUrl = () => {
+  return `/api/integrations/google/properties/connect`;
+};
+
+export const connectGscProperty = async (
+  gscConnectBody: GscConnectBody,
+  options?: RequestInit,
+): Promise<ConnectGscProperty200> => {
+  return customFetch<ConnectGscProperty200>(getConnectGscPropertyUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(gscConnectBody),
+  });
+};
+
+export const getConnectGscPropertyMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof connectGscProperty>>,
+    TError,
+    { data: BodyType<GscConnectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof connectGscProperty>>,
+  TError,
+  { data: BodyType<GscConnectBody> },
+  TContext
+> => {
+  const mutationKey = ["connectGscProperty"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof connectGscProperty>>,
+    { data: BodyType<GscConnectBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return connectGscProperty(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ConnectGscPropertyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof connectGscProperty>>
+>;
+export type ConnectGscPropertyMutationBody = BodyType<GscConnectBody>;
+export type ConnectGscPropertyMutationError = ErrorType<void>;
+
+/**
+ * @summary Link a specific GSC property to a website
+ */
+export const useConnectGscProperty = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof connectGscProperty>>,
+    TError,
+    { data: BodyType<GscConnectBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof connectGscProperty>>,
+  TError,
+  { data: BodyType<GscConnectBody> },
+  TContext
+> => {
+  return useMutation(getConnectGscPropertyMutationOptions(options));
+};
+
+/**
+ * @summary Disconnect Google Search Console from a website
+ */
+export const getDisconnectGoogleIntegrationUrl = (websiteId: number) => {
+  return `/api/integrations/google/disconnect/${websiteId}`;
+};
+
+export const disconnectGoogleIntegration = async (
+  websiteId: number,
+  options?: RequestInit,
+): Promise<DisconnectGoogleIntegration200> => {
+  return customFetch<DisconnectGoogleIntegration200>(
+    getDisconnectGoogleIntegrationUrl(websiteId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDisconnectGoogleIntegrationMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectGoogleIntegration>>,
+    TError,
+    { websiteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disconnectGoogleIntegration>>,
+  TError,
+  { websiteId: number },
+  TContext
+> => {
+  const mutationKey = ["disconnectGoogleIntegration"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disconnectGoogleIntegration>>,
+    { websiteId: number }
+  > = (props) => {
+    const { websiteId } = props ?? {};
+
+    return disconnectGoogleIntegration(websiteId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisconnectGoogleIntegrationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disconnectGoogleIntegration>>
+>;
+
+export type DisconnectGoogleIntegrationMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Disconnect Google Search Console from a website
+ */
+export const useDisconnectGoogleIntegration = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disconnectGoogleIntegration>>,
+    TError,
+    { websiteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disconnectGoogleIntegration>>,
+  TError,
+  { websiteId: number },
+  TContext
+> => {
+  return useMutation(getDisconnectGoogleIntegrationMutationOptions(options));
+};
+
+/**
+ * Returns cached data (TTL 1 hour). Queries, pages, summary metrics and position distribution for the chosen date range.
+ * @summary Get Google Search Console search performance data for a website
+ */
+export const getGetGscSearchPerformanceUrl = (
+  websiteId: number,
+  params?: GetGscSearchPerformanceParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/integrations/google/gsc/${websiteId}?${stringifiedParams}`
+    : `/api/integrations/google/gsc/${websiteId}`;
+};
+
+export const getGscSearchPerformance = async (
+  websiteId: number,
+  params?: GetGscSearchPerformanceParams,
+  options?: RequestInit,
+): Promise<GscSearchPerformance> => {
+  return customFetch<GscSearchPerformance>(
+    getGetGscSearchPerformanceUrl(websiteId, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetGscSearchPerformanceQueryKey = (
+  websiteId: number,
+  params?: GetGscSearchPerformanceParams,
+) => {
+  return [
+    `/api/integrations/google/gsc/${websiteId}`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetGscSearchPerformanceQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGscSearchPerformance>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  params?: GetGscSearchPerformanceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGscSearchPerformance>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getGetGscSearchPerformanceQueryKey(websiteId, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGscSearchPerformance>>
+  > = ({ signal }) =>
+    getGscSearchPerformance(websiteId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!websiteId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGscSearchPerformance>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGscSearchPerformanceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGscSearchPerformance>>
+>;
+export type GetGscSearchPerformanceQueryError = ErrorType<void>;
+
+/**
+ * @summary Get Google Search Console search performance data for a website
+ */
+
+export function useGetGscSearchPerformance<
+  TData = Awaited<ReturnType<typeof getGscSearchPerformance>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  params?: GetGscSearchPerformanceParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGscSearchPerformance>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGscSearchPerformanceQueryOptions(
+    websiteId,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Start a full-site background crawl audit
  */
 export const getStartSiteAuditUrl = (websiteId: number) => {
@@ -1602,7 +2186,13 @@ export function useGetSiteAuditStatus<
 }
 
 /**
- * @summary Get full results of the latest completed site audit
+ * Returns crawl results for the most recent audit for this website,
+regardless of completion state. When `status` is `crawling` or `queued`,
+the response contains partial data accumulated so far — `pages` and `issues`
+reflect what has been crawled to date. Callers should re-poll until
+`status` equals `complete` or `failed` to obtain final results.
+
+ * @summary Get results of the latest site audit (partial or complete)
  */
 export const getGetSiteAuditResultsUrl = (websiteId: number) => {
   return `/api/audit/site/${websiteId}/results`;
@@ -1664,7 +2254,7 @@ export type GetSiteAuditResultsQueryResult = NonNullable<
 export type GetSiteAuditResultsQueryError = ErrorType<void>;
 
 /**
- * @summary Get full results of the latest completed site audit
+ * @summary Get results of the latest site audit (partial or complete)
  */
 
 export function useGetSiteAuditResults<

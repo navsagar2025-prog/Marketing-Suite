@@ -393,7 +393,13 @@ paths:
     get:
       operationId: getSiteAuditResults
       tags: [site-audit]
-      summary: Get full results of the latest completed site audit
+      summary: Get results of the latest site audit (partial or complete)
+      description: |
+        Returns crawl results for the most recent audit for this website,
+        regardless of completion state. When `status` is `crawling` or `queued`,
+        the response contains partial data accumulated so far — `pages` and `issues`
+        reflect what has been crawled to date. Callers should re-poll until
+        `status` equals `complete` or `failed` to obtain final results.
       security:
         - BearerAuth: []
       parameters:
@@ -404,13 +410,13 @@ paths:
             type: integer
       responses:
         "200":
-          description: Full audit results
+          description: Audit results (may be partial if crawl is still in progress; check `status` field)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/SiteAuditResults"
         "404":
-          description: No completed audit found for this website
+          description: No audit found for this website
 
   /admin/keywords/snapshot:
     post:

@@ -592,18 +592,26 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
       await db.insert(siteAuditIssuesTable).values(postIssues);
       totalIssueCount += postIssues.length;
 
-      // Update per-page issue counts
+      // Update per-page issue counts AND recalculate page scores
       const pageUrlsWithDups = new Set(postIssues.map((i) => i.pageUrl));
       for (const pageUrl of pageUrlsWithDups) {
-        const dupCount = postIssues.filter((i) => i.pageUrl === pageUrl).length;
+        const dupIssues = postIssues.filter((i) => i.pageUrl === pageUrl);
+        const dupCount = dupIssues.length;
+        // Each duplicate_title / duplicate_meta_description is a warning (-10 pts each)
+        const scoreDeduction = dupIssues.reduce((acc, i) => {
+          if (i.severity === "critical") return acc + 30;
+          if (i.severity === "warning") return acc + 10;
+          return acc + 3;
+        }, 0);
         const [existingPage] = await db
-          .select({ id: siteAuditPagesTable.id, issueCount: siteAuditPagesTable.issueCount })
+          .select({ id: siteAuditPagesTable.id, issueCount: siteAuditPagesTable.issueCount, score: siteAuditPagesTable.score })
           .from(siteAuditPagesTable)
           .where(and(eq(siteAuditPagesTable.siteAuditId, auditId), eq(siteAuditPagesTable.url, pageUrl)))
           .limit(1);
         if (existingPage) {
+          const newScore = Math.max(0, existingPage.score - scoreDeduction);
           await db.update(siteAuditPagesTable)
-            .set({ issueCount: existingPage.issueCount + dupCount })
+            .set({ issueCount: existingPage.issueCount + dupCount, score: newScore })
             .where(eq(siteAuditPagesTable.id, existingPage.id));
         }
       }

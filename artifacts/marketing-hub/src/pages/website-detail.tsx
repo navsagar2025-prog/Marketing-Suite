@@ -502,7 +502,10 @@ function SiteIssueRow({ issue }: { issue: SiteAuditIssueResult }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <SiteIssueBadge severity={issue.severity} />
-            <span className="text-xs font-mono text-muted-foreground truncate max-w-[200px]" title={issue.pageUrl}>
+            <code className="text-xs bg-muted px-1 py-0.5 rounded text-muted-foreground shrink-0">
+              {issue.issueType}
+            </code>
+            <span className="text-xs text-muted-foreground truncate max-w-[180px]" title={issue.pageUrl}>
               {issue.pageUrl.replace(/^https?:\/\/[^/]+/, "") || "/"}
             </span>
           </div>

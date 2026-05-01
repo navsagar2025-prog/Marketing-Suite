@@ -72,7 +72,7 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `POST /api/settings/payment/test` — Test active payment provider connection (stripe: balance.retrieve; razorpay: payments.all)
 - `POST /api/audit/site/:websiteId` — Start a full-site background BFS crawl audit (returns 202, fires async crawl)
 - `GET /api/audit/site/:websiteId/status` — Get current crawl progress (status: queued/crawling/complete/failed, pagesFound, pagesCrawled)
-- `GET /api/audit/site/:websiteId/results` — Get full results of latest completed audit (pages + issues)
+- `GET /api/audit/site/:websiteId/results` — Get results of latest audit (pages + issues); returns partial data during crawl — check `status` field; re-poll until `complete` or `failed`
 - `POST /api/websites/detect` — Auto-detect niche/SEO score from URL via crawl + AI
 - `POST /api/websites/:id/audit` — Run full SEO audit (crawl URL + AI analysis, store snapshot)
 - `GET /api/websites/:id/audits` — List audit history for a website

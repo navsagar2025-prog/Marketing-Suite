@@ -27,7 +27,10 @@ export default function PlanLimitWarning({ billing, metric }: Props) {
   const label = LABELS[metric];
 
   return (
-    <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm mb-4 ${atLimit ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-amber-400/40 bg-amber-50/60 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"}`}>
+    <div
+      data-testid={`banner-plan-limit-${metric}`}
+      className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm mb-4 ${atLimit ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-amber-400/40 bg-amber-50/60 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300"}`}
+    >
       <AlertTriangle className="h-4 w-4 shrink-0" />
       <span className="flex-1">
         {atLimit

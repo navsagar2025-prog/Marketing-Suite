@@ -982,7 +982,7 @@ export default function Keywords() {
   const isStarterPlan = billing?.plan === "starter";
   const kwUsed = billing?.usage?.keywords ?? 0;
   const kwLimit = billing?.limits?.keywords ?? 25;
-  const showKwLimitNudge = isStarterPlan && !kwNudgeDismissed && kwUsed >= 20;
+  const showKwLimitNudge = isStarterPlan && !kwNudgeDismissed && kwLimit > 0 && kwUsed / kwLimit >= 0.8;
 
   const dismissKwNudge = () => {
     localStorage.setItem(KW_LIMIT_NUDGE_KEY, "true");

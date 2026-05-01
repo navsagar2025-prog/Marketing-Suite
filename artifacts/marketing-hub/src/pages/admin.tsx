@@ -1,12 +1,14 @@
 import { useState, useMemo, type CSSProperties } from "react";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -815,9 +817,18 @@ function SortableStepCard({
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : undefined,
   };
+
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 bg-muted/30 h-[72px]"
+        data-testid={`onboarding-step-${step.id}`}
+      />
+    );
+  }
 
   return (
     <div
@@ -969,11 +980,18 @@ function OnboardingTab() {
   const [newHref, setNewHref] = useState("/");
   const [newDesc, setNewDesc] = useState("");
 
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const activeStep = steps.find(s => s.id === activeId) ?? null;
+
   // DnD sensors — require 8px movement before drag starts to avoid false triggers on click
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id));
+  }
 
   function initDraft(current: OnboardingStepConfig[]) {
     if (!draft) setDraft(current.map(s => ({ ...s })));
@@ -1000,6 +1018,7 @@ function OnboardingTab() {
   }
 
   function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const current = (draft ?? data ?? []).map(s => ({ ...s }));
@@ -1115,7 +1134,9 @@ function OnboardingTab() {
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
+                onDragCancel={() => setActiveId(null)}
               >
                 <SortableContext items={steps.map(s => s.id)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-3">
@@ -1137,6 +1158,22 @@ function OnboardingTab() {
                     ))}
                   </div>
                 </SortableContext>
+                <DragOverlay dropAnimation={null}>
+                  {activeStep ? (
+                    <div className="border rounded-lg p-4 bg-card shadow-xl ring-2 ring-primary/20 cursor-grabbing space-y-3 opacity-95">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <GripVertical className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                        <span className="text-xs font-medium text-muted-foreground tabular-nums w-10 shrink-0">
+                          Step {steps.findIndex(s => s.id === activeStep.id) + 1}
+                        </span>
+                        <span className="text-sm font-medium truncate">{activeStep.label}</span>
+                      </div>
+                      {activeStep.description && (
+                        <p className="text-xs text-muted-foreground pl-6 truncate">{activeStep.description}</p>
+                      )}
+                    </div>
+                  ) : null}
+                </DragOverlay>
               </DndContext>
 
               {/* Add custom step form */}

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock } from "lucide-react";
+import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap } from "lucide-react";
+import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,9 +32,11 @@ import {
   useUpdateSettings,
   useGetKeywordRankHistory,
   useSnapshotKeywordRanks,
+  useGetBillingMe,
   getListKeywordsQueryKey,
   getGetKeywordRankHistoryQueryKey,
   getGetSettingsQueryKey,
+  getGetBillingMeQueryKey,
 } from "@workspace/api-client-react";
 import type { Keyword, KeywordRankHistory } from "@workspace/api-client-react";
 
@@ -529,11 +532,14 @@ function ClustersView({
 
 const KEYWORD_TIP_KEY = "tip_first_keyword_dismissed";
 
+const KW_LIMIT_NUDGE_KEY = "nudge_kw_limit_dismissed";
+
 export default function Keywords() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [kwTipDismissedLocal, setKwTipDismissedLocal] = useState(() => localStorage.getItem(KEYWORD_TIP_KEY) === "true");
+  const [kwNudgeDismissed, setKwNudgeDismissed] = useState(() => localStorage.getItem(KW_LIMIT_NUDGE_KEY) === "true");
   const [aiNiche, setAiNiche] = useState("");
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
@@ -546,6 +552,7 @@ export default function Keywords() {
   const queryClient = useQueryClient();
   const { data: keywords, isLoading } = useListKeywords();
   const { data: websites } = useListWebsites();
+  const { data: billing } = useGetBillingMe({ query: { queryKey: getGetBillingMeQueryKey() } });
   const createMutation = useCreateKeyword();
   const deleteMutation = useDeleteKeyword();
   const updateMutation = useUpdateKeyword();
@@ -637,6 +644,16 @@ export default function Keywords() {
   };
 
   const showFirstKeywordTip = !kwTipDismissed && (keywords ?? []).length === 1;
+
+  const isStarterPlan = billing?.plan === "starter";
+  const kwUsed = billing?.usage?.keywords ?? 0;
+  const kwLimit = billing?.limits?.keywords ?? 25;
+  const showKwLimitNudge = isStarterPlan && !kwNudgeDismissed && kwUsed >= 20;
+
+  const dismissKwNudge = () => {
+    localStorage.setItem(KW_LIMIT_NUDGE_KEY, "true");
+    setKwNudgeDismissed(true);
+  };
 
   const allClusters = useMemo(() => {
     const names = new Set<string>();
@@ -844,6 +861,31 @@ export default function Keywords() {
           </Select>
         )}
       </div>
+
+      {/* Keyword limit nudge */}
+      {showKwLimitNudge && (
+        <div
+          data-testid="banner-kw-limit-nudge"
+          className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-4 py-3 text-sm"
+        >
+          <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+          <p className="flex-1 text-amber-900 dark:text-amber-200">
+            You're using <strong>{kwUsed} of {kwLimit} keywords</strong> on your Starter plan.{" "}
+            <Link href="/pricing" className="font-semibold underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-100">
+              Upgrade to Growth
+            </Link>{" "}
+            to track up to 200 keywords.
+          </p>
+          <button
+            data-testid="button-dismiss-kw-limit-nudge"
+            onClick={dismissKwNudge}
+            className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 transition-colors shrink-0"
+            aria-label="Dismiss upgrade nudge"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* First keyword tip */}
       {showFirstKeywordTip && (

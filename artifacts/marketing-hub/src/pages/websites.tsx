@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Plus, Globe, ExternalLink, Trash2, Search, Loader2, Sparkles, CheckCircle, X, Rocket } from "lucide-react";
+import { Plus, Globe, ExternalLink, Trash2, Search, Loader2, Sparkles, CheckCircle, X, Rocket, Zap } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,9 @@ import {
   getListWebsitesQueryKey,
   useGetSettings,
   useUpdateSettings,
+  useGetBillingMe,
   getGetSettingsQueryKey,
+  getGetBillingMeQueryKey,
 } from "@workspace/api-client-react";
 
 const urlOnlySchema = z.object({
@@ -49,10 +51,12 @@ export default function Websites() {
   const [step, setStep] = useState<"url" | "details">("url");
   const [search, setSearch] = useState("");
   const [tipDismissedLocal, setTipDismissedLocal] = useState(() => localStorage.getItem(WEBSITE_TIP_KEY) === "true");
+  const [limitModalOpen, setLimitModalOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: websites, isLoading } = useListWebsites();
   const { data: settings } = useGetSettings();
+  const { data: billing } = useGetBillingMe({ query: { queryKey: getGetBillingMeQueryKey() } });
   const updateSettingsMutation = useUpdateSettings();
   const createMutation = useCreateWebsite();
   const deleteMutation = useDeleteWebsite();
@@ -140,6 +144,19 @@ export default function Websites() {
 
   const showFirstWebsiteTip = !tipDismissed && (websites ?? []).length === 1;
 
+  const isStarterPlan = billing?.plan === "starter";
+  const websiteCount = (websites ?? []).length;
+  const websiteLimit = billing?.limits?.websites ?? 1;
+  const isAtWebsiteLimit = isStarterPlan && websiteCount >= websiteLimit;
+
+  const handleAddWebsiteClick = () => {
+    if (isAtWebsiteLimit) {
+      setLimitModalOpen(true);
+    } else {
+      setOpen(true);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -147,12 +164,10 @@ export default function Websites() {
           <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Websites</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Manage your website portfolio</p>
         </div>
+        <Button data-testid="button-add-website" size="sm" onClick={handleAddWebsiteClick}>
+          <Plus className="h-4 w-4 mr-1" /> Add Website
+        </Button>
         <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-website" size="sm">
-              <Plus className="h-4 w-4 mr-1" /> Add Website
-            </Button>
-          </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Add Website</DialogTitle>
@@ -295,6 +310,39 @@ export default function Websites() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Website limit modal for Starter plan */}
+      <Dialog open={limitModalOpen} onOpenChange={setLimitModalOpen}>
+        <DialogContent data-testid="modal-website-limit">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-amber-500" />
+              Website limit reached
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Your <strong>Starter plan</strong> includes{" "}
+              <strong>1 website</strong>. You've already added {websiteCount}{" "}
+              {websiteCount === 1 ? "website" : "websites"}.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Upgrade to <strong>Growth</strong> to track up to 5 websites, or go{" "}
+              <strong>Agency</strong> for unlimited websites.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <Link href="/pricing" className="flex-1">
+                <Button className="w-full" data-testid="button-go-to-pricing">
+                  <Zap className="h-4 w-4 mr-1" /> View Plans
+                </Button>
+              </Link>
+              <Button variant="outline" onClick={() => setLimitModalOpen(false)}>
+                Maybe later
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Search */}
       <div className="relative max-w-sm">

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings, HelpCircle, Code2, Copy, Check, Download, PenLine, Save } from "lucide-react";
+import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings, HelpCircle, Code2, Copy, Check, Download, PenLine, Save, Zap, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ import {
   useGenerateBlogDraft,
   useListWebsites,
   useCreateMediaAsset,
+  useGetBillingMe,
+  getGetBillingMeQueryKey,
 } from "@workspace/api-client-react";
 
 const PLATFORMS = [
@@ -163,13 +165,27 @@ function buildFaqJsonLd(faqs: Array<{ question: string; answer: string }>): stri
   return `<script type="application/ld+json">\n${JSON.stringify(schema, null, 2)}\n</script>`;
 }
 
+const AI_LIMIT_NUDGE_KEY = "nudge_ai_limit_dismissed";
+
 export default function AiTools() {
   const { toast } = useToast();
   const { data: settings } = useGetSettings();
+  const { data: billing } = useGetBillingMe({ query: { queryKey: getGetBillingMeQueryKey() } });
+  const [aiNudgeDismissed, setAiNudgeDismissed] = useState(() => localStorage.getItem(AI_LIMIT_NUDGE_KEY) === "true");
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiEnabled = settings?.aiEnabled ?? true;
   const aiKeyMissing = aiProvider !== "replit" && !settings?.aiApiKeyConfigured;
   const aiDisabled = settings !== undefined && (!aiEnabled || aiKeyMissing);
+
+  const isStarterPlan = billing?.plan === "starter";
+  const aiUsed = billing?.usage?.aiGenerations ?? 0;
+  const aiLimit = billing?.limits?.aiGenerations ?? 50;
+  const showAiLimitNudge = isStarterPlan && !aiNudgeDismissed && aiUsed >= 40;
+
+  const dismissAiNudge = () => {
+    localStorage.setItem(AI_LIMIT_NUDGE_KEY, "true");
+    setAiNudgeDismissed(true);
+  };
 
   // Keyword Suggester state
   const [kwNiche, setKwNiche] = useState("");
@@ -391,6 +407,39 @@ export default function AiTools() {
               Settings
             </Button>
           </Link>
+        </div>
+      )}
+
+      {/* AI generation limit nudge */}
+      {showAiLimitNudge && (
+        <div
+          data-testid="banner-ai-limit-nudge"
+          className="flex items-start gap-3 p-4 rounded-md border border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300"
+        >
+          <Zap className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+          <div className="flex-1">
+            <p className="font-medium text-sm">Running low on AI generations</p>
+            <p className="text-xs mt-0.5 opacity-80">
+              You've used <strong>{aiUsed} of {aiLimit}</strong> AI generations this month on your Starter plan.{" "}
+              Upgrade to Growth for 300/month, or Agency for 1,000.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/pricing">
+              <Button variant="outline" size="sm" className="border-amber-300 dark:border-amber-700" data-testid="button-ai-nudge-upgrade">
+                <Zap className="h-3.5 w-3.5 mr-1" />
+                Upgrade
+              </Button>
+            </Link>
+            <button
+              data-testid="button-dismiss-ai-limit-nudge"
+              onClick={dismissAiNudge}
+              className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-200 transition-colors"
+              aria-label="Dismiss nudge"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       )}
 

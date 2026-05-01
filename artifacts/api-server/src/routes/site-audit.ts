@@ -1,31 +1,72 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, siteAuditsTable, siteAuditPagesTable, siteAuditIssuesTable, websitesTable } from "@workspace/db";
+import { db, siteAuditsTable, siteAuditPagesTable, siteAuditIssuesTable, websitesTable, staffUsersTable } from "@workspace/db";
 import * as cheerio from "cheerio";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
 
-const PAGE_LIMIT = 100;
+const DEFAULT_PAGE_LIMIT = 100;
+const AGENCY_PAGE_LIMIT = 500;
 const CONCURRENCY = 3;
 const TIMEOUT_MS = 10_000;
+const MAX_REDIRECT_CHAIN = 10;
+
+// ─── SSRF protection ─────────────────────────────────────────────────────────
+
+const PRIVATE_IP_PATTERNS = [
+  /^127\./,
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+  /^169\.254\./,
+  /^::1$/,
+  /^fc00:/i,
+  /^fe80:/i,
+  /^0\./,
+  /^localhost$/i,
+];
+
+function isPrivateHost(hostname: string): boolean {
+  return PRIVATE_IP_PATTERNS.some((re) => re.test(hostname));
+}
+
+function isSafeUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.protocol.startsWith("http")) return false;
+    if (isPrivateHost(parsed.hostname)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── robots.txt ──────────────────────────────────────────────────────────────
 
 interface RobotsTxt {
   disallowedPaths: string[];
 }
 
 async function fetchRobotsTxt(origin: string): Promise<RobotsTxt> {
+  const robotsUrl = `${origin}/robots.txt`;
+  if (!isSafeUrl(robotsUrl)) return { disallowedPaths: [] };
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(`${origin}/robots.txt`, { signal: controller.signal });
+    const res = await fetch(robotsUrl, { signal: controller.signal });
     clearTimeout(timer);
     if (!res.ok) return { disallowedPaths: [] };
     const text = await res.text();
     const disallowedPaths: string[] = [];
+    let inAnyAgent = false;
     for (const line of text.split("\n")) {
       const trimmed = line.trim();
-      if (trimmed.toLowerCase().startsWith("disallow:")) {
+      if (trimmed.toLowerCase().startsWith("user-agent:")) {
+        const agent = trimmed.slice("user-agent:".length).trim();
+        inAnyAgent = agent === "*" || agent.toLowerCase().includes("bot");
+      }
+      if (inAnyAgent && trimmed.toLowerCase().startsWith("disallow:")) {
         const path = trimmed.slice("disallow:".length).trim();
         if (path) disallowedPaths.push(path);
       }
@@ -36,15 +77,17 @@ async function fetchRobotsTxt(origin: string): Promise<RobotsTxt> {
   }
 }
 
-function isDisallowed(url: string, robots: RobotsTxt, origin: string): boolean {
+function isRobotsDisallowed(url: string, robots: RobotsTxt): boolean {
   try {
     const parsed = new URL(url);
     const path = parsed.pathname + parsed.search;
-    return robots.disallowedPaths.some((d) => path.startsWith(d));
+    return robots.disallowedPaths.some((d) => d !== "/" && path.startsWith(d));
   } catch {
     return false;
   }
 }
+
+// ─── Link extraction ──────────────────────────────────────────────────────────
 
 function extractLinks(html: string, baseUrl: string, origin: string): string[] {
   const $ = cheerio.load(html);
@@ -59,89 +102,119 @@ function extractLinks(html: string, baseUrl: string, origin: string): string[] {
         links.push(resolved.href);
       }
     } catch {
-      // invalid URL
+      // invalid URL — skip
     }
   });
   return links;
 }
 
+// ─── Page crawl (manual redirect following for chain detection) ───────────────
+
 interface PageData {
   url: string;
+  finalUrl: string;
   statusCode: number | null;
   title: string | null;
+  h1Count: number;
+  h1First: string | null;
   metaDescription: string | null;
-  h1: string | null;
   wordCount: number | null;
   responseTimeMs: number | null;
   links: string[];
-  isRedirect: boolean;
   redirectChain: number;
   hasCanonical: boolean;
   canonicalUrl: string | null;
   isNoindex: boolean;
+  imagesWithoutAlt: number;
 }
 
 async function crawlPage(url: string): Promise<PageData> {
   const start = Date.now();
   let statusCode: number | null = null;
   let title: string | null = null;
+  let h1Count = 0;
+  let h1First: string | null = null;
   let metaDescription: string | null = null;
-  let h1: string | null = null;
   let wordCount: number | null = null;
   let responseTimeMs: number | null = null;
   let links: string[] = [];
-  let isRedirect = false;
   let redirectChain = 0;
   let hasCanonical = false;
   let canonicalUrl: string | null = null;
   let isNoindex = false;
+  let imagesWithoutAlt = 0;
+  let currentUrl = url;
 
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    // Manual redirect following to count chain depth
+    while (redirectChain <= MAX_REDIRECT_CHAIN) {
+      if (!isSafeUrl(currentUrl)) {
+        statusCode = 403;
+        break;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        "User-Agent": "SEO-Hub-Crawler/1.0 (site audit bot)",
-        "Accept": "text/html,application/xhtml+xml",
-      },
-    });
-    clearTimeout(timer);
+      const res = await fetch(currentUrl, {
+        signal: controller.signal,
+        redirect: "manual",
+        headers: {
+          "User-Agent": "SEO-Hub-Crawler/1.0 (site audit bot)",
+          "Accept": "text/html,application/xhtml+xml",
+        },
+      });
+      clearTimeout(timer);
+      responseTimeMs = Date.now() - start;
+      statusCode = res.status;
 
-    responseTimeMs = Date.now() - start;
-    statusCode = res.status;
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location) break;
+        redirectChain++;
+        try {
+          currentUrl = new URL(location, currentUrl).href;
+        } catch {
+          break;
+        }
+        continue;
+      }
 
-    const finalUrl = res.url;
-    isRedirect = finalUrl !== url;
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("text/html")) break;
 
-    const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("text/html")) {
-      return { url, statusCode, title, metaDescription, h1, wordCount, responseTimeMs, links, isRedirect, redirectChain, hasCanonical, canonicalUrl, isNoindex };
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      title = $("title").first().text().trim() || null;
+      metaDescription = $('meta[name="description"]').attr("content")?.trim() ?? null;
+
+      const h1s = $("h1");
+      h1Count = h1s.length;
+      h1First = h1s.first().text().trim() || null;
+
+      const robotsMeta = $('meta[name="robots"]').attr("content") ?? "";
+      isNoindex = robotsMeta.toLowerCase().includes("noindex");
+
+      const canonicalEl = $('link[rel="canonical"]');
+      if (canonicalEl.length) {
+        hasCanonical = true;
+        canonicalUrl = canonicalEl.attr("href") ?? null;
+      }
+
+      const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+      wordCount = bodyText ? bodyText.split(/\s+/).length : 0;
+
+      $("img").each((_, el) => {
+        const alt = $(el).attr("alt");
+        if (alt === undefined || alt === null) {
+          imagesWithoutAlt++;
+        }
+      });
+
+      const origin = new URL(url).origin;
+      links = extractLinks(html, currentUrl, origin);
+      break;
     }
-
-    const html = await res.text();
-    const $ = cheerio.load(html);
-
-    title = $("title").first().text().trim() || null;
-    metaDescription = $('meta[name="description"]').attr("content")?.trim() ?? null;
-    h1 = $("h1").first().text().trim() || null;
-
-    const robotsMeta = $('meta[name="robots"]').attr("content") ?? "";
-    isNoindex = robotsMeta.toLowerCase().includes("noindex");
-
-    const canonicalEl = $('link[rel="canonical"]');
-    if (canonicalEl.length) {
-      hasCanonical = true;
-      canonicalUrl = canonicalEl.attr("href") ?? null;
-    }
-
-    const bodyText = $("body").text().replace(/\s+/g, " ").trim();
-    wordCount = bodyText ? bodyText.split(/\s+/).length : 0;
-
-    const origin = new URL(url).origin;
-    links = extractLinks(html, finalUrl, origin);
   } catch (err: unknown) {
     responseTimeMs = Date.now() - start;
     if (err instanceof Error && err.name === "AbortError") {
@@ -149,8 +222,26 @@ async function crawlPage(url: string): Promise<PageData> {
     }
   }
 
-  return { url, statusCode, title, metaDescription, h1, wordCount, responseTimeMs, links, isRedirect, redirectChain, hasCanonical, canonicalUrl, isNoindex };
+  return {
+    url,
+    finalUrl: currentUrl,
+    statusCode,
+    title,
+    h1Count,
+    h1First,
+    metaDescription,
+    wordCount,
+    responseTimeMs,
+    links,
+    redirectChain,
+    hasCanonical,
+    canonicalUrl,
+    isNoindex,
+    imagesWithoutAlt,
+  };
 }
+
+// ─── Issue detection ─────────────────────────────────────────────────────────
 
 interface PageIssue {
   issueType: string;
@@ -167,7 +258,7 @@ function analysePageIssues(page: PageData): PageIssue[] {
       issueType: "broken_link",
       severity: "critical",
       description: `Page returned HTTP ${page.statusCode}`,
-      recommendation: "Fix the broken link or set up a proper redirect.",
+      recommendation: "Fix or remove the broken link, or set up a proper redirect.",
     });
     return issues;
   }
@@ -182,6 +273,22 @@ function analysePageIssues(page: PageData): PageIssue[] {
     return issues;
   }
 
+  if (page.redirectChain > 1) {
+    issues.push({
+      issueType: "redirect_chain",
+      severity: "warning",
+      description: `Redirect chain detected (${page.redirectChain} hops before reaching final URL)`,
+      recommendation: "Consolidate redirect chains into a single direct 301 to the final destination URL.",
+    });
+  } else if (page.redirectChain === 1) {
+    issues.push({
+      issueType: "redirect",
+      severity: "info",
+      description: "Page redirects to a different URL",
+      recommendation: "Update internal links to point directly to the final destination URL.",
+    });
+  }
+
   if (!page.title) {
     issues.push({
       issueType: "missing_title",
@@ -189,22 +296,20 @@ function analysePageIssues(page: PageData): PageIssue[] {
       description: "Page is missing a <title> tag",
       recommendation: "Add a descriptive, keyword-rich title tag (50-60 characters).",
     });
-  } else {
-    if (page.title.length < 30) {
-      issues.push({
-        issueType: "title_too_short",
-        severity: "warning",
-        description: `Title tag is too short (${page.title.length} characters)`,
-        recommendation: "Expand the title to 50-60 characters for better SEO.",
-      });
-    } else if (page.title.length > 60) {
-      issues.push({
-        issueType: "title_too_long",
-        severity: "warning",
-        description: `Title tag is too long (${page.title.length} characters) and may be truncated in SERPs`,
-        recommendation: "Shorten the title to under 60 characters.",
-      });
-    }
+  } else if (page.title.length < 30) {
+    issues.push({
+      issueType: "title_too_short",
+      severity: "warning",
+      description: `Title tag is too short (${page.title.length} characters)`,
+      recommendation: "Expand the title to 50-60 characters for better SEO.",
+    });
+  } else if (page.title.length > 60) {
+    issues.push({
+      issueType: "title_too_long",
+      severity: "warning",
+      description: `Title tag is too long (${page.title.length} characters) and may be truncated in SERPs`,
+      recommendation: "Shorten the title to under 60 characters.",
+    });
   }
 
   if (!page.metaDescription) {
@@ -223,12 +328,19 @@ function analysePageIssues(page: PageData): PageIssue[] {
     });
   }
 
-  if (!page.h1) {
+  if (page.h1Count === 0) {
     issues.push({
       issueType: "missing_h1",
       severity: "warning",
       description: "Page is missing an H1 heading",
       recommendation: "Add a single H1 heading that includes your primary keyword.",
+    });
+  } else if (page.h1Count > 1) {
+    issues.push({
+      issueType: "multiple_h1",
+      severity: "warning",
+      description: `Page has ${page.h1Count} H1 headings (should have exactly one)`,
+      recommendation: "Reduce to a single H1 heading that clearly defines the page topic.",
     });
   }
 
@@ -250,15 +362,6 @@ function analysePageIssues(page: PageData): PageIssue[] {
     });
   }
 
-  if (page.isRedirect) {
-    issues.push({
-      issueType: "redirect",
-      severity: "info",
-      description: "Page redirects to a different URL",
-      recommendation: "Update internal links to point directly to the final destination URL.",
-    });
-  }
-
   if (page.responseTimeMs !== null && page.responseTimeMs > 3000) {
     issues.push({
       issueType: "slow_page",
@@ -277,6 +380,15 @@ function analysePageIssues(page: PageData): PageIssue[] {
     });
   }
 
+  if (page.imagesWithoutAlt > 0) {
+    issues.push({
+      issueType: "missing_alt_text",
+      severity: "warning",
+      description: `Page has ${page.imagesWithoutAlt} image${page.imagesWithoutAlt !== 1 ? "s" : ""} missing alt text`,
+      recommendation: "Add descriptive alt text to all images for accessibility and image SEO.",
+    });
+  }
+
   return issues;
 }
 
@@ -290,51 +402,100 @@ function calculatePageScore(issues: PageIssue[]): number {
   return Math.max(0, score);
 }
 
-function calculateHealthScore(allIssues: PageIssue[], totalPages: number): number {
+function calculateHealthScore(totalIssues: number, totalPages: number): number {
   if (totalPages === 0) return 0;
-  let deductions = 0;
-  for (const issue of allIssues) {
-    if (issue.severity === "critical") deductions += 10;
-    else if (issue.severity === "warning") deductions += 4;
-    else deductions += 1;
-  }
-  const maxDeductions = totalPages * 30;
-  const ratio = Math.min(1, deductions / (maxDeductions || 1));
-  return Math.round(100 - ratio * 100);
+  const avgIssuesPerPage = totalIssues / totalPages;
+  const score = Math.round(100 - Math.min(100, avgIssuesPerPage * 12));
+  return Math.max(0, score);
 }
 
-async function runCrawl(auditId: number, startUrl: string): Promise<void> {
+// ─── Main crawl runner ────────────────────────────────────────────────────────
+
+async function runCrawl(auditId: number, startUrl: string, pageLimit: number): Promise<void> {
   try {
     const parsed = new URL(startUrl);
     const origin = parsed.origin;
+
+    if (!isSafeUrl(startUrl)) {
+      await db.update(siteAuditsTable).set({ status: "failed" }).where(eq(siteAuditsTable.id, auditId));
+      return;
+    }
 
     const robots = await fetchRobotsTxt(origin);
 
     const queue: string[] = [startUrl];
     const visited = new Set<string>();
     const found = new Set<string>([startUrl]);
-    const allIssues: PageIssue[] = [];
+
+    // Track titles and meta descriptions for duplicate detection
+    const titleMap = new Map<string, string[]>(); // title → urls
+    const metaMap = new Map<string, string[]>(); // meta → urls
+
+    let totalIssueCount = 0;
 
     await db.update(siteAuditsTable).set({ status: "crawling", pagesFound: 1 }).where(eq(siteAuditsTable.id, auditId));
 
-    while (queue.length > 0 && visited.size < PAGE_LIMIT) {
+    while (queue.length > 0 && visited.size < pageLimit) {
       const batch = queue.splice(0, CONCURRENCY);
 
       await Promise.all(
         batch.map(async (url) => {
           if (visited.has(url)) return;
-          if (isDisallowed(url, robots, origin)) {
-            visited.add(url);
+          visited.add(url);
+
+          const isBlocked = isRobotsDisallowed(url, robots);
+
+          if (isBlocked) {
+            // Record as an issue, not silently skip
+            await db.insert(siteAuditPagesTable).values({
+              siteAuditId: auditId,
+              url,
+              statusCode: null,
+              title: null,
+              metaDescription: null,
+              h1: null,
+              wordCount: null,
+              responseTimeMs: null,
+              issueCount: 1,
+              score: 70,
+            });
+
+            await db.insert(siteAuditIssuesTable).values({
+              siteAuditId: auditId,
+              pageUrl: url,
+              issueType: "robots_blocked",
+              severity: "info",
+              description: "Page is blocked by robots.txt and cannot be crawled",
+              recommendation: "If this page should be indexed, remove the Disallow rule from robots.txt.",
+            });
+
+            totalIssueCount++;
+
+            await db.update(siteAuditsTable)
+              .set({ pagesCrawled: visited.size, pagesFound: found.size, healthScore: calculateHealthScore(totalIssueCount, visited.size) })
+              .where(eq(siteAuditsTable.id, auditId));
             return;
           }
-
-          visited.add(url);
 
           const pageData = await crawlPage(url);
           const pageIssues = analysePageIssues(pageData);
           const pageScore = calculatePageScore(pageIssues);
 
-          allIssues.push(...pageIssues);
+          // Track for duplicate detection
+          if (pageData.title) {
+            const normalised = pageData.title.trim().toLowerCase();
+            const existing = titleMap.get(normalised) ?? [];
+            existing.push(url);
+            titleMap.set(normalised, existing);
+          }
+          if (pageData.metaDescription) {
+            const normalised = pageData.metaDescription.trim().toLowerCase();
+            const existing = metaMap.get(normalised) ?? [];
+            existing.push(url);
+            metaMap.set(normalised, existing);
+          }
+
+          totalIssueCount += pageIssues.length;
 
           await db.insert(siteAuditPagesTable).values({
             siteAuditId: auditId,
@@ -342,7 +503,7 @@ async function runCrawl(auditId: number, startUrl: string): Promise<void> {
             statusCode: pageData.statusCode,
             title: pageData.title,
             metaDescription: pageData.metaDescription,
-            h1: pageData.h1,
+            h1: pageData.h1First,
             wordCount: pageData.wordCount,
             responseTimeMs: pageData.responseTimeMs,
             issueCount: pageIssues.length,
@@ -362,29 +523,87 @@ async function runCrawl(auditId: number, startUrl: string): Promise<void> {
             );
           }
 
+          // Add newly discovered links to queue
           for (const link of pageData.links) {
-            if (!found.has(link) && found.size < PAGE_LIMIT * 2) {
+            if (!found.has(link) && found.size < pageLimit * 3) {
               found.add(link);
               queue.push(link);
             }
           }
 
           await db.update(siteAuditsTable)
-            .set({
-              pagesCrawled: visited.size,
-              pagesFound: found.size,
-            })
+            .set({ pagesCrawled: visited.size, pagesFound: found.size, healthScore: calculateHealthScore(totalIssueCount, visited.size) })
             .where(eq(siteAuditsTable.id, auditId));
         })
       );
     }
 
-    const healthScore = calculateHealthScore(allIssues, visited.size);
+    // ── Post-crawl: duplicate title detection ──────────────────────────────
+    const dupTitleIssues: Array<{ pageUrl: string; siteAuditId: number; issueType: string; severity: "critical" | "warning" | "info"; description: string; recommendation: string }> = [];
+    for (const [title, urls] of titleMap.entries()) {
+      if (urls.length > 1) {
+        for (const pageUrl of urls) {
+          dupTitleIssues.push({
+            siteAuditId: auditId,
+            pageUrl,
+            issueType: "duplicate_title",
+            severity: "warning",
+            description: `Duplicate title tag shared with ${urls.length - 1} other page(s): "${title.slice(0, 60)}${title.length > 60 ? "…" : ""}"`,
+            recommendation: "Give each page a unique title tag that accurately describes its specific content.",
+          });
+        }
+      }
+    }
+
+    // ── Post-crawl: duplicate meta description detection ──────────────────
+    const dupMetaIssues: typeof dupTitleIssues = [];
+    for (const [meta, urls] of metaMap.entries()) {
+      if (urls.length > 1) {
+        for (const pageUrl of urls) {
+          dupMetaIssues.push({
+            siteAuditId: auditId,
+            pageUrl,
+            issueType: "duplicate_meta_description",
+            severity: "warning",
+            description: `Duplicate meta description shared with ${urls.length - 1} other page(s)`,
+            recommendation: "Write a unique meta description for each page that accurately summarises the page content.",
+          });
+        }
+      }
+    }
+
+    const allPostIssues = [...dupTitleIssues, ...dupMetaIssues];
+    if (allPostIssues.length > 0) {
+      await db.insert(siteAuditIssuesTable).values(allPostIssues);
+      totalIssueCount += allPostIssues.length;
+
+      // Update page issue counts for pages with duplicate issues
+      const pageUrlsWithDups = new Set(allPostIssues.map((i) => i.pageUrl));
+      for (const pageUrl of pageUrlsWithDups) {
+        const dupCount = allPostIssues.filter((i) => i.pageUrl === pageUrl).length;
+        // Update issue count for this page row
+        const [existingPage] = await db
+          .select({ id: siteAuditPagesTable.id, issueCount: siteAuditPagesTable.issueCount })
+          .from(siteAuditPagesTable)
+          .where(and(
+            eq(siteAuditPagesTable.siteAuditId, auditId),
+            eq(siteAuditPagesTable.url, pageUrl),
+          ))
+          .limit(1);
+        if (existingPage) {
+          await db.update(siteAuditPagesTable)
+            .set({ issueCount: existingPage.issueCount + dupCount })
+            .where(eq(siteAuditPagesTable.id, existingPage.id));
+        }
+      }
+    }
+
+    const finalHealthScore = calculateHealthScore(totalIssueCount, visited.size);
 
     await db.update(siteAuditsTable)
       .set({
         status: "complete",
-        healthScore,
+        healthScore: finalHealthScore,
         pagesCrawled: visited.size,
         pagesFound: found.size,
         completedAt: new Date(),
@@ -396,6 +615,8 @@ async function runCrawl(auditId: number, startUrl: string): Promise<void> {
     await db.update(siteAuditsTable).set({ status: "failed" }).where(eq(siteAuditsTable.id, auditId));
   }
 }
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
 router.post("/audit/site/:websiteId", async (req, res): Promise<void> => {
   const websiteId = parseInt(req.params.websiteId);
@@ -414,6 +635,11 @@ router.post("/audit/site/:websiteId", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!isSafeUrl(website.url)) {
+    res.status(400).json({ error: "Website URL is not a valid public URL" });
+    return;
+  }
+
   const [existingInProgress] = await db
     .select()
     .from(siteAuditsTable)
@@ -427,6 +653,12 @@ router.post("/audit/site/:websiteId", async (req, res): Promise<void> => {
     res.status(409).json({ error: "A crawl is already in progress for this website" });
     return;
   }
+
+  // Determine page limit based on user's plan
+  const userId = req.user!.id;
+  const [staffUser] = await db.select({ plan: staffUsersTable.plan }).from(staffUsersTable).where(eq(staffUsersTable.id, userId));
+  const plan = staffUser?.plan ?? "starter";
+  const pageLimit = plan === "agency" ? AGENCY_PAGE_LIMIT : DEFAULT_PAGE_LIMIT;
 
   const [audit] = await db
     .insert(siteAuditsTable)
@@ -445,7 +677,7 @@ router.post("/audit/site/:websiteId", async (req, res): Promise<void> => {
   });
 
   // Fire and forget
-  runCrawl(audit.id, website.url).catch((err) => {
+  runCrawl(audit.id, website.url, pageLimit).catch((err) => {
     logger.error({ err, auditId: audit.id }, "Unhandled error in runCrawl");
   });
 });

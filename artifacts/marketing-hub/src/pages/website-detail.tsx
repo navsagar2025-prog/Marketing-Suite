@@ -576,11 +576,17 @@ function SiteAuditTab({ websiteId }: { websiteId: number }) {
 
   const isCrawling = status?.status === "crawling" || status?.status === "queued";
 
+  const hasAudit = !!status;
   const { data: results } = useGetSiteAuditResults(websiteId, {
     query: {
       queryKey: getGetSiteAuditResultsQueryKey(websiteId),
-      enabled: status?.status === "complete",
+      enabled: hasAudit,
       retry: false,
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        if (data && (data.status === "crawling" || data.status === "queued")) return 3000;
+        return false;
+      },
     },
   });
 
@@ -700,8 +706,8 @@ function SiteAuditTab({ websiteId }: { websiteId: number }) {
         </Card>
       )}
 
-      {/* Results */}
-      {results && results.status === "complete" && (
+      {/* Results — shown even during crawl for partial data */}
+      {results && results.pages.length > 0 && (
         <div className="space-y-4">
           {/* Health score + summary */}
           <Card>
@@ -709,9 +715,12 @@ function SiteAuditTab({ websiteId }: { websiteId: number }) {
               <div className="flex items-center gap-6 flex-wrap">
                 <ScoreRing score={healthScore ?? 0} />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Site Health Score</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Site Health Score</p>
+                    {isCrawling && <Badge variant="outline" className="text-xs">Partial</Badge>}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {(healthScore ?? 0) >= 70 ? "Good overall health" : (healthScore ?? 0) >= 40 ? "Needs attention" : "Critical issues detected"}
+                    {isCrawling ? "Crawl in progress — results updating..." : (healthScore ?? 0) >= 70 ? "Good overall health" : (healthScore ?? 0) >= 40 ? "Needs attention" : "Critical issues detected"}
                   </p>
                   <div className="flex gap-3 text-xs mt-2 flex-wrap">
                     {criticalCount > 0 && <span className="text-red-600 font-medium">{criticalCount} critical</span>}

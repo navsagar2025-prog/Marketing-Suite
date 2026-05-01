@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -892,7 +892,7 @@ function OnboardingTab() {
             <CardTitle className="text-base">Onboarding Checklist Steps</CardTitle>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Customise the steps shown to new users in the Getting Started checklist. Toggle steps on or off, and edit their label and link.
+            Customise the steps shown to new users in the Getting Started checklist. Toggle steps on or off, edit their label and link, and use the arrows to reorder them.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -909,6 +909,10 @@ function OnboardingTab() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 min-w-0">
+                        <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" aria-hidden="true" />
+                        <span className="text-xs font-medium text-muted-foreground tabular-nums w-10 shrink-0">
+                          Step {idx + 1}
+                        </span>
                         <Switch
                           id={`step-enabled-${step.id}`}
                           checked={step.enabled}

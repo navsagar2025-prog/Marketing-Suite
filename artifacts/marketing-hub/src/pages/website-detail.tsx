@@ -523,14 +523,38 @@ function SiteIssueRow({ issue }: { issue: SiteAuditIssueResult }) {
   );
 }
 
+const ISSUE_CATEGORIES: Record<string, string> = {
+  broken_link: "Technical",
+  unreachable: "Technical",
+  redirect: "Technical",
+  redirect_chain: "Technical",
+  slow_page: "Technical",
+  robots_blocked: "Technical",
+  missing_title: "Content",
+  title_too_short: "Content",
+  title_too_long: "Content",
+  missing_h1: "Content",
+  multiple_h1: "Content",
+  thin_content: "Content",
+  missing_meta_description: "Meta",
+  meta_description_too_long: "Meta",
+  duplicate_title: "Meta",
+  duplicate_meta_description: "Meta",
+  noindex: "Indexing",
+  missing_canonical: "Indexing",
+  missing_alt_text: "Accessibility",
+};
+
 function SitePageRow({ page }: { page: SiteAuditPageResult }) {
   const score = page.score ?? 0;
   const scoreColor = score >= 70 ? "text-green-600" : score >= 40 ? "text-yellow-600" : "text-red-600";
   const statusColor = (page.statusCode ?? 0) >= 400 ? "text-red-600" : (page.statusCode ?? 0) >= 300 ? "text-yellow-600" : "text-muted-foreground";
+  const metaLen = page.metaDescription ? page.metaDescription.length : null;
+  const metaColor = metaLen == null ? "text-red-500" : metaLen > 160 ? "text-yellow-600" : metaLen < 70 ? "text-yellow-600" : "text-muted-foreground";
 
   return (
     <tr className="border-b last:border-0 hover:bg-muted/20">
-      <td className="py-2 px-3 max-w-[280px]">
+      <td className="py-2 px-3 max-w-[240px]">
         <div className="flex items-center gap-1">
           <a
             href={page.url}
@@ -548,6 +572,9 @@ function SitePageRow({ page }: { page: SiteAuditPageResult }) {
       <td className={`py-2 px-3 text-xs text-right font-mono ${statusColor}`}>{page.statusCode ?? "—"}</td>
       <td className={`py-2 px-3 text-xs text-right font-semibold ${scoreColor}`}>{page.score ?? "—"}</td>
       <td className="py-2 px-3 text-xs text-right text-muted-foreground">{page.issueCount}</td>
+      <td className={`py-2 px-3 text-xs text-right ${metaColor}`}>
+        {metaLen != null ? `${metaLen}ch` : "—"}
+      </td>
       <td className="py-2 px-3 text-xs text-right text-muted-foreground">
         {page.responseTimeMs != null ? `${(page.responseTimeMs / 1000).toFixed(1)}s` : "—"}
       </td>
@@ -722,12 +749,28 @@ function SiteAuditTab({ websiteId }: { websiteId: number }) {
                   <p className="text-xs text-muted-foreground">
                     {isCrawling ? "Crawl in progress — results updating..." : (healthScore ?? 0) >= 70 ? "Good overall health" : (healthScore ?? 0) >= 40 ? "Needs attention" : "Critical issues detected"}
                   </p>
+                  {/* Severity breakdown */}
                   <div className="flex gap-3 text-xs mt-2 flex-wrap">
                     {criticalCount > 0 && <span className="text-red-600 font-medium">{criticalCount} critical</span>}
                     {warningCount > 0 && <span className="text-yellow-600 font-medium">{warningCount} warnings</span>}
                     {infoCount > 0 && <span className="text-blue-600 font-medium">{infoCount} info</span>}
                     {issues.length === 0 && <span className="text-green-600 font-medium">No issues found!</span>}
                   </div>
+                  {/* Category breakdown */}
+                  {issues.length > 0 && (() => {
+                    const cats: Record<string, number> = {};
+                    for (const iss of issues) {
+                      const cat = ISSUE_CATEGORIES[iss.issueType] ?? "Other";
+                      cats[cat] = (cats[cat] ?? 0) + 1;
+                    }
+                    return (
+                      <div className="flex gap-3 text-xs mt-1 flex-wrap">
+                        {Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
+                          <span key={cat} className="text-muted-foreground">{cat}: <span className="font-medium text-foreground">{count}</span></span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="ml-auto text-right hidden sm:block">
                   <p className="text-xs text-muted-foreground">Pages scanned</p>
@@ -788,6 +831,7 @@ function SiteAuditTab({ websiteId }: { websiteId: number }) {
                         <th className="text-right py-2 px-3 font-medium">Status</th>
                         <th className="text-right py-2 px-3 font-medium">Score</th>
                         <th className="text-right py-2 px-3 font-medium">Issues</th>
+                        <th className="text-right py-2 px-3 font-medium">Meta Desc</th>
                         <th className="text-right py-2 px-3 font-medium">Load time</th>
                       </tr>
                     </thead>

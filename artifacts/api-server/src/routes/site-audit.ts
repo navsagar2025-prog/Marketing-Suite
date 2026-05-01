@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { db, siteAuditsTable, siteAuditPagesTable, siteAuditIssuesTable, websitesTable, staffUsersTable } from "@workspace/db";
 import * as cheerio from "cheerio";
+import { lookup as dnsLookup } from "node:dns/promises";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -24,18 +25,39 @@ const PRIVATE_IP_PATTERNS = [
   /^fc00:/i,
   /^fe80:/i,
   /^0\./,
-  /^localhost$/i,
 ];
 
-function isPrivateHost(hostname: string): boolean {
-  return PRIVATE_IP_PATTERNS.some((re) => re.test(hostname));
+const PRIVATE_HOSTNAME_PATTERNS = [
+  /^localhost$/i,
+  /^.*\.local$/i,
+  /^.*\.internal$/i,
+];
+
+function isPrivateIp(ip: string): boolean {
+  return PRIVATE_IP_PATTERNS.some((re) => re.test(ip));
 }
 
-function isSafeUrl(url: string): boolean {
+function isPrivateHostname(hostname: string): boolean {
+  return PRIVATE_HOSTNAME_PATTERNS.some((re) => re.test(hostname));
+}
+
+/**
+ * DNS-resolving SSRF check — resolves the hostname and checks whether
+ * any resolved IP falls into a private/link-local range.
+ */
+async function isSafeUrl(url: string): Promise<boolean> {
   try {
     const parsed = new URL(url);
     if (!parsed.protocol.startsWith("http")) return false;
-    if (isPrivateHost(parsed.hostname)) return false;
+    const hostname = parsed.hostname;
+    // Block immediately-known-unsafe hostnames without a DNS round-trip
+    if (isPrivateHostname(hostname)) return false;
+    // Attempt to resolve and validate every returned address
+    const results = await dnsLookup(hostname, { all: true }).catch(() => null);
+    if (!results || results.length === 0) return false; // unresolvable = unsafe
+    for (const { address } of results) {
+      if (isPrivateIp(address)) return false;
+    }
     return true;
   } catch {
     return false;
@@ -46,42 +68,49 @@ function isSafeUrl(url: string): boolean {
 
 interface RobotsTxt {
   disallowedPaths: string[];
+  blockAll: boolean;
 }
 
 async function fetchRobotsTxt(origin: string): Promise<RobotsTxt> {
   const robotsUrl = `${origin}/robots.txt`;
-  if (!isSafeUrl(robotsUrl)) return { disallowedPaths: [] };
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(robotsUrl, { signal: controller.signal });
     clearTimeout(timer);
-    if (!res.ok) return { disallowedPaths: [] };
+    if (!res.ok) return { disallowedPaths: [], blockAll: false };
     const text = await res.text();
     const disallowedPaths: string[] = [];
-    let inAnyAgent = false;
+    let inRelevantAgent = false;
+    let blockAll = false;
     for (const line of text.split("\n")) {
       const trimmed = line.trim();
       if (trimmed.toLowerCase().startsWith("user-agent:")) {
         const agent = trimmed.slice("user-agent:".length).trim();
-        inAnyAgent = agent === "*" || agent.toLowerCase().includes("bot");
+        // Apply to wildcard agent rules
+        inRelevantAgent = agent === "*";
       }
-      if (inAnyAgent && trimmed.toLowerCase().startsWith("disallow:")) {
+      if (inRelevantAgent && trimmed.toLowerCase().startsWith("disallow:")) {
         const path = trimmed.slice("disallow:".length).trim();
-        if (path) disallowedPaths.push(path);
+        if (path === "/") {
+          blockAll = true;
+        } else if (path) {
+          disallowedPaths.push(path);
+        }
       }
     }
-    return { disallowedPaths };
+    return { disallowedPaths, blockAll };
   } catch {
-    return { disallowedPaths: [] };
+    return { disallowedPaths: [], blockAll: false };
   }
 }
 
 function isRobotsDisallowed(url: string, robots: RobotsTxt): boolean {
+  if (robots.blockAll) return true;
   try {
     const parsed = new URL(url);
     const path = parsed.pathname + parsed.search;
-    return robots.disallowedPaths.some((d) => d !== "/" && path.startsWith(d));
+    return robots.disallowedPaths.some((d) => path.startsWith(d));
   } catch {
     return false;
   }
@@ -108,7 +137,7 @@ function extractLinks(html: string, baseUrl: string, origin: string): string[] {
   return links;
 }
 
-// ─── Page crawl (manual redirect following for chain detection) ───────────────
+// ─── Page crawl with manual redirect following ────────────────────────────────
 
 interface PageData {
   url: string;
@@ -146,9 +175,10 @@ async function crawlPage(url: string): Promise<PageData> {
   let currentUrl = url;
 
   try {
-    // Manual redirect following to count chain depth
+    // Manually follow redirects so we can count chain depth and re-check each hop
     while (redirectChain <= MAX_REDIRECT_CHAIN) {
-      if (!isSafeUrl(currentUrl)) {
+      const safe = await isSafeUrl(currentUrl);
+      if (!safe) {
         statusCode = 403;
         break;
       }
@@ -405,8 +435,7 @@ function calculatePageScore(issues: PageIssue[]): number {
 function calculateHealthScore(totalIssues: number, totalPages: number): number {
   if (totalPages === 0) return 0;
   const avgIssuesPerPage = totalIssues / totalPages;
-  const score = Math.round(100 - Math.min(100, avgIssuesPerPage * 12));
-  return Math.max(0, score);
+  return Math.max(0, Math.round(100 - Math.min(100, avgIssuesPerPage * 12)));
 }
 
 // ─── Main crawl runner ────────────────────────────────────────────────────────
@@ -416,7 +445,8 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
     const parsed = new URL(startUrl);
     const origin = parsed.origin;
 
-    if (!isSafeUrl(startUrl)) {
+    // SSRF guard on the start URL (with DNS resolution)
+    if (!(await isSafeUrl(startUrl))) {
       await db.update(siteAuditsTable).set({ status: "failed" }).where(eq(siteAuditsTable.id, auditId));
       return;
     }
@@ -427,9 +457,9 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
     const visited = new Set<string>();
     const found = new Set<string>([startUrl]);
 
-    // Track titles and meta descriptions for duplicate detection
-    const titleMap = new Map<string, string[]>(); // title → urls
-    const metaMap = new Map<string, string[]>(); // meta → urls
+    // Duplicate detection state (cross-page)
+    const titleMap = new Map<string, string[]>();
+    const metaMap = new Map<string, string[]>();
 
     let totalIssueCount = 0;
 
@@ -443,10 +473,8 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
           if (visited.has(url)) return;
           visited.add(url);
 
-          const isBlocked = isRobotsDisallowed(url, robots);
-
-          if (isBlocked) {
-            // Record as an issue, not silently skip
+          if (isRobotsDisallowed(url, robots)) {
+            // Record as an issue rather than silently skipping
             await db.insert(siteAuditPagesTable).values({
               siteAuditId: auditId,
               url,
@@ -459,7 +487,6 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
               issueCount: 1,
               score: 70,
             });
-
             await db.insert(siteAuditIssuesTable).values({
               siteAuditId: auditId,
               pageUrl: url,
@@ -468,9 +495,7 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
               description: "Page is blocked by robots.txt and cannot be crawled",
               recommendation: "If this page should be indexed, remove the Disallow rule from robots.txt.",
             });
-
             totalIssueCount++;
-
             await db.update(siteAuditsTable)
               .set({ pagesCrawled: visited.size, pagesFound: found.size, healthScore: calculateHealthScore(totalIssueCount, visited.size) })
               .where(eq(siteAuditsTable.id, auditId));
@@ -481,18 +506,13 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
           const pageIssues = analysePageIssues(pageData);
           const pageScore = calculatePageScore(pageIssues);
 
-          // Track for duplicate detection
           if (pageData.title) {
-            const normalised = pageData.title.trim().toLowerCase();
-            const existing = titleMap.get(normalised) ?? [];
-            existing.push(url);
-            titleMap.set(normalised, existing);
+            const n = pageData.title.trim().toLowerCase();
+            titleMap.set(n, [...(titleMap.get(n) ?? []), url]);
           }
           if (pageData.metaDescription) {
-            const normalised = pageData.metaDescription.trim().toLowerCase();
-            const existing = metaMap.get(normalised) ?? [];
-            existing.push(url);
-            metaMap.set(normalised, existing);
+            const n = pageData.metaDescription.trim().toLowerCase();
+            metaMap.set(n, [...(metaMap.get(n) ?? []), url]);
           }
 
           totalIssueCount += pageIssues.length;
@@ -523,7 +543,6 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
             );
           }
 
-          // Add newly discovered links to queue
           for (const link of pageData.links) {
             if (!found.has(link) && found.size < pageLimit * 3) {
               found.add(link);
@@ -538,31 +557,28 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
       );
     }
 
-    // ── Post-crawl: duplicate title detection ──────────────────────────────
-    const dupTitleIssues: Array<{ pageUrl: string; siteAuditId: number; issueType: string; severity: "critical" | "warning" | "info"; description: string; recommendation: string }> = [];
+    // Post-crawl: duplicate title/meta detection
+    const postIssues: Array<{ siteAuditId: number; pageUrl: string; issueType: string; severity: "critical" | "warning" | "info"; description: string; recommendation: string }> = [];
+
     for (const [title, urls] of titleMap.entries()) {
       if (urls.length > 1) {
         for (const pageUrl of urls) {
-          dupTitleIssues.push({
-            siteAuditId: auditId,
-            pageUrl,
+          postIssues.push({
+            siteAuditId: auditId, pageUrl,
             issueType: "duplicate_title",
             severity: "warning",
-            description: `Duplicate title tag shared with ${urls.length - 1} other page(s): "${title.slice(0, 60)}${title.length > 60 ? "…" : ""}"`,
+            description: `Duplicate title shared with ${urls.length - 1} other page(s): "${title.slice(0, 60)}${title.length > 60 ? "…" : ""}"`,
             recommendation: "Give each page a unique title tag that accurately describes its specific content.",
           });
         }
       }
     }
 
-    // ── Post-crawl: duplicate meta description detection ──────────────────
-    const dupMetaIssues: typeof dupTitleIssues = [];
-    for (const [meta, urls] of metaMap.entries()) {
+    for (const [, urls] of metaMap.entries()) {
       if (urls.length > 1) {
         for (const pageUrl of urls) {
-          dupMetaIssues.push({
-            siteAuditId: auditId,
-            pageUrl,
+          postIssues.push({
+            siteAuditId: auditId, pageUrl,
             issueType: "duplicate_meta_description",
             severity: "warning",
             description: `Duplicate meta description shared with ${urls.length - 1} other page(s)`,
@@ -572,23 +588,18 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
       }
     }
 
-    const allPostIssues = [...dupTitleIssues, ...dupMetaIssues];
-    if (allPostIssues.length > 0) {
-      await db.insert(siteAuditIssuesTable).values(allPostIssues);
-      totalIssueCount += allPostIssues.length;
+    if (postIssues.length > 0) {
+      await db.insert(siteAuditIssuesTable).values(postIssues);
+      totalIssueCount += postIssues.length;
 
-      // Update page issue counts for pages with duplicate issues
-      const pageUrlsWithDups = new Set(allPostIssues.map((i) => i.pageUrl));
+      // Update per-page issue counts
+      const pageUrlsWithDups = new Set(postIssues.map((i) => i.pageUrl));
       for (const pageUrl of pageUrlsWithDups) {
-        const dupCount = allPostIssues.filter((i) => i.pageUrl === pageUrl).length;
-        // Update issue count for this page row
+        const dupCount = postIssues.filter((i) => i.pageUrl === pageUrl).length;
         const [existingPage] = await db
           .select({ id: siteAuditPagesTable.id, issueCount: siteAuditPagesTable.issueCount })
           .from(siteAuditPagesTable)
-          .where(and(
-            eq(siteAuditPagesTable.siteAuditId, auditId),
-            eq(siteAuditPagesTable.url, pageUrl),
-          ))
+          .where(and(eq(siteAuditPagesTable.siteAuditId, auditId), eq(siteAuditPagesTable.url, pageUrl)))
           .limit(1);
         if (existingPage) {
           await db.update(siteAuditPagesTable)
@@ -599,15 +610,8 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
     }
 
     const finalHealthScore = calculateHealthScore(totalIssueCount, visited.size);
-
     await db.update(siteAuditsTable)
-      .set({
-        status: "complete",
-        healthScore: finalHealthScore,
-        pagesCrawled: visited.size,
-        pagesFound: found.size,
-        completedAt: new Date(),
-      })
+      .set({ status: "complete", healthScore: finalHealthScore, pagesCrawled: visited.size, pagesFound: found.size, completedAt: new Date() })
       .where(eq(siteAuditsTable.id, auditId));
 
   } catch (err) {
@@ -625,27 +629,25 @@ router.post("/audit/site/:websiteId", async (req, res): Promise<void> => {
     return;
   }
 
-  const [website] = await db
-    .select()
-    .from(websitesTable)
-    .where(eq(websitesTable.id, websiteId));
-
+  const [website] = await db.select().from(websitesTable).where(eq(websitesTable.id, websiteId));
   if (!website) {
     res.status(404).json({ error: "Website not found" });
     return;
   }
 
-  if (!isSafeUrl(website.url)) {
+  // SSRF guard on the registered URL (DNS resolution)
+  if (!(await isSafeUrl(website.url))) {
     res.status(400).json({ error: "Website URL is not a valid public URL" });
     return;
   }
 
+  // Prevent concurrent crawls — check both queued AND crawling states
   const [existingInProgress] = await db
     .select()
     .from(siteAuditsTable)
     .where(and(
       eq(siteAuditsTable.websiteId, websiteId),
-      eq(siteAuditsTable.status, "crawling"),
+      inArray(siteAuditsTable.status, ["queued", "crawling"]),
     ))
     .limit(1);
 
@@ -654,16 +656,13 @@ router.post("/audit/site/:websiteId", async (req, res): Promise<void> => {
     return;
   }
 
-  // Determine page limit based on user's plan
+  // Plan-aware page limit
   const userId = req.user!.id;
   const [staffUser] = await db.select({ plan: staffUsersTable.plan }).from(staffUsersTable).where(eq(staffUsersTable.id, userId));
   const plan = staffUser?.plan ?? "starter";
   const pageLimit = plan === "agency" ? AGENCY_PAGE_LIMIT : DEFAULT_PAGE_LIMIT;
 
-  const [audit] = await db
-    .insert(siteAuditsTable)
-    .values({ websiteId, status: "queued" })
-    .returning();
+  const [audit] = await db.insert(siteAuditsTable).values({ websiteId, status: "queued" }).returning();
 
   res.status(202).json({
     id: audit.id,
@@ -676,7 +675,6 @@ router.post("/audit/site/:websiteId", async (req, res): Promise<void> => {
     completedAt: audit.completedAt?.toISOString() ?? null,
   });
 
-  // Fire and forget
   runCrawl(audit.id, website.url, pageLimit).catch((err) => {
     logger.error({ err, auditId: audit.id }, "Unhandled error in runCrawl");
   });

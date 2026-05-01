@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, desc } from "drizzle-orm";
-import { db, keywordsTable, keywordRankHistoryTable, keywordResearchSessionsTable } from "@workspace/db";
+import { db, keywordsTable, keywordRankHistoryTable, keywordResearchSessionsTable, websitesTable } from "@workspace/db";
 import {
   ListKeywordsQueryParams,
   ListKeywordsResponse,
@@ -56,12 +56,6 @@ router.get("/keywords/research/history", async (req, res): Promise<void> => {
 router.post("/keywords/research", async (req, res): Promise<void> => {
   const userId = req.user!.id;
 
-  const usageCheck = await checkAndIncrementUsage(userId, "text");
-  if (!usageCheck.allowed) {
-    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit });
-    return;
-  }
-
   const parsed = ResearchKeywordsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -69,6 +63,20 @@ router.post("/keywords/research", async (req, res): Promise<void> => {
   }
 
   const { seedInput, websiteId } = parsed.data;
+
+  if (websiteId != null) {
+    const [site] = await db.select({ id: websitesTable.id }).from(websitesTable).where(eq(websitesTable.id, websiteId));
+    if (!site) {
+      res.status(400).json({ error: "Website not found" });
+      return;
+    }
+  }
+
+  const usageCheck = await checkAndIncrementUsage(userId, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit });
+    return;
+  }
 
   const isUrl = /^(https?:\/\/)?[\w-]+(\.[\w-]+)+/.test(seedInput);
   const inputType = isUrl ? "competitor domain" : "seed keyword or topic";

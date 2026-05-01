@@ -407,10 +407,6 @@ router.put("/admin/onboarding-steps", async (req, res): Promise<void> => {
     if (step.description?.trim()) entry.description = step.description.trim();
     normalized.push(entry);
   }
-  // Append any missing built-in steps at the end
-  for (const s of DEFAULT_ONBOARDING_STEPS) {
-    if (!seenIds.has(s.id)) normalized.push(s);
-  }
   await setDbSetting("onboarding_steps", JSON.stringify(normalized));
   res.json(normalized);
 });

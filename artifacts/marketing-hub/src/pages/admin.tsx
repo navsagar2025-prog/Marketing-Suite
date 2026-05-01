@@ -877,18 +877,16 @@ function SortableStepCard({
           <Badge variant={BUILT_IN_STEP_IDS.has(step.id) ? "outline" : "secondary"} className="text-xs ml-1">
             {BUILT_IN_STEP_IDS.has(step.id) ? (STEP_ID_LABELS[step.id] ?? step.id) : "Custom"}
           </Badge>
-          {!BUILT_IN_STEP_IDS.has(step.id) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-0.5"
-              aria-label={`Delete custom step: ${step.label}`}
-              data-testid={`delete-custom-step-${step.id}`}
-              onClick={onDelete}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-0.5"
+            aria-label={`Delete step: ${step.label}`}
+            data-testid={`delete-step-${step.id}`}
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -1103,7 +1101,7 @@ function OnboardingTab() {
                         onDescChange={(v) => { initDraft(data ?? []); updateStep(step.id, { description: v }); }}
                         onMoveUp={() => { initDraft(data ?? []); moveStep(step.id, "up"); }}
                         onMoveDown={() => { initDraft(data ?? []); moveStep(step.id, "down"); }}
-                        onDelete={() => deleteStep(step.id)}
+                        onDelete={() => { initDraft(data ?? []); deleteStep(step.id); }}
                       />
                     ))}
                   </div>

@@ -652,6 +652,57 @@ export interface ClusterKeywordsResponse {
   clusters: ClusterKeywordsResponseClustersItem[];
 }
 
+export interface KeywordResearchBody {
+  /** Seed keyword, topic, or competitor domain (e.g. 'content marketing' or 'competitor.com') */
+  seedInput: string;
+  websiteId?: number | null;
+}
+
+export type KeywordResearchSuggestionVolumeBand =
+  (typeof KeywordResearchSuggestionVolumeBand)[keyof typeof KeywordResearchSuggestionVolumeBand];
+
+export const KeywordResearchSuggestionVolumeBand = {
+  "<100": "<100",
+  "100-1K": "100-1K",
+  "1K-10K": "1K-10K",
+  "10K+": "10K+",
+} as const;
+
+export type KeywordResearchSuggestionIntent =
+  (typeof KeywordResearchSuggestionIntent)[keyof typeof KeywordResearchSuggestionIntent];
+
+export const KeywordResearchSuggestionIntent = {
+  informational: "informational",
+  commercial: "commercial",
+  navigational: "navigational",
+  transactional: "transactional",
+} as const;
+
+export interface KeywordResearchSuggestion {
+  keyword: string;
+  volumeBand: KeywordResearchSuggestionVolumeBand;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  difficulty: number;
+  intent: KeywordResearchSuggestionIntent;
+  contentAngle: string;
+}
+
+export interface KeywordResearchResponse {
+  sessionId: number;
+  seedInput: string;
+  suggestions: KeywordResearchSuggestion[];
+}
+
+export interface KeywordResearchSession {
+  id: number;
+  seedInput: string;
+  suggestions: KeywordResearchSuggestion[];
+  createdAt: string;
+}
+
 export interface GeneratePostBody {
   platform: string;
   topic: string;

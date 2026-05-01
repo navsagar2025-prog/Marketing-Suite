@@ -240,6 +240,75 @@ export const GetKeywordRankHistoryResponse = zod.array(
 );
 
 /**
+ * @summary AI-powered keyword research — discover related keywords from a seed input
+ */
+export const ResearchKeywordsBody = zod.object({
+  seedInput: zod
+    .string()
+    .describe(
+      "Seed keyword, topic, or competitor domain (e.g. 'content marketing' or 'competitor.com')",
+    ),
+  websiteId: zod.number().nullish(),
+});
+
+export const researchKeywordsResponseSuggestionsItemDifficultyMin = 0;
+export const researchKeywordsResponseSuggestionsItemDifficultyMax = 100;
+
+export const ResearchKeywordsResponse = zod.object({
+  sessionId: zod.number(),
+  seedInput: zod.string(),
+  suggestions: zod.array(
+    zod.object({
+      keyword: zod.string(),
+      volumeBand: zod.enum(["<100", "100-1K", "1K-10K", "10K+"]),
+      difficulty: zod
+        .number()
+        .min(researchKeywordsResponseSuggestionsItemDifficultyMin)
+        .max(researchKeywordsResponseSuggestionsItemDifficultyMax),
+      intent: zod.enum([
+        "informational",
+        "commercial",
+        "navigational",
+        "transactional",
+      ]),
+      contentAngle: zod.string(),
+    }),
+  ),
+});
+
+/**
+ * @summary Get the last 5 keyword research sessions for the current user
+ */
+export const getKeywordResearchHistoryResponseSuggestionsItemDifficultyMin = 0;
+export const getKeywordResearchHistoryResponseSuggestionsItemDifficultyMax = 100;
+
+export const GetKeywordResearchHistoryResponseItem = zod.object({
+  id: zod.number(),
+  seedInput: zod.string(),
+  suggestions: zod.array(
+    zod.object({
+      keyword: zod.string(),
+      volumeBand: zod.enum(["<100", "100-1K", "1K-10K", "10K+"]),
+      difficulty: zod
+        .number()
+        .min(getKeywordResearchHistoryResponseSuggestionsItemDifficultyMin)
+        .max(getKeywordResearchHistoryResponseSuggestionsItemDifficultyMax),
+      intent: zod.enum([
+        "informational",
+        "commercial",
+        "navigational",
+        "transactional",
+      ]),
+      contentAngle: zod.string(),
+    }),
+  ),
+  createdAt: zod.coerce.date(),
+});
+export const GetKeywordResearchHistoryResponse = zod.array(
+  GetKeywordResearchHistoryResponseItem,
+);
+
+/**
  * @summary Capture a rank snapshot for all tracked keywords now (admin only)
  */
 export const SnapshotKeywordRanksResponse = zod.object({

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap } from "lucide-react";
+import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
@@ -33,12 +33,15 @@ import {
   useGetKeywordRankHistory,
   useSnapshotKeywordRanks,
   useGetBillingMe,
+  useResearchKeywords,
+  useGetKeywordResearchHistory,
   getListKeywordsQueryKey,
   getGetKeywordRankHistoryQueryKey,
   getGetSettingsQueryKey,
   getGetBillingMeQueryKey,
+  getGetKeywordResearchHistoryQueryKey,
 } from "@workspace/api-client-react";
-import type { Keyword, KeywordRankHistory } from "@workspace/api-client-react";
+import type { Keyword, KeywordRankHistory, KeywordResearchSuggestion } from "@workspace/api-client-react";
 
 const createSchema = z.object({
   websiteId: z.coerce.number().min(1, "Website is required"),
@@ -530,6 +533,238 @@ function ClustersView({
   );
 }
 
+const VOLUME_BAND_ORDER = ["<100", "100-1K", "1K-10K", "10K+"] as const;
+
+const VOLUME_BAND_COLORS: Record<string, string> = {
+  "<100": "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+  "100-1K": "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  "1K-10K": "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+  "10K+": "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+};
+
+function DifficultyBar({ value }: { value: number }) {
+  const color = value >= 70 ? "bg-red-500" : value >= 40 ? "bg-yellow-400" : "bg-green-500";
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden min-w-[48px]">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${value}%` }} />
+      </div>
+      <span className="text-xs tabular-nums w-5 text-right">{value}</span>
+    </div>
+  );
+}
+
+function KeywordResearchPanel({ aiDisabled, websites }: {
+  aiDisabled: boolean;
+  websites: Array<{ id: number; name: string; url: string }>;
+}) {
+  const [seedInput, setSeedInput] = useState("");
+  const [results, setResults] = useState<KeywordResearchSuggestion[] | null>(null);
+  const [sessionSeed, setSessionSeed] = useState<string | null>(null);
+  const [intentFilter, setIntentFilter] = useState<string>("all");
+  const [volumeFilter, setVolumeFilter] = useState<string>("all");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const researchMutation = useResearchKeywords();
+  const { data: history } = useGetKeywordResearchHistory({
+    query: { queryKey: getGetKeywordResearchHistoryQueryKey() },
+  });
+
+  const handleResearch = () => {
+    const trimmed = seedInput.trim();
+    if (!trimmed) return;
+    researchMutation.mutate(
+      { data: { seedInput: trimmed } },
+      {
+        onSuccess: (data) => {
+          setResults(data.suggestions);
+          setSessionSeed(data.seedInput);
+          setIntentFilter("all");
+          setVolumeFilter("all");
+          queryClient.invalidateQueries({ queryKey: getGetKeywordResearchHistoryQueryKey() });
+        },
+        onError: () => toast({ title: "Research failed — please try again", variant: "destructive" }),
+      },
+    );
+  };
+
+  const handleLoadHistory = (session: { seedInput: string; suggestions: KeywordResearchSuggestion[] }) => {
+    setSessionSeed(session.seedInput);
+    setSeedInput(session.seedInput);
+    setResults(session.suggestions);
+    setIntentFilter("all");
+    setVolumeFilter("all");
+  };
+
+  const filtered = useMemo(() => {
+    if (!results) return [];
+    return results.filter((s) => {
+      if (intentFilter !== "all" && s.intent !== intentFilter) return false;
+      if (volumeFilter !== "all" && s.volumeBand !== volumeFilter) return false;
+      return true;
+    });
+  }, [results, intentFilter, volumeFilter]);
+
+  return (
+    <div className="space-y-4">
+      {/* Input card */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start gap-2">
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium">Seed keyword or competitor URL</p>
+              <p className="text-xs text-muted-foreground">Enter a topic, keyword, or a competitor's domain to discover keyword opportunities</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              data-testid="research-seed-input"
+              placeholder="e.g. &quot;content marketing&quot; or competitor.com"
+              value={seedInput}
+              onChange={(e) => setSeedInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !researchMutation.isPending && handleResearch()}
+              disabled={aiDisabled || researchMutation.isPending}
+              className="flex-1"
+            />
+            <Button
+              data-testid="research-submit-button"
+              onClick={handleResearch}
+              disabled={aiDisabled || !seedInput.trim() || researchMutation.isPending}
+            >
+              {researchMutation.isPending ? (
+                <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 animate-pulse" />Researching…</span>
+              ) : (
+                <span className="flex items-center gap-1.5"><FlaskConical className="h-3.5 w-3.5" />Research</span>
+              )}
+            </Button>
+          </div>
+          {aiDisabled && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">AI is disabled. Enable it in Settings → AI to use keyword research.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* History */}
+      {!results && history && history.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><History className="h-3.5 w-3.5" />Recent sessions</p>
+          <div className="flex flex-wrap gap-2">
+            {history.map((session) => (
+              <button
+                key={session.id}
+                onClick={() => handleLoadHistory(session)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-xs hover:bg-muted/80 transition-colors border"
+              >
+                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                {session.seedInput}
+                <span className="text-muted-foreground">({(session.suggestions as KeywordResearchSuggestion[]).length})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Loading skeleton */}
+      {researchMutation.isPending && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <Sparkles className="h-4 w-4 animate-pulse text-purple-500" />
+              Analysing keywords for <span className="font-medium text-foreground">{seedInput}</span>…
+            </div>
+            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results */}
+      {results && !researchMutation.isPending && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{filtered.length}</span> suggestions for <span className="font-medium text-foreground italic">{sessionSeed}</span>
+            </p>
+            <div className="flex gap-2">
+              <Select value={intentFilter} onValueChange={setIntentFilter}>
+                <SelectTrigger className="h-8 w-40 text-xs">
+                  <SelectValue placeholder="Filter intent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All intents</SelectItem>
+                  <SelectItem value="informational">Informational</SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="transactional">Transactional</SelectItem>
+                  <SelectItem value="navigational">Navigational</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={volumeFilter} onValueChange={setVolumeFilter}>
+                <SelectTrigger className="h-8 w-36 text-xs">
+                  <SelectValue placeholder="Filter volume" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All volumes</SelectItem>
+                  {VOLUME_BAND_ORDER.map((v) => (
+                    <SelectItem key={v} value={v}>{v}/mo</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Card>
+            <CardContent className="p-0">
+              {filtered.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground text-sm">No suggestions match your filters</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Keyword</th>
+                        <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Volume/mo</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider w-36">Difficulty</th>
+                        <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Intent</th>
+                        <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Content angle</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((s, i) => (
+                        <tr key={i} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                          <td className="px-4 py-3 font-medium">{s.keyword}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${VOLUME_BAND_COLORS[s.volumeBand] ?? ""}`}>
+                              {s.volumeBand}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <DifficultyBar value={s.difficulty} />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <IntentBadge intent={s.intent} />
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs max-w-xs">{s.contentAngle}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <button
+            onClick={() => { setResults(null); setSessionSeed(null); setSeedInput(""); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+          >
+            Clear results
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const KEYWORD_TIP_KEY = "tip_first_keyword_dismissed";
 
 const KW_LIMIT_NUDGE_KEY = "nudge_kw_limit_dismissed";
@@ -543,7 +778,7 @@ export default function Keywords() {
   const [aiNiche, setAiNiche] = useState("");
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
-  const [activeTab, setActiveTab] = useState<"table" | "clusters">("table");
+  const [activeTab, setActiveTab] = useState<"table" | "clusters" | "research">("table");
   const [clusterFilter, setClusterFilter] = useState<string>("__all__");
   const [websiteFilter, setWebsiteFilter] = useState<number | null>(null);
   const { toast } = useToast();
@@ -934,6 +1169,18 @@ export default function Keywords() {
           <Layers className="h-3.5 w-3.5" />
           Clusters
         </button>
+        <button
+          data-testid="tab-research"
+          onClick={() => setActiveTab("research")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "research"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <FlaskConical className="h-3.5 w-3.5" />
+          Research
+        </button>
       </div>
 
       {activeTab === "table" && (
@@ -986,6 +1233,13 @@ export default function Keywords() {
           websiteId={websiteFilter ?? (websites && websites.length === 1 ? websites[0].id : null)}
           aiDisabled={aiDisabled}
           onClusterChange={handleClusterChange}
+        />
+      )}
+
+      {activeTab === "research" && (
+        <KeywordResearchPanel
+          aiDisabled={aiDisabled}
+          websites={websites ?? []}
         />
       )}
 

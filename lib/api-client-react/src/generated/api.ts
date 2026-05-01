@@ -67,6 +67,9 @@ import type {
   HealthStatus,
   Keyword,
   KeywordRankHistory,
+  KeywordResearchBody,
+  KeywordResearchResponse,
+  KeywordResearchSession,
   KeywordSuggestions,
   Lead,
   LeadForm,
@@ -1086,6 +1089,171 @@ export function useGetKeywordRankHistory<
     params,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary AI-powered keyword research — discover related keywords from a seed input
+ */
+export const getResearchKeywordsUrl = () => {
+  return `/api/keywords/research`;
+};
+
+export const researchKeywords = async (
+  keywordResearchBody: KeywordResearchBody,
+  options?: RequestInit,
+): Promise<KeywordResearchResponse> => {
+  return customFetch<KeywordResearchResponse>(getResearchKeywordsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(keywordResearchBody),
+  });
+};
+
+export const getResearchKeywordsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof researchKeywords>>,
+    TError,
+    { data: BodyType<KeywordResearchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof researchKeywords>>,
+  TError,
+  { data: BodyType<KeywordResearchBody> },
+  TContext
+> => {
+  const mutationKey = ["researchKeywords"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof researchKeywords>>,
+    { data: BodyType<KeywordResearchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return researchKeywords(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResearchKeywordsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof researchKeywords>>
+>;
+export type ResearchKeywordsMutationBody = BodyType<KeywordResearchBody>;
+export type ResearchKeywordsMutationError = ErrorType<void>;
+
+/**
+ * @summary AI-powered keyword research — discover related keywords from a seed input
+ */
+export const useResearchKeywords = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof researchKeywords>>,
+    TError,
+    { data: BodyType<KeywordResearchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof researchKeywords>>,
+  TError,
+  { data: BodyType<KeywordResearchBody> },
+  TContext
+> => {
+  return useMutation(getResearchKeywordsMutationOptions(options));
+};
+
+/**
+ * @summary Get the last 5 keyword research sessions for the current user
+ */
+export const getGetKeywordResearchHistoryUrl = () => {
+  return `/api/keywords/research/history`;
+};
+
+export const getKeywordResearchHistory = async (
+  options?: RequestInit,
+): Promise<KeywordResearchSession[]> => {
+  return customFetch<KeywordResearchSession[]>(
+    getGetKeywordResearchHistoryUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetKeywordResearchHistoryQueryKey = () => {
+  return [`/api/keywords/research/history`] as const;
+};
+
+export const getGetKeywordResearchHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKeywordResearchHistory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getKeywordResearchHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetKeywordResearchHistoryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKeywordResearchHistory>>
+  > = ({ signal }) => getKeywordResearchHistory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKeywordResearchHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKeywordResearchHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKeywordResearchHistory>>
+>;
+export type GetKeywordResearchHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the last 5 keyword research sessions for the current user
+ */
+
+export function useGetKeywordResearchHistory<
+  TData = Awaited<ReturnType<typeof getKeywordResearchHistory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getKeywordResearchHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKeywordResearchHistoryQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

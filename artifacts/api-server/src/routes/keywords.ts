@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte } from "drizzle-orm";
-import { db, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
+import { eq, and, gte, desc } from "drizzle-orm";
+import { db, keywordsTable, keywordRankHistoryTable, keywordResearchSessionsTable } from "@workspace/db";
 import {
   ListKeywordsQueryParams,
   ListKeywordsResponse,
@@ -12,7 +12,11 @@ import {
   GetKeywordRankHistoryParams,
   GetKeywordRankHistoryQueryParams,
   GetKeywordRankHistoryResponse,
+  ResearchKeywordsBody,
+  ResearchKeywordsResponse,
 } from "@workspace/api-zod";
+import { callAI } from "../lib/ai-provider.js";
+import { checkAndIncrementUsage } from "../lib/ai-usage.js";
 
 const router: IRouter = Router();
 
@@ -37,6 +41,103 @@ router.post("/keywords", async (req, res): Promise<void> => {
   res.status(201).json(keyword);
 });
 
+
+router.get("/keywords/research/history", async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const sessions = await db
+    .select()
+    .from(keywordResearchSessionsTable)
+    .where(eq(keywordResearchSessionsTable.staffUserId, userId))
+    .orderBy(desc(keywordResearchSessionsTable.createdAt))
+    .limit(5);
+  res.json(sessions);
+});
+
+router.post("/keywords/research", async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+
+  const usageCheck = await checkAndIncrementUsage(userId, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit });
+    return;
+  }
+
+  const parsed = ResearchKeywordsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { seedInput, websiteId } = parsed.data;
+
+  const isUrl = /^(https?:\/\/)?[\w-]+(\.[\w-]+)+/.test(seedInput);
+  const inputType = isUrl ? "competitor domain" : "seed keyword or topic";
+
+  const prompt = `You are a senior SEO strategist. A user has provided a ${inputType}: "${seedInput}".
+
+Generate 18 high-value keyword ideas that someone targeting this ${inputType} should consider.
+
+For each keyword, provide:
+- keyword: the exact keyword phrase (2-5 words, realistic search queries)
+- volumeBand: estimated monthly search volume. Use ONLY one of: "<100", "100-1K", "1K-10K", "10K+"
+- difficulty: integer 0-100 (0=very easy, 100=impossible). Include a mix — some easy long-tails (difficulty 10-30), some medium (30-60), some hard (60-85)
+- intent: ONLY one of: "informational", "commercial", "navigational", "transactional"
+- contentAngle: one sentence describing what type of content ranks for this keyword and why it's valuable
+
+Rules:
+- Include a mix of short-tail and long-tail keywords
+- Include informational AND commercial/transactional keywords
+- Prioritise keywords where a business could realistically rank
+- Make keyword phrases specific and natural-sounding
+- Do NOT include the seed input itself as a suggestion
+
+Return ONLY a valid JSON object like:
+{"suggestions": [...]}`;
+
+  try {
+    const content = await callAI(prompt, { maxTokens: 3000, jsonMode: true });
+    let raw: Record<string, unknown>;
+    try {
+      raw = JSON.parse(content) as Record<string, unknown>;
+    } catch {
+      raw = { suggestions: [] };
+    }
+
+    const rawSuggestions = Array.isArray(raw["suggestions"]) ? (raw["suggestions"] as unknown[]) : [];
+    const validVolumeBands = ["<100", "100-1K", "1K-10K", "10K+"] as const;
+    const validIntents = ["informational", "commercial", "navigational", "transactional"] as const;
+
+    const suggestions = rawSuggestions
+      .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null && typeof (s as Record<string, unknown>)["keyword"] === "string")
+      .map((s) => ({
+        keyword: (s["keyword"] as string).trim(),
+        volumeBand: (validVolumeBands as readonly string[]).includes(s["volumeBand"] as string)
+          ? (s["volumeBand"] as typeof validVolumeBands[number])
+          : "100-1K" as const,
+        difficulty: typeof s["difficulty"] === "number" ? Math.min(100, Math.max(0, s["difficulty"])) : 50,
+        intent: (validIntents as readonly string[]).includes(s["intent"] as string)
+          ? (s["intent"] as typeof validIntents[number])
+          : "informational" as const,
+        contentAngle: typeof s["contentAngle"] === "string" ? s["contentAngle"] : "",
+      }))
+      .filter((s) => s.keyword.length > 0);
+
+    const [session] = await db
+      .insert(keywordResearchSessionsTable)
+      .values({
+        staffUserId: userId,
+        websiteId: websiteId ?? null,
+        seedInput,
+        suggestions,
+      })
+      .returning();
+
+    res.json({ sessionId: session!.id, seedInput, suggestions });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI generation failed";
+    res.status(503).json({ error: message });
+  }
+});
 
 router.patch("/keywords/:id", async (req, res): Promise<void> => {
   const params = UpdateKeywordParams.safeParse(req.params);

@@ -24,3 +24,4 @@ export * from "./ab-tests";
 export * from "./webhook-events";
 export * from "./client-reports";
 export * from "./outreach-contacts";
+export * from "./keyword-research";

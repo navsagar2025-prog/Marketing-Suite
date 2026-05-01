@@ -245,6 +245,50 @@ paths:
         "404":
           description: Keyword not found
 
+  /keywords/research:
+    post:
+      operationId: researchKeywords
+      tags: [keywords]
+      summary: AI-powered keyword research — discover related keywords from a seed input
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KeywordResearchBody"
+      responses:
+        "200":
+          description: Keyword research results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeywordResearchResponse"
+        "400":
+          description: Bad request
+        "429":
+          description: AI usage limit reached
+        "503":
+          description: AI unavailable
+
+  /keywords/research/history:
+    get:
+      operationId: getKeywordResearchHistory
+      tags: [keywords]
+      summary: Get the last 5 keyword research sessions for the current user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Research history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/KeywordResearchSession"
+
   /admin/keywords/snapshot:
     post:
       operationId: snapshotKeywordRanks
@@ -2982,6 +3026,78 @@ components:
               - keywords
       required:
         - clusters
+
+    KeywordResearchBody:
+      type: object
+      properties:
+        seedInput:
+          type: string
+          description: "Seed keyword, topic, or competitor domain (e.g. 'content marketing' or 'competitor.com')"
+        websiteId:
+          type: integer
+          nullable: true
+      required:
+        - seedInput
+
+    KeywordResearchSuggestion:
+      type: object
+      properties:
+        keyword:
+          type: string
+        volumeBand:
+          type: string
+          enum: ["<100", "100-1K", "1K-10K", "10K+"]
+        difficulty:
+          type: integer
+          minimum: 0
+          maximum: 100
+        intent:
+          type: string
+          enum: ["informational", "commercial", "navigational", "transactional"]
+        contentAngle:
+          type: string
+      required:
+        - keyword
+        - volumeBand
+        - difficulty
+        - intent
+        - contentAngle
+
+    KeywordResearchResponse:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        seedInput:
+          type: string
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordResearchSuggestion"
+      required:
+        - sessionId
+        - seedInput
+        - suggestions
+
+    KeywordResearchSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        seedInput:
+          type: string
+        suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordResearchSuggestion"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - seedInput
+        - suggestions
+        - createdAt
 
     GeneratePostBody:
       type: object

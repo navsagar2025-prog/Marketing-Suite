@@ -31,6 +31,8 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET/POST /api/keywords` — Keyword tracking
 - `PATCH/DELETE /api/keywords/:id` — Update/delete keyword
 - `GET /api/keywords/:id/history?days=90` — Rank history (default 90 days)
+- `POST /api/keywords/research` — AI keyword research (seed keyword or competitor URL → 18 suggestions with volume band, difficulty, intent, content angle)
+- `GET /api/keywords/research/history` — Last 5 keyword research sessions for current user
 - `POST /api/admin/keywords/snapshot` — Capture rank snapshot for all keywords now (admin only)
 - `GET/POST/PATCH/DELETE /api/campaigns` — Campaign management
 - `GET/POST/PATCH/DELETE /api/social-posts` — Social media posts
@@ -79,7 +81,7 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `keyword_rank_history`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `staff_users`, `client_reports`
+Tables: `websites`, `keywords`, `keyword_rank_history`, `keyword_research_sessions`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `staff_users`, `client_reports`
 
 ### staff_users.plan
 - `plan`: pgEnum `staff_plan` — values: `starter`, `growth`, `agency` — defaults to `starter`

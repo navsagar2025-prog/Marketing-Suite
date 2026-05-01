@@ -325,6 +325,7 @@ export interface OnboardingStepConfig {
   label: string;
   href: string;
   enabled: boolean;
+  description?: string;
 }
 
 export const DEFAULT_ONBOARDING_STEPS: OnboardingStepConfig[] = [
@@ -357,14 +358,18 @@ router.put("/admin/onboarding-steps", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Request body must be an array of steps" });
     return;
   }
-  const VALID_IDS = DEFAULT_ONBOARDING_STEPS.map(s => s.id);
+  const BUILT_IN_IDS = new Set(DEFAULT_ONBOARDING_STEPS.map(s => s.id));
   for (const step of steps) {
     if (typeof step !== "object" || step === null) {
       res.status(400).json({ error: "Each step must be an object" });
       return;
     }
-    if (!VALID_IDS.includes(step.id)) {
-      res.status(400).json({ error: `Invalid step id: ${step.id}` });
+    if (typeof step.id !== "string" || !step.id.trim()) {
+      res.status(400).json({ error: "Each step must have a non-empty id" });
+      return;
+    }
+    if (!BUILT_IN_IDS.has(step.id) && !step.id.startsWith("custom_")) {
+      res.status(400).json({ error: `Unknown step id "${step.id}". Custom step IDs must start with "custom_"` });
       return;
     }
     if (typeof step.label !== "string" || !step.label.trim()) {
@@ -375,12 +380,16 @@ router.put("/admin/onboarding-steps", async (req, res): Promise<void> => {
       res.status(400).json({ error: `Step "${step.id}" must have a non-empty href` });
       return;
     }
-    if (!step.href.trim().startsWith("/")) {
-      res.status(400).json({ error: `Step "${step.id}" href must be a relative path starting with "/"` });
+    if (!step.href.trim().startsWith("/") && !step.href.trim().startsWith("http")) {
+      res.status(400).json({ error: `Step "${step.id}" href must start with "/" or "http"` });
       return;
     }
     if (typeof step.enabled !== "boolean") {
       res.status(400).json({ error: `Step "${step.id}" must have a boolean enabled field` });
+      return;
+    }
+    if (step.description !== undefined && typeof step.description !== "string") {
+      res.status(400).json({ error: `Step "${step.id}" description must be a string` });
       return;
     }
   }
@@ -389,17 +398,18 @@ router.put("/admin/onboarding-steps", async (req, res): Promise<void> => {
   for (const step of steps) {
     if (seenIds.has(step.id)) continue;
     seenIds.add(step.id);
-    normalized.push({
+    const entry: OnboardingStepConfig = {
       id: step.id,
       label: step.label.trim(),
       href: step.href.trim(),
       enabled: step.enabled,
-    });
+    };
+    if (step.description?.trim()) entry.description = step.description.trim();
+    normalized.push(entry);
   }
-  for (const id of VALID_IDS) {
-    if (!seenIds.has(id)) {
-      normalized.push(DEFAULT_ONBOARDING_STEPS.find(s => s.id === id)!);
-    }
+  // Append any missing built-in steps at the end
+  for (const s of DEFAULT_ONBOARDING_STEPS) {
+    if (!seenIds.has(s.id)) normalized.push(s);
   }
   await setDbSetting("onboarding_steps", JSON.stringify(normalized));
   res.json(normalized);

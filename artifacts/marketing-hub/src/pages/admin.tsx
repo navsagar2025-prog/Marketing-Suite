@@ -754,6 +754,7 @@ interface OnboardingStepConfig {
   label: string;
   href: string;
   enabled: boolean;
+  description?: string;
 }
 
 const STEP_ID_LABELS: Record<string, string> = {
@@ -762,6 +763,8 @@ const STEP_ID_LABELS: Record<string, string> = {
   track_keyword: "Track a keyword",
   create_campaign: "Create a campaign",
 };
+
+const BUILT_IN_STEP_IDS = new Set(["add_website", "run_audit", "track_keyword", "create_campaign"]);
 
 function OnboardingTab() {
   const { toast } = useToast();
@@ -781,6 +784,11 @@ function OnboardingTab() {
 
   const [draft, setDraft] = useState<OnboardingStepConfig[] | null>(null);
   const steps = draft ?? data ?? [];
+
+  // New custom step form state
+  const [newLabel, setNewLabel] = useState("");
+  const [newHref, setNewHref] = useState("/");
+  const [newDesc, setNewDesc] = useState("");
 
   function initDraft(current: OnboardingStepConfig[]) {
     if (!draft) setDraft(current.map(s => ({ ...s })));
@@ -804,6 +812,25 @@ function OnboardingTab() {
       [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
       return reordered;
     });
+  }
+
+  function deleteStep(id: string) {
+    setDraft(prev => (prev ?? (data ?? []).map(s => ({ ...s }))).filter(s => s.id !== id));
+  }
+
+  function addCustomStep() {
+    const label = newLabel.trim();
+    const href = newHref.trim() || "/";
+    if (!label) { toast({ title: "Label is required", variant: "destructive" }); return; }
+    if (!href.startsWith("/") && !href.startsWith("http")) {
+      toast({ title: 'Link must start with "/" or "http"', variant: "destructive" }); return;
+    }
+    const id = `custom_${Date.now()}`;
+    const newStep: OnboardingStepConfig = { id, label, href, enabled: true, ...(newDesc.trim() ? { description: newDesc.trim() } : {}) };
+    const current = (draft ?? data ?? []).map(s => ({ ...s }));
+    setDraft([...current, newStep]);
+    setNewLabel(""); setNewHref("/"); setNewDesc("");
+    toast({ title: "Custom step added — click Save Changes to persist" });
   }
 
   const saveMutation = useMutation({
@@ -925,9 +952,21 @@ function OnboardingTab() {
                         >
                           <ArrowDown className="h-3.5 w-3.5" />
                         </Button>
-                        <Badge variant="outline" className="text-xs ml-1">
-                          {STEP_ID_LABELS[step.id] ?? step.id}
+                        <Badge variant={BUILT_IN_STEP_IDS.has(step.id) ? "outline" : "secondary"} className="text-xs ml-1">
+                          {BUILT_IN_STEP_IDS.has(step.id) ? (STEP_ID_LABELS[step.id] ?? step.id) : "Custom"}
                         </Badge>
+                        {!BUILT_IN_STEP_IDS.has(step.id) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-0.5"
+                            aria-label={`Delete custom step: ${step.label}`}
+                            data-testid={`delete-custom-step-${step.id}`}
+                            onClick={() => deleteStep(step.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -964,8 +1003,74 @@ function OnboardingTab() {
                         />
                       </div>
                     </div>
+                    {!BUILT_IN_STEP_IDS.has(step.id) && (
+                      <div className="space-y-1">
+                        <Label htmlFor={`step-desc-${step.id}`} className="text-xs font-medium">
+                          Description <span className="text-muted-foreground font-normal">(optional — shown as hint text)</span>
+                        </Label>
+                        <Input
+                          id={`step-desc-${step.id}`}
+                          value={step.description ?? ""}
+                          onChange={(e) => {
+                            initDraft(data ?? []);
+                            updateStep(step.id, { description: e.target.value });
+                          }}
+                          placeholder="e.g. Book your kickoff call with our team"
+                          className="text-sm h-8"
+                          disabled={!step.enabled}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
+              </div>
+
+              {/* Add custom step form */}
+              <div className="border rounded-lg p-4 space-y-3 border-dashed" data-testid="add-custom-step-form">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Custom Step</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="new-step-label" className="text-xs font-medium">Label <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="new-step-label"
+                      value={newLabel}
+                      onChange={e => setNewLabel(e.target.value)}
+                      placeholder="e.g. Book your onboarding call"
+                      className="text-sm h-8"
+                      data-testid="input-custom-step-label"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="new-step-href" className="text-xs font-medium">Link (path or URL) <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="new-step-href"
+                      value={newHref}
+                      onChange={e => setNewHref(e.target.value)}
+                      placeholder="/page or https://..."
+                      className="text-sm h-8 font-mono"
+                      data-testid="input-custom-step-href"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="new-step-desc" className="text-xs font-medium">Description <span className="text-muted-foreground font-normal">(optional hint text)</span></Label>
+                  <Input
+                    id="new-step-desc"
+                    value={newDesc}
+                    onChange={e => setNewDesc(e.target.value)}
+                    placeholder="e.g. Click the link to schedule a 30-minute kickoff call"
+                    className="text-sm h-8"
+                    data-testid="input-custom-step-desc"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={addCustomStep}
+                  data-testid="button-add-custom-step"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Step
+                </Button>
               </div>
 
               <div className="flex gap-2 pt-2">

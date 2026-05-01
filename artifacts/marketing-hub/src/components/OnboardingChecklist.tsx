@@ -11,15 +11,20 @@ import {
   useListCampaigns,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 const DISMISSED_KEY = "onboarding_checklist_dismissed";
 const COLLAPSED_KEY = "onboarding_checklist_collapsed";
+const CUSTOM_CHECKED_PREFIX = "onboarding_custom_checked_";
+
+const BUILT_IN_STEP_IDS = new Set(["add_website", "run_audit", "track_keyword", "create_campaign"]);
 
 interface OnboardingStepConfig {
   id: string;
   label: string;
   href: string;
   enabled: boolean;
+  description?: string;
 }
 
 const DEFAULT_STEP_CONFIGS: OnboardingStepConfig[] = [
@@ -31,11 +36,14 @@ const DEFAULT_STEP_CONFIGS: OnboardingStepConfig[] = [
 
 function useOnboardingStepConfigs() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const { token } = useAuth();
   return useQuery<OnboardingStepConfig[]>({
     queryKey: ["onboarding-step-configs"],
     queryFn: async () => {
       try {
-        const res = await fetch(`${base}/api/settings/onboarding-steps`);
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        const res = await fetch(`${base}/api/settings/onboarding-steps`, { headers });
         if (!res.ok) return DEFAULT_STEP_CONFIGS;
         return res.json();
       } catch {
@@ -43,6 +51,7 @@ function useOnboardingStepConfigs() {
       }
     },
     staleTime: 5 * 60 * 1000,
+    enabled: !!token,
   });
 }
 
@@ -53,6 +62,19 @@ export function useOnboardingChecklist() {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSED_KEY) === "true"
   );
+
+  // Manual checked state for custom steps (persisted in localStorage)
+  const [customChecked, setCustomChecked] = useState<Record<string, boolean>>(() => {
+    const result: Record<string, boolean> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(CUSTOM_CHECKED_PREFIX)) {
+        const id = key.slice(CUSTOM_CHECKED_PREFIX.length);
+        result[id] = localStorage.getItem(key) === "true";
+      }
+    }
+    return result;
+  });
 
   const { data: websites, isLoading: websitesLoading } = useListWebsites();
   const { data: keywords, isLoading: keywordsLoading } = useListKeywords();
@@ -68,7 +90,7 @@ export function useOnboardingChecklist() {
   const hasKeyword = (keywords ?? []).length > 0;
   const hasCampaign = (campaigns ?? []).length > 0;
 
-  const doneByStepId: Record<string, boolean> = {
+  const builtInDone: Record<string, boolean> = {
     add_website: hasWebsite,
     run_audit: hasAudit,
     track_keyword: hasKeyword,
@@ -92,17 +114,28 @@ export function useOnboardingChecklist() {
   const configs = stepConfigs ?? DEFAULT_STEP_CONFIGS;
   const steps = configs
     .filter((cfg) => cfg.enabled)
-    .map((cfg) => ({
-      id: cfg.id,
-      done: doneByStepId[cfg.id] ?? false,
-      label: cfg.label,
-      description: descriptionByStepId[cfg.id] ?? "",
-      href: cfg.href,
-      cta: ctaByStepId[cfg.id] ?? "Go →",
-    }));
+    .map((cfg) => {
+      const isCustom = !BUILT_IN_STEP_IDS.has(cfg.id);
+      const done = isCustom ? (customChecked[cfg.id] ?? false) : (builtInDone[cfg.id] ?? false);
+      return {
+        id: cfg.id,
+        done,
+        label: cfg.label,
+        description: cfg.description ?? descriptionByStepId[cfg.id] ?? "",
+        href: cfg.href,
+        cta: ctaByStepId[cfg.id] ?? "Go →",
+        isCustom,
+      };
+    });
 
   const completedCount = steps.filter((s) => s.done).length;
   const allDone = steps.length > 0 && completedCount === steps.length;
+
+  function toggleCustomStep(id: string) {
+    const next = !(customChecked[id] ?? false);
+    localStorage.setItem(`${CUSTOM_CHECKED_PREFIX}${id}`, String(next));
+    setCustomChecked(prev => ({ ...prev, [id]: next }));
+  }
 
   function dismiss() {
     localStorage.setItem(DISMISSED_KEY, "true");
@@ -124,6 +157,7 @@ export function useOnboardingChecklist() {
     allDone,
     dismiss,
     toggleCollapsed,
+    toggleCustomStep,
   };
 }
 
@@ -137,6 +171,7 @@ export function OnboardingDashboardCard() {
     allDone,
     dismiss,
     toggleCollapsed,
+    toggleCustomStep,
   } = useOnboardingChecklist();
 
   if (dismissed || steps.length === 0) return null;
@@ -217,7 +252,19 @@ export function OnboardingDashboardCard() {
                 }`}
               >
                 {step.done ? (
-                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                  <CheckCircle2
+                    className={`h-4 w-4 text-primary shrink-0 ${step.isCustom ? "cursor-pointer" : ""}`}
+                    onClick={step.isCustom ? () => toggleCustomStep(step.id) : undefined}
+                  />
+                ) : step.isCustom ? (
+                  <button
+                    aria-label={`Mark "${step.label}" as done`}
+                    onClick={() => toggleCustomStep(step.id)}
+                    className="h-4 w-4 shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                    title="Click to mark as done"
+                  >
+                    <Circle className="h-4 w-4" />
+                  </button>
                 ) : (
                   <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
                 )}
@@ -229,22 +276,26 @@ export function OnboardingDashboardCard() {
                   >
                     {step.label}
                   </p>
-                  {!step.done && (
+                  {!step.done && step.description && (
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {step.description}
                     </p>
                   )}
                 </div>
                 {!step.done && (
-                  <Link href={step.href}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs h-7 shrink-0"
-                    >
-                      {step.cta}
-                    </Button>
-                  </Link>
+                  step.isCustom ? (
+                    <a href={step.href} target={step.href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">
+                      <Button size="sm" variant="outline" className="text-xs h-7 shrink-0">
+                        {step.cta}
+                      </Button>
+                    </a>
+                  ) : (
+                    <Link href={step.href}>
+                      <Button size="sm" variant="outline" className="text-xs h-7 shrink-0">
+                        {step.cta}
+                      </Button>
+                    </Link>
+                  )
                 )}
               </div>
             ))
@@ -264,6 +315,7 @@ export function OnboardingFloatWidget() {
     completedCount,
     allDone,
     dismiss,
+    toggleCustomStep,
   } = useOnboardingChecklist();
 
   if (dismissed || steps.length === 0) return null;
@@ -336,7 +388,19 @@ export function OnboardingFloatWidget() {
                   } transition-colors`}
                 >
                   {step.done ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <CheckCircle2
+                      className={`h-3.5 w-3.5 text-primary shrink-0 ${step.isCustom ? "cursor-pointer" : ""}`}
+                      onClick={step.isCustom ? () => toggleCustomStep(step.id) : undefined}
+                    />
+                  ) : step.isCustom ? (
+                    <button
+                      aria-label={`Mark "${step.label}" as done`}
+                      onClick={() => toggleCustomStep(step.id)}
+                      className="h-3.5 w-3.5 shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                      title="Click to mark as done"
+                    >
+                      <Circle className="h-3.5 w-3.5" />
+                    </button>
                   ) : (
                     <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   )}
@@ -350,15 +414,19 @@ export function OnboardingFloatWidget() {
                     </p>
                   </div>
                   {!step.done && (
-                    <Link href={step.href} onClick={() => setOpen(false)}>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-xs h-6 px-2 text-primary hover:text-primary shrink-0"
-                      >
-                        Go →
-                      </Button>
-                    </Link>
+                    step.isCustom ? (
+                      <a href={step.href} target={step.href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer" onClick={() => setOpen(false)}>
+                        <Button size="sm" variant="ghost" className="text-xs h-6 px-2 text-primary hover:text-primary shrink-0">
+                          Go →
+                        </Button>
+                      </a>
+                    ) : (
+                      <Link href={step.href} onClick={() => setOpen(false)}>
+                        <Button size="sm" variant="ghost" className="text-xs h-6 px-2 text-primary hover:text-primary shrink-0">
+                          Go →
+                        </Button>
+                      </Link>
+                    )
                   )}
                 </div>
               ))

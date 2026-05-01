@@ -563,10 +563,16 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
   const [sessionSeed, setSessionSeed] = useState<string | null>(null);
   const [intentFilter, setIntentFilter] = useState<string>("all");
   const [volumeFilter, setVolumeFilter] = useState<string>("all");
+  const [maxDifficulty, setMaxDifficulty] = useState<string>("100");
+  const [selectedWebsiteId, setSelectedWebsiteId] = useState<string>(
+    websites.length === 1 ? String(websites[0].id) : "none"
+  );
+  const [trackedKeywords, setTrackedKeywords] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const researchMutation = useResearchKeywords();
+  const createKeywordMutation = useCreateKeyword();
   const { data: history } = useGetKeywordResearchHistory({
     query: { queryKey: getGetKeywordResearchHistoryQueryKey() },
   });
@@ -582,6 +588,8 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
           setSessionSeed(data.seedInput);
           setIntentFilter("all");
           setVolumeFilter("all");
+          setMaxDifficulty("100");
+          setTrackedKeywords(new Set());
           queryClient.invalidateQueries({ queryKey: getGetKeywordResearchHistoryQueryKey() });
         },
         onError: () => toast({ title: "Research failed — please try again", variant: "destructive" }),
@@ -595,29 +603,59 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
     setResults(session.suggestions);
     setIntentFilter("all");
     setVolumeFilter("all");
+    setMaxDifficulty("100");
+    setTrackedKeywords(new Set());
   };
+
+  const handleTrack = (s: KeywordResearchSuggestion) => {
+    const wsId = parseInt(selectedWebsiteId, 10);
+    if (!wsId || isNaN(wsId)) {
+      toast({ title: "Select a website first to track this keyword", variant: "destructive" });
+      return;
+    }
+    createKeywordMutation.mutate(
+      {
+        data: {
+          websiteId: wsId,
+          keyword: s.keyword,
+          difficulty: s.difficulty,
+          intent: s.intent as "informational" | "commercial" | "navigational" | "transactional",
+          status: "tracking",
+        },
+      },
+      {
+        onSuccess: () => {
+          setTrackedKeywords((prev) => new Set([...prev, s.keyword]));
+          queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey() });
+          toast({ title: `"${s.keyword}" added to tracking` });
+        },
+        onError: () => toast({ title: "Failed to add keyword", variant: "destructive" }),
+      },
+    );
+  };
+
+  const maxDiffNum = parseInt(maxDifficulty, 10) || 100;
 
   const filtered = useMemo(() => {
     if (!results) return [];
     return results.filter((s) => {
       if (intentFilter !== "all" && s.intent !== intentFilter) return false;
       if (volumeFilter !== "all" && s.volumeBand !== volumeFilter) return false;
+      if (s.difficulty > maxDiffNum) return false;
       return true;
     });
-  }, [results, intentFilter, volumeFilter]);
+  }, [results, intentFilter, volumeFilter, maxDiffNum]);
 
   return (
     <div className="space-y-4">
       {/* Input card */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-start gap-2">
-            <div className="flex-1 space-y-1">
-              <p className="text-sm font-medium">Seed keyword or competitor URL</p>
-              <p className="text-xs text-muted-foreground">Enter a topic, keyword, or a competitor's domain to discover keyword opportunities</p>
-            </div>
+          <div className="flex-1 space-y-1">
+            <p className="text-sm font-medium">Seed keyword or competitor URL</p>
+            <p className="text-xs text-muted-foreground">Enter a topic, keyword, or a competitor's domain to discover keyword opportunities</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Input
               data-testid="research-seed-input"
               placeholder="e.g. &quot;content marketing&quot; or competitor.com"
@@ -625,8 +663,21 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
               onChange={(e) => setSeedInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !researchMutation.isPending && handleResearch()}
               disabled={aiDisabled || researchMutation.isPending}
-              className="flex-1"
+              className="flex-1 min-w-48"
             />
+            {websites.length > 1 && (
+              <Select value={selectedWebsiteId} onValueChange={setSelectedWebsiteId}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="Select website" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No website</SelectItem>
+                  {websites.map((w) => (
+                    <SelectItem key={w.id} value={String(w.id)}>{w.name || w.url}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button
               data-testid="research-submit-button"
               onClick={handleResearch}
@@ -685,7 +736,7 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{filtered.length}</span> suggestions for <span className="font-medium text-foreground italic">{sessionSeed}</span>
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Select value={intentFilter} onValueChange={setIntentFilter}>
                 <SelectTrigger className="h-8 w-40 text-xs">
                   <SelectValue placeholder="Filter intent" />
@@ -709,8 +760,26 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={maxDifficulty} onValueChange={setMaxDifficulty}>
+                <SelectTrigger className="h-8 w-40 text-xs">
+                  <SelectValue placeholder="Max difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="100">Any difficulty</SelectItem>
+                  <SelectItem value="30">Easy (≤ 30)</SelectItem>
+                  <SelectItem value="60">Medium (≤ 60)</SelectItem>
+                  <SelectItem value="80">Hard (≤ 80)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {websites.length === 0 && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+              <Zap className="h-3 w-3" />
+              Add a website first to be able to track keywords from this list.
+            </p>
+          )}
 
           <Card>
             <CardContent className="p-0">
@@ -726,26 +795,48 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider w-36">Difficulty</th>
                         <th className="text-center px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Intent</th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Content angle</th>
+                        <th className="px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider"></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((s, i) => (
-                        <tr key={i} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                          <td className="px-4 py-3 font-medium">{s.keyword}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${VOLUME_BAND_COLORS[s.volumeBand] ?? ""}`}>
-                              {s.volumeBand}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <DifficultyBar value={s.difficulty} />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <IntentBadge intent={s.intent} />
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground text-xs max-w-xs">{s.contentAngle}</td>
-                        </tr>
-                      ))}
+                      {filtered.map((s, i) => {
+                        const isTracked = trackedKeywords.has(s.keyword);
+                        return (
+                          <tr key={i} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                            <td className="px-4 py-3 font-medium">{s.keyword}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${VOLUME_BAND_COLORS[s.volumeBand] ?? ""}`}>
+                                {s.volumeBand}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <DifficultyBar value={s.difficulty} />
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <IntentBadge intent={s.intent} />
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground text-xs max-w-xs">{s.contentAngle}</td>
+                            <td className="px-4 py-3 text-right">
+                              {isTracked ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                                  <TrendingUp className="h-3 w-3" />Tracking
+                                </span>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs px-2"
+                                  disabled={websites.length === 0 || createKeywordMutation.isPending}
+                                  onClick={() => handleTrack(s)}
+                                  data-testid={`track-keyword-${i}`}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />Track
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -754,7 +845,7 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
           </Card>
 
           <button
-            onClick={() => { setResults(null); setSessionSeed(null); setSeedInput(""); }}
+            onClick={() => { setResults(null); setSessionSeed(null); setSeedInput(""); setTrackedKeywords(new Set()); }}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
           >
             Clear results

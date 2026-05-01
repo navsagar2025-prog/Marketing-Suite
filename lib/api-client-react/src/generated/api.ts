@@ -132,6 +132,8 @@ import type {
   UpdateSequenceBody,
   UpdateSettingsBody,
   UpdateSocialPostBody,
+  UpdateStaffUserPlan200,
+  UpdateStaffUserPlanBody,
   UpdateUsageLimitsBody,
   UpdateWebsiteBody,
   UsageLimits,
@@ -2280,6 +2282,93 @@ export function useGetSiteAuditResults<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Change the billing plan for any staff user (admin only)
+ */
+export const getUpdateStaffUserPlanUrl = (id: number) => {
+  return `/api/admin/staff/${id}/plan`;
+};
+
+export const updateStaffUserPlan = async (
+  id: number,
+  updateStaffUserPlanBody: UpdateStaffUserPlanBody,
+  options?: RequestInit,
+): Promise<UpdateStaffUserPlan200> => {
+  return customFetch<UpdateStaffUserPlan200>(getUpdateStaffUserPlanUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateStaffUserPlanBody),
+  });
+};
+
+export const getUpdateStaffUserPlanMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStaffUserPlan>>,
+    TError,
+    { id: number; data: BodyType<UpdateStaffUserPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateStaffUserPlan>>,
+  TError,
+  { id: number; data: BodyType<UpdateStaffUserPlanBody> },
+  TContext
+> => {
+  const mutationKey = ["updateStaffUserPlan"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateStaffUserPlan>>,
+    { id: number; data: BodyType<UpdateStaffUserPlanBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateStaffUserPlan(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateStaffUserPlanMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateStaffUserPlan>>
+>;
+export type UpdateStaffUserPlanMutationBody = BodyType<UpdateStaffUserPlanBody>;
+export type UpdateStaffUserPlanMutationError = ErrorType<void>;
+
+/**
+ * @summary Change the billing plan for any staff user (admin only)
+ */
+export const useUpdateStaffUserPlan = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateStaffUserPlan>>,
+    TError,
+    { id: number; data: BodyType<UpdateStaffUserPlanBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateStaffUserPlan>>,
+  TError,
+  { id: number; data: BodyType<UpdateStaffUserPlanBody> },
+  TContext
+> => {
+  return useMutation(getUpdateStaffUserPlanMutationOptions(options));
+};
 
 /**
  * @summary Capture a rank snapshot for all tracked keywords now (admin only)

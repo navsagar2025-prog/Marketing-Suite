@@ -1702,6 +1702,36 @@ export const GetGscSearchPerformanceDateRange = {
   "90days": "90days",
 } as const;
 
+export type UpdateStaffUserPlanBodyPlan =
+  (typeof UpdateStaffUserPlanBodyPlan)[keyof typeof UpdateStaffUserPlanBodyPlan];
+
+export const UpdateStaffUserPlanBodyPlan = {
+  starter: "starter",
+  growth: "growth",
+  agency: "agency",
+} as const;
+
+export type UpdateStaffUserPlanBody = {
+  plan: UpdateStaffUserPlanBodyPlan;
+};
+
+export type UpdateStaffUserPlan200Plan =
+  (typeof UpdateStaffUserPlan200Plan)[keyof typeof UpdateStaffUserPlan200Plan];
+
+export const UpdateStaffUserPlan200Plan = {
+  starter: "starter",
+  growth: "growth",
+  agency: "agency",
+} as const;
+
+export type UpdateStaffUserPlan200 = {
+  id?: number;
+  username?: string;
+  role?: string;
+  plan?: UpdateStaffUserPlan200Plan;
+  createdAt?: string;
+};
+
 export type ListSocialPostsParams = {
   websiteId?: number;
   platform?: string;

@@ -589,6 +589,56 @@ paths:
         "404":
           description: No audit found for this website
 
+  /admin/staff/{id}/plan:
+    patch:
+      operationId: updateStaffUserPlan
+      tags: [admin]
+      summary: Change the billing plan for any staff user (admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan:
+                  type: string
+                  enum: [starter, growth, agency]
+      responses:
+        "200":
+          description: Updated staff user with new plan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  role:
+                    type: string
+                  plan:
+                    type: string
+                    enum: [starter, growth, agency]
+                  createdAt:
+                    type: string
+        "400":
+          description: Invalid plan value
+        "401":
+          description: Unauthorized (admin only)
+        "404":
+          description: User not found
+
   /admin/keywords/snapshot:
     post:
       operationId: snapshotKeywordRanks

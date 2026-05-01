@@ -137,6 +137,7 @@ router.get("/admin/staff", async (_req, res): Promise<void> => {
       username: staffUsersTable.username,
       role: staffUsersTable.role,
       permissions: staffUsersTable.permissions,
+      plan: staffUsersTable.plan,
       createdAt: staffUsersTable.createdAt,
     })
     .from(staffUsersTable)
@@ -219,6 +220,38 @@ router.patch("/admin/users/:id/permissions", async (req, res): Promise<void> => 
       username: staffUsersTable.username,
       role: staffUsersTable.role,
       permissions: staffUsersTable.permissions,
+      createdAt: staffUsersTable.createdAt,
+    });
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(updated);
+});
+
+const VALID_PLANS = ["starter", "growth", "agency"] as const;
+type Plan = typeof VALID_PLANS[number];
+
+router.patch("/admin/staff/:id/plan", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const { plan } = req.body as { plan?: string };
+  if (!plan || !(VALID_PLANS as readonly string[]).includes(plan)) {
+    res.status(400).json({ error: `Plan must be one of: ${VALID_PLANS.join(", ")}` });
+    return;
+  }
+  const [updated] = await db
+    .update(staffUsersTable)
+    .set({ plan: plan as Plan })
+    .where(eq(staffUsersTable.id, id))
+    .returning({
+      id: staffUsersTable.id,
+      username: staffUsersTable.username,
+      role: staffUsersTable.role,
+      plan: staffUsersTable.plan,
       createdAt: staffUsersTable.createdAt,
     });
   if (!updated) {

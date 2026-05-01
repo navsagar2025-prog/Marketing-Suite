@@ -47,6 +47,7 @@ interface StaffUser {
   username: string;
   role: "admin" | "staff";
   permissions: string[] | null;
+  plan: "starter" | "growth" | "agency";
   createdAt: string;
 }
 
@@ -555,6 +556,27 @@ function StaffTab() {
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
 
+  const updatePlanMutation = useMutation({
+    mutationFn: async ({ id, plan }: { id: number; plan: string }) => {
+      const res = await fetch(`${base}/api/admin/staff/${id}/plan`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ plan }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, { plan }) => {
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+      const label = plan.charAt(0).toUpperCase() + plan.slice(1);
+      toast({ title: `Plan updated to ${label}` });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   function permissionsSummary(staff: StaffUser) {
     if (staff.role === "admin") return "Full access (admin)";
     if (staff.permissions == null) return "Full access";
@@ -638,6 +660,18 @@ function StaffTab() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      <select
+                        value={staff.plan}
+                        aria-label={`Plan for ${staff.username}`}
+                        data-testid={`select-plan-${staff.id}`}
+                        disabled={updatePlanMutation.isPending}
+                        onChange={e => updatePlanMutation.mutate({ id: staff.id, plan: e.target.value })}
+                        className="border rounded-md px-2 py-0.5 text-xs bg-background h-7"
+                      >
+                        <option value="starter">Starter</option>
+                        <option value="growth">Growth</option>
+                        <option value="agency">Agency</option>
+                      </select>
                       <Badge variant={staff.role === "admin" ? "default" : "secondary"} className="text-xs">{staff.role}</Badge>
                       {staff.role === "staff" && staff.id !== currentUser?.id && (
                         <Button

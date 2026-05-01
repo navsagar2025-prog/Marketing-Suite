@@ -674,6 +674,25 @@ export const GetSiteAuditResultsResponse = zod.object({
 });
 
 /**
+ * @summary Change the billing plan for any staff user (admin only)
+ */
+export const UpdateStaffUserPlanParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateStaffUserPlanBody = zod.object({
+  plan: zod.enum(["starter", "growth", "agency"]),
+});
+
+export const UpdateStaffUserPlanResponse = zod.object({
+  id: zod.number().optional(),
+  username: zod.string().optional(),
+  role: zod.string().optional(),
+  plan: zod.enum(["starter", "growth", "agency"]).optional(),
+  createdAt: zod.string().optional(),
+});
+
+/**
  * @summary Capture a rank snapshot for all tracked keywords now (admin only)
  */
 export const SnapshotKeywordRanksResponse = zod.object({

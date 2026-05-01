@@ -309,6 +309,80 @@ export const GetKeywordResearchHistoryResponse = zod.array(
 );
 
 /**
+ * @summary Get bulk rank history for all tracked keywords (for trend chart)
+ */
+export const GetKeywordTrendsQueryParams = zod.object({
+  websiteId: zod.coerce
+    .number()
+    .optional()
+    .describe("Filter by website (omit for all websites)"),
+  days: zod.coerce
+    .number()
+    .optional()
+    .describe("Number of days of history to return (default 30, max 90)"),
+});
+
+export const GetKeywordTrendsResponse = zod.object({
+  keywords: zod.array(
+    zod.object({
+      id: zod.number(),
+      keyword: zod.string(),
+      websiteId: zod.number(),
+      history: zod.array(
+        zod.object({
+          recordedDate: zod.string().describe("ISO date string (YYYY-MM-DD)"),
+          rank: zod.number().nullish(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * @summary Get keywords that moved 5+ positions in the last 7 days
+ */
+export const GetKeywordRankAlertsQueryParams = zod.object({
+  websiteId: zod.coerce.number().optional().describe("Filter by website"),
+});
+
+export const GetKeywordRankAlertsResponse = zod.object({
+  dropped: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        keyword: zod.string(),
+        websiteId: zod.number(),
+        currentRank: zod.number().nullish(),
+        previousRank: zod.number().nullish(),
+        delta: zod
+          .number()
+          .describe(
+            "Positive = moved up (improved), negative = moved down (worsened)",
+          ),
+        direction: zod.enum(["up", "down"]),
+      }),
+    )
+    .describe("Keywords that dropped 5+ positions"),
+  rising: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        keyword: zod.string(),
+        websiteId: zod.number(),
+        currentRank: zod.number().nullish(),
+        previousRank: zod.number().nullish(),
+        delta: zod
+          .number()
+          .describe(
+            "Positive = moved up (improved), negative = moved down (worsened)",
+          ),
+        direction: zod.enum(["up", "down"]),
+      }),
+    )
+    .describe("Keywords that rose 5+ positions"),
+});
+
+/**
  * @summary AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
  */
 export const RunCompetitorAnalysisBody = zod.object({
@@ -537,6 +611,23 @@ export const DisconnectGoogleIntegrationParams = zod.object({
 
 export const DisconnectGoogleIntegrationResponse = zod.object({
   success: zod.boolean().optional(),
+});
+
+/**
+ * Matches each tracked keyword against GSC search query data for the last 28 days and updates currentRank + writes to rank history. Requires GSC to be connected for this website.
+ * @summary Pull live keyword positions from Google Search Console and update tracked keyword ranks
+ */
+export const SyncKeywordRanksFromGscParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const SyncKeywordRanksFromGscResponse = zod.object({
+  updated: zod
+    .number()
+    .describe("Keywords whose rank was updated from GSC data"),
+  notFound: zod.number().describe("Keywords with no matching GSC query"),
+  total: zod.number().describe("Total tracked keywords for this website"),
+  date: zod.string().describe("Date of the sync (YYYY-MM-DD)"),
 });
 
 /**
@@ -886,6 +977,66 @@ export const UpdateSocialPostResponse = zod.object({
  * @summary Delete a social post
  */
 export const DeleteSocialPostParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary List email templates
+ */
+export const ListEmailTemplatesQueryParams = zod.object({
+  websiteId: zod.coerce.number().optional(),
+});
+
+export const ListEmailTemplatesResponseItem = zod.object({
+  id: zod.number(),
+  websiteId: zod.number().nullish(),
+  name: zod.string(),
+  subject: zod.string(),
+  body: zod.string(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListEmailTemplatesResponse = zod.array(
+  ListEmailTemplatesResponseItem,
+);
+
+/**
+ * @summary Create an email template
+ */
+export const CreateEmailTemplateBody = zod.object({
+  name: zod.string(),
+  subject: zod.string(),
+  body: zod.string(),
+  websiteId: zod.number().nullish(),
+});
+
+/**
+ * @summary Update an email template
+ */
+export const UpdateEmailTemplateParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateEmailTemplateBody = zod.object({
+  name: zod.string().optional(),
+  subject: zod.string().optional(),
+  body: zod.string().optional(),
+});
+
+export const UpdateEmailTemplateResponse = zod.object({
+  id: zod.number(),
+  websiteId: zod.number().nullish(),
+  name: zod.string(),
+  subject: zod.string(),
+  body: zod.string(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete an email template
+ */
+export const DeleteEmailTemplateParams = zod.object({
   id: zod.coerce.number(),
 });
 

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import PlanLimitWarning from "@/components/PlanLimitWarning";
-import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight } from "lucide-react";
+import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight, RefreshCw, AlertTriangle, LineChart as LineChartIcon } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
@@ -8,9 +8,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -36,11 +36,17 @@ import {
   useGetBillingMe,
   useResearchKeywords,
   useGetKeywordResearchHistory,
+  useGetKeywordTrends,
+  useGetKeywordRankAlerts,
+  useSyncKeywordRanksFromGsc,
+  useGetGoogleIntegrationStatus,
   getListKeywordsQueryKey,
   getGetKeywordRankHistoryQueryKey,
   getGetSettingsQueryKey,
   getGetBillingMeQueryKey,
   getGetKeywordResearchHistoryQueryKey,
+  getGetKeywordTrendsQueryKey,
+  getGetKeywordRankAlertsQueryKey,
 } from "@workspace/api-client-react";
 import type { Keyword, KeywordRankHistory, KeywordResearchSuggestion } from "@workspace/api-client-react";
 
@@ -864,6 +870,186 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
   );
 }
 
+const TREND_COLORS = [
+  "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6",
+  "#8b5cf6", "#f97316", "#14b8a6", "#ec4899", "#84cc16",
+  "#06b6d4", "#a855f7", "#f43f5e", "#0ea5e9", "#22c55e",
+];
+
+function TrendsBulkView({
+  trendsData,
+  isLoading,
+  days,
+  onDaysChange,
+}: {
+  trendsData: Array<{ id: number; keyword: string; websiteId: number; history: Array<{ recordedDate: string; rank: number | null }> }>;
+  isLoading: boolean;
+  days: 30 | 60 | 90;
+  onDaysChange: (d: 30 | 60 | 90) => void;
+}) {
+  const keywordsWithData = trendsData.filter((kw) => kw.history.some((h) => h.rank !== null));
+
+  const allDates = useMemo(() => {
+    const dates = new Set<string>();
+    for (const kw of keywordsWithData) {
+      for (const h of kw.history) dates.add(h.recordedDate);
+    }
+    return Array.from(dates).sort();
+  }, [keywordsWithData]);
+
+  const chartData = useMemo(() => {
+    return allDates.map((date) => {
+      const point: Record<string, string | number | null> = { date };
+      for (const kw of keywordsWithData) {
+        const entry = kw.history.find((h) => h.recordedDate === date);
+        point[kw.keyword] = entry?.rank ?? null;
+      }
+      return point;
+    });
+  }, [allDates, keywordsWithData]);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6 space-y-3">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Rank Trends — All Keywords</CardTitle>
+            <div className="flex gap-1">
+              {([30, 60, 90] as const).map((d) => (
+                <Button
+                  key={d}
+                  variant={days === d ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  onClick={() => onDaysChange(d)}
+                >
+                  {d}d
+                </Button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">Lower rank = better position. Y-axis is inverted.</p>
+        </CardHeader>
+        <CardContent>
+          {keywordsWithData.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <BarChart2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No rank history yet. Take a snapshot or sync from GSC to start tracking trends.</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={360}>
+              <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(d: string) => d.slice(5)}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  reversed
+                  tick={{ fontSize: 11 }}
+                  label={{ value: "Rank", angle: -90, position: "insideLeft", offset: 10, style: { fontSize: 11 } }}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  formatter={(value: number | null, name: string) => [value !== null ? `#${value}` : "—", name]}
+                  labelFormatter={(label: string) => `Date: ${label}`}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+                {keywordsWithData.slice(0, 15).map((kw, i) => (
+                  <Line
+                    key={kw.id}
+                    type="monotone"
+                    dataKey={kw.keyword}
+                    stroke={TREND_COLORS[i % TREND_COLORS.length]}
+                    strokeWidth={1.5}
+                    dot={false}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+          {keywordsWithData.length > 15 && (
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Showing top 15 keywords. Filter by website to see a specific set.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {keywordsWithData.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Keyword</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Start rank</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs uppercase">Latest rank</th>
+                    <th className="text-right px-4 py-2 font-medium text-muted-foreground text-xs uppercase">{days}d change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {keywordsWithData.map((kw, i) => {
+                    const withRank = kw.history.filter((h) => h.rank !== null);
+                    const first = withRank[0];
+                    const last = withRank[withRank.length - 1];
+                    const delta = first && last && first.rank !== null && last.rank !== null
+                      ? first.rank - last.rank
+                      : null;
+                    return (
+                      <tr key={kw.id} className="border-b last:border-0">
+                        <td className="px-4 py-2 flex items-center gap-2">
+                          <span
+                            className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ background: TREND_COLORS[i % TREND_COLORS.length] }}
+                          />
+                          {kw.keyword}
+                        </td>
+                        <td className="px-4 py-2 text-right text-muted-foreground font-mono text-xs">
+                          {first?.rank !== null && first?.rank !== undefined ? `#${first.rank}` : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right font-mono text-xs">
+                          {last?.rank !== null && last?.rank !== undefined ? `#${last.rank}` : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold text-xs">
+                          {delta === null ? "—" : delta > 0 ? (
+                            <span className="text-green-600 dark:text-green-400">↑ {delta}</span>
+                          ) : delta < 0 ? (
+                            <span className="text-red-600 dark:text-red-400">↓ {Math.abs(delta)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 const KEYWORD_TIP_KEY = "tip_first_keyword_dismissed";
 
 const KW_LIMIT_NUDGE_KEY = "nudge_kw_limit_dismissed";
@@ -877,9 +1063,10 @@ export default function Keywords() {
   const [aiNiche, setAiNiche] = useState("");
   const [aiResult, setAiResult] = useState<Array<{ keyword: string; intent: string; estimatedDifficulty: string; notes: string }>>([]);
   const [selectedKeyword, setSelectedKeyword] = useState<Keyword | null>(null);
-  const [activeTab, setActiveTab] = useState<"table" | "clusters" | "research">("table");
+  const [activeTab, setActiveTab] = useState<"table" | "clusters" | "research" | "trends">("table");
   const [clusterFilter, setClusterFilter] = useState<string>("__all__");
   const [websiteFilter, setWebsiteFilter] = useState<number | null>(null);
+  const [trendDays, setTrendDays] = useState<30 | 60 | 90>(30);
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -892,7 +1079,28 @@ export default function Keywords() {
   const updateMutation = useUpdateKeyword();
   const suggestMutation = useSuggestKeywords();
   const snapshotMutation = useSnapshotKeywordRanks();
+  const syncGscMutation = useSyncKeywordRanksFromGsc();
   const updateSettingsMutation = useUpdateSettings();
+
+  const { data: gscStatus } = useGetGoogleIntegrationStatus(websiteFilter ?? 0, {
+    query: { enabled: !!websiteFilter },
+  });
+  const gscConnected = !!gscStatus?.propertyUrl;
+
+  const { data: rankAlerts } = useGetKeywordRankAlerts(
+    websiteFilter ? { websiteId: websiteFilter } : {},
+    { query: { queryKey: getGetKeywordRankAlertsQueryKey(websiteFilter ? { websiteId: websiteFilter } : {}) } },
+  );
+
+  const { data: trendsData, isLoading: trendsLoading } = useGetKeywordTrends(
+    { websiteId: websiteFilter ?? undefined, days: trendDays },
+    {
+      query: {
+        enabled: activeTab === "trends",
+        queryKey: getGetKeywordTrendsQueryKey({ websiteId: websiteFilter ?? undefined, days: trendDays }),
+      },
+    },
+  );
   const { data: settings } = useGetSettings();
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
@@ -934,8 +1142,29 @@ export default function Keywords() {
         (keywords ?? []).forEach((kw) => {
           queryClient.invalidateQueries({ queryKey: getGetKeywordRankHistoryQueryKey(kw.id) });
         });
+        queryClient.invalidateQueries({ queryKey: getGetKeywordTrendsQueryKey({ websiteId: websiteFilter ?? undefined, days: trendDays }) });
+        queryClient.invalidateQueries({ queryKey: getGetKeywordRankAlertsQueryKey(websiteFilter ? { websiteId: websiteFilter } : {}) });
       },
       onError: () => toast({ title: "Snapshot failed", variant: "destructive" }),
+    });
+  };
+
+  const handleGscSync = () => {
+    if (!websiteFilter) return;
+    syncGscMutation.mutate({ websiteId: websiteFilter }, {
+      onSuccess: (result) => {
+        toast({ title: `GSC sync complete — ${result.updated} of ${result.total} keywords updated for ${result.date}` });
+        queryClient.invalidateQueries({ queryKey: getListKeywordsQueryKey() });
+        (keywords ?? []).forEach((kw) => {
+          queryClient.invalidateQueries({ queryKey: getGetKeywordRankHistoryQueryKey(kw.id) });
+        });
+        queryClient.invalidateQueries({ queryKey: getGetKeywordTrendsQueryKey({ websiteId: websiteFilter ?? undefined, days: trendDays }) });
+        queryClient.invalidateQueries({ queryKey: getGetKeywordRankAlertsQueryKey(websiteFilter ? { websiteId: websiteFilter } : {}) });
+      },
+      onError: (err: unknown) => {
+        const msg = err instanceof Error ? err.message : "GSC sync failed";
+        toast({ title: msg, variant: "destructive" });
+      },
     });
   };
 
@@ -1021,6 +1250,19 @@ export default function Keywords() {
           <p className="text-sm text-muted-foreground mt-0.5">Track your SEO keyword rankings</p>
         </div>
         <div className="flex gap-2">
+          {isAdmin && gscConnected && websiteFilter && (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="button-sync-gsc"
+              onClick={handleGscSync}
+              disabled={syncGscMutation.isPending}
+              title="Pull live positions from Google Search Console"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${syncGscMutation.isPending ? "animate-spin" : ""}`} />
+              {syncGscMutation.isPending ? "Syncing..." : "Sync from GSC"}
+            </Button>
+          )}
           {isAdmin && (
             <Button
               variant="outline"
@@ -1244,6 +1486,49 @@ export default function Keywords() {
         </div>
       )}
 
+      {/* Rank drop alert banner */}
+      {rankAlerts && rankAlerts.dropped.length > 0 && (
+        <div
+          data-testid="banner-rank-drop-alerts"
+          className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 px-4 py-3 text-sm"
+        >
+          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+          <div className="flex-1 text-red-900 dark:text-red-200">
+            <span className="font-semibold">{rankAlerts.dropped.length} keyword{rankAlerts.dropped.length !== 1 ? "s" : ""} dropped</span>
+            {" "}5+ positions in the last 7 days:{" "}
+            {rankAlerts.dropped.slice(0, 3).map((a, i) => (
+              <span key={a.id}>{i > 0 && ", "}<strong>{a.keyword}</strong> (#{a.previousRank ?? "?"} → #{a.currentRank ?? "?"})</span>
+            ))}
+            {rankAlerts.dropped.length > 3 && <span> and {rankAlerts.dropped.length - 3} more</span>}.
+          </div>
+          <button
+            data-testid="button-view-trends"
+            onClick={() => setActiveTab("trends")}
+            className="text-red-500 hover:text-red-700 text-xs underline shrink-0"
+          >
+            View trends
+          </button>
+        </div>
+      )}
+
+      {/* Rank rise alert banner */}
+      {rankAlerts && rankAlerts.rising.length > 0 && (
+        <div
+          data-testid="banner-rank-rise-alerts"
+          className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 px-4 py-3 text-sm"
+        >
+          <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+          <p className="flex-1 text-green-900 dark:text-green-200">
+            <span className="font-semibold">{rankAlerts.rising.length} keyword{rankAlerts.rising.length !== 1 ? "s" : ""} rose</span>
+            {" "}5+ positions this week:{" "}
+            {rankAlerts.rising.slice(0, 3).map((a, i) => (
+              <span key={a.id}>{i > 0 && ", "}<strong>{a.keyword}</strong> (#{a.previousRank ?? "?"} → #{a.currentRank ?? "?"})</span>
+            ))}
+            {rankAlerts.rising.length > 3 && <span> and {rankAlerts.rising.length - 3} more</span>}.
+          </p>
+        </div>
+      )}
+
       {/* Tab switcher */}
       <div className="flex gap-1 border-b">
         <button
@@ -1282,7 +1567,28 @@ export default function Keywords() {
           <FlaskConical className="h-3.5 w-3.5" />
           Research
         </button>
+        <button
+          data-testid="tab-trends"
+          onClick={() => setActiveTab("trends")}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "trends"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <LineChartIcon className="h-3.5 w-3.5" />
+          Trends
+        </button>
       </div>
+
+      {activeTab === "trends" && (
+        <TrendsBulkView
+          trendsData={trendsData?.keywords ?? []}
+          isLoading={trendsLoading}
+          days={trendDays}
+          onDaysChange={setTrendDays}
+        />
+      )}
 
       {activeTab === "table" && (
         <Card>

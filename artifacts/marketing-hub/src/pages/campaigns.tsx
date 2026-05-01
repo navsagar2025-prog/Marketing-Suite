@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail, Eye, EyeOff, List, ChevronDown, ChevronUp, Pencil, PlayCircle, PauseCircle } from "lucide-react";
+import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail, Eye, EyeOff, List, ChevronDown, ChevronUp, Pencil, PlayCircle, PauseCircle, FileText, MousePointerClick, BookTemplate } from "lucide-react";
 import { HelpTooltip } from "@/components/HelpTooltip";
 import PlanLimitWarning from "@/components/PlanLimitWarning";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -36,8 +36,12 @@ import {
   getListSequencesQueryKey,
   useGetBillingMe,
   getGetBillingMeQueryKey,
+  useListEmailTemplates,
+  useCreateEmailTemplate,
+  useDeleteEmailTemplate,
+  getListEmailTemplatesQueryKey,
 } from "@workspace/api-client-react";
-import type { Sequence, CreateSequenceBody } from "@workspace/api-client-react";
+import type { Sequence, CreateSequenceBody, EmailTemplate } from "@workspace/api-client-react";
 import { AiMediaDialog } from "@/components/AiMediaDialog";
 import { Link } from "wouter";
 
@@ -598,8 +602,172 @@ function SequencesTab({ aiDisabled }: { aiDisabled: boolean }) {
   );
 }
 
+function TemplatesTab() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: templates, isLoading } = useListEmailTemplates();
+  const createMutation = useCreateEmailTemplate();
+  const deleteMutation = useDeleteEmailTemplate();
+
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplSubject, setTplSubject] = useState("");
+  const [tplBody, setTplBody] = useState("");
+  const [tplPreview, setTplPreview] = useState<EmailTemplate | null>(null);
+
+  const handleCreate = () => {
+    if (!tplName.trim() || !tplSubject.trim() || !tplBody.trim()) return;
+    createMutation.mutate(
+      { data: { name: tplName.trim(), subject: tplSubject.trim(), body: tplBody.trim() } },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListEmailTemplatesQueryKey() });
+          toast({ title: "Template saved" });
+          setTplName(""); setTplSubject(""); setTplBody("");
+          setTplOpen(false);
+        },
+        onError: () => toast({ title: "Failed to save template", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = (id: number, name: string) => {
+    if (!confirm(`Delete template "${name}"?`)) return;
+    deleteMutation.mutate({ id }, {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: getListEmailTemplatesQueryKey() }),
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Save and reuse email subjects and bodies across campaigns.</p>
+        <Dialog open={tplOpen} onOpenChange={setTplOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" data-testid="button-new-template">
+              <Plus className="h-4 w-4 mr-1" /> New Template
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Save Email Template</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">Template name</label>
+                <Input
+                  data-testid="input-template-name"
+                  className="mt-1"
+                  placeholder="e.g. Welcome Onboard"
+                  value={tplName}
+                  onChange={e => setTplName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Subject</label>
+                <Input
+                  data-testid="input-template-subject"
+                  className="mt-1"
+                  placeholder="Email subject line"
+                  value={tplSubject}
+                  onChange={e => setTplSubject(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Body</label>
+                <Textarea
+                  data-testid="input-template-body"
+                  className="mt-1"
+                  placeholder="Email body (supports Markdown)..."
+                  value={tplBody}
+                  onChange={e => setTplBody(e.target.value)}
+                  rows={7}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setTplOpen(false)}>Cancel</Button>
+                <Button
+                  data-testid="button-save-template"
+                  onClick={handleCreate}
+                  disabled={!tplName.trim() || !tplSubject.trim() || !tplBody.trim() || createMutation.isPending}
+                >
+                  {createMutation.isPending ? "Saving..." : "Save Template"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+      ) : !templates || templates.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm font-medium">No templates yet</p>
+          <p className="text-xs mt-1">Save a template to quickly fill in the compose dialog when sending campaigns.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {templates.map(tpl => (
+            <Card key={tpl.id} data-testid={`card-template-${tpl.id}`} className="group hover:shadow-sm transition-shadow">
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm">{tpl.name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">Subject: {tpl.subject}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 whitespace-pre-wrap">{tpl.body}</p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 opacity-0 group-hover:opacity-100 text-xs"
+                      data-testid={`button-preview-template-${tpl.id}`}
+                      onClick={() => setTplPreview(tpl)}
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" /> Preview
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                      data-testid={`button-delete-template-${tpl.id}`}
+                      onClick={() => handleDelete(tpl.id, tpl.name)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={!!tplPreview} onOpenChange={(v) => { if (!v) setTplPreview(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{tplPreview?.name}</DialogTitle>
+          </DialogHeader>
+          {tplPreview && (
+            <div className="space-y-3">
+              <div className="text-sm font-medium text-muted-foreground">Subject: <span className="text-foreground">{tplPreview.subject}</span></div>
+              <div
+                className="min-h-[150px] p-3 border rounded-md bg-muted/20 text-sm overflow-y-auto"
+                dangerouslySetInnerHTML={{ __html: renderMarkdownPreview(tplPreview.body) }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function Campaigns() {
-  const [activeTab, setActiveTab] = useState<"campaigns" | "sequences">("campaigns");
+  const [activeTab, setActiveTab] = useState<"campaigns" | "sequences" | "templates">("campaigns");
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiMediaOpen, setAiMediaOpen] = useState(false);
@@ -615,6 +783,7 @@ export default function Campaigns() {
   const [composeBody, setComposeBody] = useState("");
   const [composeStatuses, setComposeStatuses] = useState<string[]>(["new", "contacted", "qualified"]);
   const [composePreview, setComposePreview] = useState(false);
+  const [composeTemplatePickerOpen, setComposeTemplatePickerOpen] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -633,6 +802,7 @@ export default function Campaigns() {
     recipientParams,
     { query: { enabled: !!composeCampaignId && composeOpen && composeStatuses.length > 0, queryKey: getGetCampaignRecipientsQueryKey(composeCampaignId ?? 0, recipientParams) } }
   );
+  const { data: emailTemplates } = useListEmailTemplates();
   const aiProvider = settings?.aiProvider ?? "replit";
   const aiDisabled = settings !== undefined && (!settings.aiEnabled || (aiProvider !== "replit" && !settings.aiApiKeyConfigured));
   const falDisabled = settings !== undefined && !settings.falApiKeyConfigured;
@@ -878,10 +1048,25 @@ export default function Campaigns() {
         >
           Sequences
         </button>
+        <button
+          type="button"
+          data-testid="tab-templates"
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${
+            activeTab === "templates"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setActiveTab("templates")}
+        >
+          <BookTemplate className="h-3.5 w-3.5" />
+          Templates
+        </button>
       </div>
 
       {activeTab === "sequences" ? (
         <SequencesTab aiDisabled={aiDisabled} />
+      ) : activeTab === "templates" ? (
+        <TemplatesTab />
       ) : (
         <>
           <div className="relative max-w-sm">
@@ -916,15 +1101,33 @@ export default function Campaigns() {
                         <p className="text-xs text-muted-foreground mt-1">{c.goal}</p>
                         <div className="flex gap-4 mt-2 text-xs text-muted-foreground flex-wrap">
                           {c.budget && <span>Budget: <span className="font-medium text-foreground">${parseFloat(String(c.budget)).toLocaleString()}</span></span>}
-                          {c.impressions && <span>Impressions: <span className="font-medium text-foreground">{c.impressions.toLocaleString()}</span></span>}
-                          {c.clicks && <span>Clicks: <span className="font-medium text-foreground">{c.clicks.toLocaleString()}</span></span>}
-                          {c.conversions && <span>Conversions: <span className="font-medium text-foreground">{c.conversions.toLocaleString()}</span></span>}
                           {c.sentCount != null && c.sentCount > 0 && (
                             <span className="flex items-center gap-1">
                               <Send className="h-3 w-3" />
                               Sent: <span className="font-medium text-foreground">{c.sentCount.toLocaleString()}</span>
                               {c.sentAt && <span className="text-muted-foreground/60">({new Date(c.sentAt).toLocaleDateString()})</span>}
                             </span>
+                          )}
+                          {c.sentCount != null && c.sentCount > 0 && c.impressions != null && c.impressions > 0 && (
+                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                              <Eye className="h-3 w-3" />
+                              Opens: <span className="font-medium">{c.impressions.toLocaleString()}</span>
+                              <span className="text-muted-foreground">({((c.impressions / c.sentCount) * 100).toFixed(1)}%)</span>
+                            </span>
+                          )}
+                          {c.sentCount != null && c.sentCount > 0 && c.clicks != null && c.clicks > 0 && (
+                            <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                              <MousePointerClick className="h-3 w-3" />
+                              Clicks: <span className="font-medium">{c.clicks.toLocaleString()}</span>
+                              <span className="text-muted-foreground">({((c.clicks / c.sentCount) * 100).toFixed(1)}%)</span>
+                            </span>
+                          )}
+                          {c.conversions != null && c.conversions > 0 && <span>Conversions: <span className="font-medium text-foreground">{c.conversions.toLocaleString()}</span></span>}
+                          {(c.sentCount == null || c.sentCount === 0) && c.impressions != null && c.impressions > 0 && (
+                            <span>Impressions: <span className="font-medium text-foreground">{c.impressions.toLocaleString()}</span></span>
+                          )}
+                          {(c.sentCount == null || c.sentCount === 0) && c.clicks != null && c.clicks > 0 && (
+                            <span>Clicks: <span className="font-medium text-foreground">{c.clicks.toLocaleString()}</span></span>
                           )}
                         </div>
                       </div>
@@ -977,11 +1180,59 @@ export default function Campaigns() {
         }}
       />
 
+      {/* Template picker dialog — nested inside compose flow */}
+      <Dialog open={composeTemplatePickerOpen} onOpenChange={setComposeTemplatePickerOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Load Email Template</DialogTitle>
+          </DialogHeader>
+          {!emailTemplates || emailTemplates.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No templates saved yet. Go to the Templates tab to create one.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {emailTemplates.map(tpl => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  data-testid={`button-load-template-${tpl.id}`}
+                  className="w-full text-left p-3 rounded-md border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                  onClick={() => {
+                    setComposeSubject(tpl.subject);
+                    setComposeBody(tpl.body);
+                    setComposeTemplatePickerOpen(false);
+                    toast({ title: `Template "${tpl.name}" loaded` });
+                  }}
+                >
+                  <p className="text-sm font-medium">{tpl.name}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{tpl.subject}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Compose & Send Dialog */}
       <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Compose Email</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Compose Email</DialogTitle>
+              {emailConfigured && emailTemplates && emailTemplates.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  data-testid="button-load-template"
+                  onClick={() => setComposeTemplatePickerOpen(true)}
+                >
+                  <BookTemplate className="h-3.5 w-3.5 mr-1" /> Load Template
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           {!emailConfigured ? (

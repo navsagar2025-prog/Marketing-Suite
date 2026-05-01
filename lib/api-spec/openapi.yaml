@@ -295,6 +295,53 @@ paths:
                 items:
                   $ref: "#/components/schemas/KeywordResearchSession"
 
+  /keywords/trends:
+    get:
+      operationId: getKeywordTrends
+      tags: [keywords]
+      summary: Get bulk rank history for all tracked keywords (for trend chart)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+          description: Filter by website (omit for all websites)
+        - name: days
+          in: query
+          schema:
+            type: integer
+          description: Number of days of history to return (default 30, max 90)
+      responses:
+        "200":
+          description: Bulk keyword trend data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeywordTrendsResponse"
+
+  /keywords/rank-alerts:
+    get:
+      operationId: getKeywordRankAlerts
+      tags: [keywords]
+      summary: Get keywords that moved 5+ positions in the last 7 days
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+          description: Filter by website
+      responses:
+        "200":
+          description: Keywords with significant rank changes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KeywordRankAlertsResponse"
+
   # ─── Competitors ──────────────────────────────────────────────────────────────
   /competitors/analyse:
     post:
@@ -469,6 +516,34 @@ paths:
                 properties:
                   success:
                     type: boolean
+
+  /integrations/google/keywords-sync/{websiteId}:
+    post:
+      operationId: syncKeywordRanksFromGsc
+      tags: [integrations]
+      summary: Pull live keyword positions from Google Search Console and update tracked keyword ranks
+      description: Matches each tracked keyword against GSC search query data for the last 28 days and updates currentRank + writes to rank history. Requires GSC to be connected for this website.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GscKeywordsSyncResponse"
+        "400":
+          description: No GSC property selected
+        "404":
+          description: Google not connected for this website
+        "502":
+          description: GSC API error
 
   /integrations/google/gsc/{websiteId}:
     get:
@@ -785,6 +860,82 @@ paths:
       operationId: deleteSocialPost
       tags: [social-posts]
       summary: Delete a social post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── Email Templates ─────────────────────────────────────────────────────────
+  /email-templates:
+    get:
+      operationId: listEmailTemplates
+      tags: [campaigns]
+      summary: List email templates
+      parameters:
+        - name: websiteId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of email templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmailTemplate"
+    post:
+      operationId: createEmailTemplate
+      tags: [campaigns]
+      summary: Create an email template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmailTemplateBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+
+  /email-templates/{id}:
+    patch:
+      operationId: updateEmailTemplate
+      tags: [campaigns]
+      summary: Update an email template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmailTemplateBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+    delete:
+      operationId: deleteEmailTemplate
+      tags: [campaigns]
+      summary: Delete an email template
       parameters:
         - name: id
           in: path
@@ -2538,6 +2689,110 @@ components:
         - snapshotted
         - skipped
         - failed
+        - date
+
+    KeywordTrendPoint:
+      type: object
+      properties:
+        recordedDate:
+          type: string
+          description: ISO date string (YYYY-MM-DD)
+        rank:
+          type: ["integer", "null"]
+      required:
+        - recordedDate
+
+    KeywordTrendEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        keyword:
+          type: string
+        websiteId:
+          type: integer
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordTrendPoint"
+      required:
+        - id
+        - keyword
+        - websiteId
+        - history
+
+    KeywordTrendsResponse:
+      type: object
+      properties:
+        keywords:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordTrendEntry"
+      required:
+        - keywords
+
+    KeywordRankAlert:
+      type: object
+      properties:
+        id:
+          type: integer
+        keyword:
+          type: string
+        websiteId:
+          type: integer
+        currentRank:
+          type: ["integer", "null"]
+        previousRank:
+          type: ["integer", "null"]
+        delta:
+          type: integer
+          description: Positive = moved up (improved), negative = moved down (worsened)
+        direction:
+          type: string
+          enum: [up, down]
+      required:
+        - id
+        - keyword
+        - websiteId
+        - delta
+        - direction
+
+    KeywordRankAlertsResponse:
+      type: object
+      properties:
+        dropped:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordRankAlert"
+          description: Keywords that dropped 5+ positions
+        rising:
+          type: array
+          items:
+            $ref: "#/components/schemas/KeywordRankAlert"
+          description: Keywords that rose 5+ positions
+      required:
+        - dropped
+        - rising
+
+    GscKeywordsSyncResponse:
+      type: object
+      properties:
+        updated:
+          type: integer
+          description: Keywords whose rank was updated from GSC data
+        notFound:
+          type: integer
+          description: Keywords with no matching GSC query
+        total:
+          type: integer
+          description: Total tracked keywords for this website
+        date:
+          type: string
+          description: Date of the sync (YYYY-MM-DD)
+      required:
+        - updated
+        - notFound
+        - total
         - date
 
     # ─── SocialPost ───────────────────────────────────────────────────────────
@@ -4926,4 +5181,50 @@ components:
           items:
             $ref: "#/components/schemas/SiteAuditIssueResult"
       required: [id, websiteId, status, pagesFound, pagesCrawled, createdAt, pages, issues]
+
+    EmailTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+          nullable: true
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name, subject, body, createdAt, updatedAt]
+
+    CreateEmailTemplateBody:
+      type: object
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        websiteId:
+          type: integer
+          nullable: true
+      required: [name, subject, body]
+
+    UpdateEmailTemplateBody:
+      type: object
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
 

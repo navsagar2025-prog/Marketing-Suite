@@ -38,6 +38,7 @@ import type {
   CreateBacklinkBody,
   CreateCampaignBody,
   CreateConversationBody,
+  CreateEmailTemplateBody,
   CreateKeywordBody,
   CreateLeadBody,
   CreateLeadFormBody,
@@ -49,6 +50,7 @@ import type {
   DetectedWebsiteInfo,
   DisconnectGoogleIntegration200,
   EmailProviderSettings,
+  EmailTemplate,
   FixSeoIssueBody,
   FixSeoIssueResponse,
   GenerateBlogDraftBody,
@@ -69,8 +71,11 @@ import type {
   GeneratedMeta,
   GetCampaignRecipientsParams,
   GetGscSearchPerformanceParams,
+  GetKeywordRankAlertsParams,
   GetKeywordRankHistoryParams,
+  GetKeywordTrendsParams,
   GscConnectBody,
+  GscKeywordsSyncResponse,
   GscProperty,
   GscSearchPerformance,
   GscStatus,
@@ -78,11 +83,13 @@ import type {
   InitiateGoogleAuth200,
   InitiateGoogleAuthParams,
   Keyword,
+  KeywordRankAlertsResponse,
   KeywordRankHistory,
   KeywordResearchBody,
   KeywordResearchResponse,
   KeywordResearchSession,
   KeywordSuggestions,
+  KeywordTrendsResponse,
   Lead,
   LeadForm,
   LeadFormEmbedResponse,
@@ -94,6 +101,7 @@ import type {
   LinkSuggestion,
   ListBacklinksParams,
   ListCampaignsParams,
+  ListEmailTemplatesParams,
   ListKeywordsParams,
   ListLeadsParams,
   ListMediaAssetsParams,
@@ -125,6 +133,7 @@ import type {
   UpdateBacklinkBody,
   UpdateCampaignBody,
   UpdateEmailProviderBody,
+  UpdateEmailTemplateBody,
   UpdateKeywordBody,
   UpdateLeadBody,
   UpdateLeadFormBody,
@@ -1279,6 +1288,206 @@ export function useGetKeywordResearchHistory<
 }
 
 /**
+ * @summary Get bulk rank history for all tracked keywords (for trend chart)
+ */
+export const getGetKeywordTrendsUrl = (params?: GetKeywordTrendsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/keywords/trends?${stringifiedParams}`
+    : `/api/keywords/trends`;
+};
+
+export const getKeywordTrends = async (
+  params?: GetKeywordTrendsParams,
+  options?: RequestInit,
+): Promise<KeywordTrendsResponse> => {
+  return customFetch<KeywordTrendsResponse>(getGetKeywordTrendsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetKeywordTrendsQueryKey = (
+  params?: GetKeywordTrendsParams,
+) => {
+  return [`/api/keywords/trends`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetKeywordTrendsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKeywordTrends>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetKeywordTrendsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKeywordTrends>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetKeywordTrendsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKeywordTrends>>
+  > = ({ signal }) => getKeywordTrends(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKeywordTrends>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKeywordTrendsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKeywordTrends>>
+>;
+export type GetKeywordTrendsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get bulk rank history for all tracked keywords (for trend chart)
+ */
+
+export function useGetKeywordTrends<
+  TData = Awaited<ReturnType<typeof getKeywordTrends>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetKeywordTrendsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKeywordTrends>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKeywordTrendsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get keywords that moved 5+ positions in the last 7 days
+ */
+export const getGetKeywordRankAlertsUrl = (
+  params?: GetKeywordRankAlertsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/keywords/rank-alerts?${stringifiedParams}`
+    : `/api/keywords/rank-alerts`;
+};
+
+export const getKeywordRankAlerts = async (
+  params?: GetKeywordRankAlertsParams,
+  options?: RequestInit,
+): Promise<KeywordRankAlertsResponse> => {
+  return customFetch<KeywordRankAlertsResponse>(
+    getGetKeywordRankAlertsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetKeywordRankAlertsQueryKey = (
+  params?: GetKeywordRankAlertsParams,
+) => {
+  return [`/api/keywords/rank-alerts`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetKeywordRankAlertsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKeywordRankAlerts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetKeywordRankAlertsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKeywordRankAlerts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetKeywordRankAlertsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKeywordRankAlerts>>
+  > = ({ signal }) =>
+    getKeywordRankAlerts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKeywordRankAlerts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKeywordRankAlertsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKeywordRankAlerts>>
+>;
+export type GetKeywordRankAlertsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get keywords that moved 5+ positions in the last 7 days
+ */
+
+export function useGetKeywordRankAlerts<
+  TData = Awaited<ReturnType<typeof getKeywordRankAlerts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetKeywordRankAlertsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKeywordRankAlerts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKeywordRankAlertsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
  */
 export const getRunCompetitorAnalysisUrl = () => {
@@ -1891,6 +2100,94 @@ export const useDisconnectGoogleIntegration = <
   TContext
 > => {
   return useMutation(getDisconnectGoogleIntegrationMutationOptions(options));
+};
+
+/**
+ * Matches each tracked keyword against GSC search query data for the last 28 days and updates currentRank + writes to rank history. Requires GSC to be connected for this website.
+ * @summary Pull live keyword positions from Google Search Console and update tracked keyword ranks
+ */
+export const getSyncKeywordRanksFromGscUrl = (websiteId: number) => {
+  return `/api/integrations/google/keywords-sync/${websiteId}`;
+};
+
+export const syncKeywordRanksFromGsc = async (
+  websiteId: number,
+  options?: RequestInit,
+): Promise<GscKeywordsSyncResponse> => {
+  return customFetch<GscKeywordsSyncResponse>(
+    getSyncKeywordRanksFromGscUrl(websiteId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getSyncKeywordRanksFromGscMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncKeywordRanksFromGsc>>,
+    TError,
+    { websiteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof syncKeywordRanksFromGsc>>,
+  TError,
+  { websiteId: number },
+  TContext
+> => {
+  const mutationKey = ["syncKeywordRanksFromGsc"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof syncKeywordRanksFromGsc>>,
+    { websiteId: number }
+  > = (props) => {
+    const { websiteId } = props ?? {};
+
+    return syncKeywordRanksFromGsc(websiteId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SyncKeywordRanksFromGscMutationResult = NonNullable<
+  Awaited<ReturnType<typeof syncKeywordRanksFromGsc>>
+>;
+
+export type SyncKeywordRanksFromGscMutationError = ErrorType<void>;
+
+/**
+ * @summary Pull live keyword positions from Google Search Console and update tracked keyword ranks
+ */
+export const useSyncKeywordRanksFromGsc = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof syncKeywordRanksFromGsc>>,
+    TError,
+    { websiteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof syncKeywordRanksFromGsc>>,
+  TError,
+  { websiteId: number },
+  TContext
+> => {
+  return useMutation(getSyncKeywordRanksFromGscMutationOptions(options));
 };
 
 /**
@@ -3042,6 +3339,360 @@ export const useDeleteSocialPost = <
   TContext
 > => {
   return useMutation(getDeleteSocialPostMutationOptions(options));
+};
+
+/**
+ * @summary List email templates
+ */
+export const getListEmailTemplatesUrl = (params?: ListEmailTemplatesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/email-templates?${stringifiedParams}`
+    : `/api/email-templates`;
+};
+
+export const listEmailTemplates = async (
+  params?: ListEmailTemplatesParams,
+  options?: RequestInit,
+): Promise<EmailTemplate[]> => {
+  return customFetch<EmailTemplate[]>(getListEmailTemplatesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListEmailTemplatesQueryKey = (
+  params?: ListEmailTemplatesParams,
+) => {
+  return [`/api/email-templates`, ...(params ? [params] : [])] as const;
+};
+
+export const getListEmailTemplatesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listEmailTemplates>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListEmailTemplatesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmailTemplates>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListEmailTemplatesQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listEmailTemplates>>
+  > = ({ signal }) => listEmailTemplates(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listEmailTemplates>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListEmailTemplatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listEmailTemplates>>
+>;
+export type ListEmailTemplatesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List email templates
+ */
+
+export function useListEmailTemplates<
+  TData = Awaited<ReturnType<typeof listEmailTemplates>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListEmailTemplatesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listEmailTemplates>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListEmailTemplatesQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create an email template
+ */
+export const getCreateEmailTemplateUrl = () => {
+  return `/api/email-templates`;
+};
+
+export const createEmailTemplate = async (
+  createEmailTemplateBody: CreateEmailTemplateBody,
+  options?: RequestInit,
+): Promise<EmailTemplate> => {
+  return customFetch<EmailTemplate>(getCreateEmailTemplateUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createEmailTemplateBody),
+  });
+};
+
+export const getCreateEmailTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmailTemplate>>,
+    TError,
+    { data: BodyType<CreateEmailTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createEmailTemplate>>,
+  TError,
+  { data: BodyType<CreateEmailTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["createEmailTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createEmailTemplate>>,
+    { data: BodyType<CreateEmailTemplateBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createEmailTemplate(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateEmailTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createEmailTemplate>>
+>;
+export type CreateEmailTemplateMutationBody = BodyType<CreateEmailTemplateBody>;
+export type CreateEmailTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create an email template
+ */
+export const useCreateEmailTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createEmailTemplate>>,
+    TError,
+    { data: BodyType<CreateEmailTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createEmailTemplate>>,
+  TError,
+  { data: BodyType<CreateEmailTemplateBody> },
+  TContext
+> => {
+  return useMutation(getCreateEmailTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Update an email template
+ */
+export const getUpdateEmailTemplateUrl = (id: number) => {
+  return `/api/email-templates/${id}`;
+};
+
+export const updateEmailTemplate = async (
+  id: number,
+  updateEmailTemplateBody: UpdateEmailTemplateBody,
+  options?: RequestInit,
+): Promise<EmailTemplate> => {
+  return customFetch<EmailTemplate>(getUpdateEmailTemplateUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateEmailTemplateBody),
+  });
+};
+
+export const getUpdateEmailTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailTemplate>>,
+    TError,
+    { id: number; data: BodyType<UpdateEmailTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateEmailTemplate>>,
+  TError,
+  { id: number; data: BodyType<UpdateEmailTemplateBody> },
+  TContext
+> => {
+  const mutationKey = ["updateEmailTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateEmailTemplate>>,
+    { id: number; data: BodyType<UpdateEmailTemplateBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateEmailTemplate(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateEmailTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateEmailTemplate>>
+>;
+export type UpdateEmailTemplateMutationBody = BodyType<UpdateEmailTemplateBody>;
+export type UpdateEmailTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update an email template
+ */
+export const useUpdateEmailTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateEmailTemplate>>,
+    TError,
+    { id: number; data: BodyType<UpdateEmailTemplateBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateEmailTemplate>>,
+  TError,
+  { id: number; data: BodyType<UpdateEmailTemplateBody> },
+  TContext
+> => {
+  return useMutation(getUpdateEmailTemplateMutationOptions(options));
+};
+
+/**
+ * @summary Delete an email template
+ */
+export const getDeleteEmailTemplateUrl = (id: number) => {
+  return `/api/email-templates/${id}`;
+};
+
+export const deleteEmailTemplate = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteEmailTemplateUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteEmailTemplateMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmailTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteEmailTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteEmailTemplate"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteEmailTemplate>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteEmailTemplate(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteEmailTemplateMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteEmailTemplate>>
+>;
+
+export type DeleteEmailTemplateMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete an email template
+ */
+export const useDeleteEmailTemplate = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteEmailTemplate>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteEmailTemplate>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteEmailTemplateMutationOptions(options));
 };
 
 /**

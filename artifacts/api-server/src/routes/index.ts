@@ -32,6 +32,7 @@ import competitorsRouter from "./competitors";
 import siteAuditRouter from "./site-audit";
 import googleIntegrationRouter from "./integrations-google";
 import googleCallbackRouter from "./integrations-google-callback";
+import emailTemplatesRouter from "./email-templates";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -94,6 +95,8 @@ router.use(billingRouter);
 router.use(competitorsRouter);
 router.use(siteAuditRouter);
 router.use(googleIntegrationRouter);
+router.use("/email-templates", requirePermission("campaigns"));
+router.use(emailTemplatesRouter);
 router.use(adminRouter);
 
 export default router;

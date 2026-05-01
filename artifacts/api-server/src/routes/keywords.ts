@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, desc } from "drizzle-orm";
+import { eq, and, gte, desc, inArray } from "drizzle-orm";
 import { db, keywordsTable, keywordRankHistoryTable, keywordResearchSessionsTable, websitesTable } from "@workspace/db";
 import {
   ListKeywordsQueryParams,
@@ -14,6 +14,8 @@ import {
   GetKeywordRankHistoryResponse,
   ResearchKeywordsBody,
   ResearchKeywordsResponse,
+  GetKeywordTrendsQueryParams,
+  GetKeywordRankAlertsQueryParams,
 } from "@workspace/api-zod";
 import { callAI } from "../lib/ai-provider.js";
 import { checkAndIncrementUsage } from "../lib/ai-usage.js";
@@ -212,6 +214,108 @@ router.delete("/keywords/:id", async (req, res): Promise<void> => {
     return;
   }
   res.sendStatus(204);
+});
+
+router.get("/keywords/trends", async (req, res): Promise<void> => {
+  const queryParsed = GetKeywordTrendsQueryParams.safeParse(req.query);
+  const websiteId = queryParsed.success && queryParsed.data.websiteId ? queryParsed.data.websiteId : null;
+  const rawDays = queryParsed.success && queryParsed.data.days ? queryParsed.data.days : 30;
+  const days = Math.min(Math.max(rawDays, 1), 90);
+
+  const keywords = websiteId
+    ? await db.select().from(keywordsTable).where(eq(keywordsTable.websiteId, websiteId)).orderBy(keywordsTable.keyword)
+    : await db.select().from(keywordsTable).orderBy(keywordsTable.keyword);
+
+  if (keywords.length === 0) {
+    res.json({ keywords: [] });
+    return;
+  }
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+  const kwIds = keywords.map((k) => k.id);
+  const history = await db
+    .select()
+    .from(keywordRankHistoryTable)
+    .where(and(inArray(keywordRankHistoryTable.keywordId, kwIds), gte(keywordRankHistoryTable.recordedDate, cutoffDate)))
+    .orderBy(keywordRankHistoryTable.recordedDate);
+
+  const historyByKeyword = new Map<number, Array<{ recordedDate: string; rank: number | null }>>();
+  for (const h of history) {
+    if (!historyByKeyword.has(h.keywordId)) historyByKeyword.set(h.keywordId, []);
+    historyByKeyword.get(h.keywordId)!.push({ recordedDate: h.recordedDate, rank: h.rank ?? null });
+  }
+
+  const result = keywords.map((kw) => ({
+    id: kw.id,
+    keyword: kw.keyword,
+    websiteId: kw.websiteId,
+    history: historyByKeyword.get(kw.id) ?? [],
+  }));
+
+  res.json({ keywords: result });
+});
+
+router.get("/keywords/rank-alerts", async (req, res): Promise<void> => {
+  const queryParsed = GetKeywordRankAlertsQueryParams.safeParse(req.query);
+  const websiteId = queryParsed.success && queryParsed.data.websiteId ? queryParsed.data.websiteId : null;
+
+  const keywords = websiteId
+    ? await db.select().from(keywordsTable).where(eq(keywordsTable.websiteId, websiteId))
+    : await db.select().from(keywordsTable);
+
+  if (keywords.length === 0) {
+    res.json({ dropped: [], rising: [] });
+    return;
+  }
+
+  const kwIds = keywords.map((k) => k.id);
+
+  const eightDaysAgo = new Date();
+  eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
+  const cutoffDate = eightDaysAgo.toISOString().slice(0, 10);
+
+  const history = await db
+    .select()
+    .from(keywordRankHistoryTable)
+    .where(and(inArray(keywordRankHistoryTable.keywordId, kwIds), gte(keywordRankHistoryTable.recordedDate, cutoffDate)))
+    .orderBy(keywordRankHistoryTable.recordedDate);
+
+  const historyByKeyword = new Map<number, Array<{ recordedDate: string; rank: number | null }>>();
+  for (const h of history) {
+    if (!historyByKeyword.has(h.keywordId)) historyByKeyword.set(h.keywordId, []);
+    historyByKeyword.get(h.keywordId)!.push({ recordedDate: h.recordedDate, rank: h.rank ?? null });
+  }
+
+  const sevenDaysAgoStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const kwMap = new Map(keywords.map((k) => [k.id, k]));
+  const dropped: Array<{ id: number; keyword: string; websiteId: number; currentRank: number | null; previousRank: number | null; delta: number; direction: "up" | "down" }> = [];
+  const rising: typeof dropped = [];
+
+  for (const [kwId, entries] of historyByKeyword) {
+    const kw = kwMap.get(kwId);
+    if (!kw) continue;
+    const withRank = entries.filter((e) => e.rank !== null);
+    if (withRank.length < 2) continue;
+    const newest = withRank[withRank.length - 1];
+    const weekOld = [...withRank].reverse().find((e) => e.recordedDate <= sevenDaysAgoStr);
+    if (!weekOld || !newest.rank || !weekOld.rank) continue;
+    const delta = weekOld.rank - newest.rank;
+    if (delta >= 5) {
+      rising.push({ id: kwId, keyword: kw.keyword, websiteId: kw.websiteId, currentRank: newest.rank, previousRank: weekOld.rank, delta, direction: "up" });
+    } else if (delta <= -5) {
+      dropped.push({ id: kwId, keyword: kw.keyword, websiteId: kw.websiteId, currentRank: newest.rank, previousRank: weekOld.rank, delta, direction: "down" });
+    }
+  }
+
+  res.json({ dropped, rising });
 });
 
 export async function runRankSnapshot(): Promise<{ snapshotted: number; skipped: number; failed: number; date: string }> {

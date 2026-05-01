@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings, HelpCircle, Code2, Copy, Check, Download, PenLine, Save, Zap, X } from "lucide-react";
+import { Sparkles, Search, Share2, Globe, Megaphone, FileText, AlertCircle, Settings, HelpCircle, Code2, Copy, Check, Download, PenLine, Save, Zap, X, Network } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import {
   useSuggestKeywords,
+  useClusterKeywords,
   useGenerateSocialPost,
   useGenerateMetaTags,
   useGenerateCampaignCopy,
@@ -231,6 +232,12 @@ export default function AiTools() {
   const [schemaResult, setSchemaResult] = useState("");
   const schemaMutation = useGenerateSchema();
 
+  // Keyword Cluster state
+  const [clusterWebsiteId, setClusterWebsiteId] = useState<string>("");
+  const [clusterInput, setClusterInput] = useState("");
+  const [clusterResult, setClusterResult] = useState<Array<{ name: string; intent: string; keywords: string[] }>>([]);
+  const clusterMutation = useClusterKeywords();
+
   // Blog / Page Drafter state
   const [blogKeyword, setBlogKeyword] = useState("");
   const [blogContentType, setBlogContentType] = useState("blog_post");
@@ -303,6 +310,18 @@ export default function AiTools() {
   };
 
   const faqJsonLd = faqResult.length > 0 ? buildFaqJsonLd(faqResult) : "";
+
+  const handleClusterKeywords = () => {
+    const keywords = clusterInput.split(/[\n,]+/).map(k => k.trim()).filter(Boolean);
+    if (keywords.length < 2 || !clusterWebsiteId) return;
+    clusterMutation.mutate(
+      { data: { websiteId: parseInt(clusterWebsiteId), keywords } },
+      {
+        onSuccess: (r) => setClusterResult(r.clusters),
+        onError: () => toast({ title: "AI error", variant: "destructive" }),
+      }
+    );
+  };
 
   const handleGenerateBlogDraft = () => {
     if (!blogKeyword.trim()) return;
@@ -718,6 +737,90 @@ export default function AiTools() {
             {schemaResult && (
               <div className="relative" data-testid="container-schema-result">
                 <JsonLdHighlight code={schemaResult} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 9. Keyword Cluster — full width */}
+        <Card className="lg:col-span-2" data-testid="card-keyword-cluster">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2"><Network className="h-4 w-4 text-primary" /> Keyword Cluster Tool</CardTitle>
+            <CardDescription className="text-xs">Group a list of keywords into topical clusters to plan your content strategy — each cluster maps to a page or content pillar</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Website *</Label>
+                <Select value={clusterWebsiteId} onValueChange={setClusterWebsiteId}>
+                  <SelectTrigger data-testid="select-cluster-website">
+                    <SelectValue placeholder="Select a website" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(websitesList ?? []).map(w => (
+                      <SelectItem key={w.id} value={String(w.id)}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Keywords * <span className="text-muted-foreground font-normal">(one per line or comma-separated, min. 2)</span></Label>
+                <Textarea
+                  data-testid="input-cluster-keywords"
+                  placeholder={"seo tools\nkeyword research\nbacklink checker\ncontent marketing\nsite audit"}
+                  value={clusterInput}
+                  onChange={e => setClusterInput(e.target.value)}
+                  className="resize-none h-24 text-sm font-mono"
+                />
+              </div>
+            </div>
+            <Button
+              data-testid="button-cluster-keywords"
+              onClick={handleClusterKeywords}
+              disabled={
+                clusterMutation.isPending ||
+                !clusterWebsiteId ||
+                clusterInput.split(/[\n,]+/).map(k => k.trim()).filter(Boolean).length < 2
+              }
+              className="w-full md:w-auto"
+            >
+              {clusterMutation.isPending ? "Clustering..." : "Cluster Keywords"}
+            </Button>
+            {clusterResult.length > 0 && (
+              <div className="space-y-3" data-testid="container-cluster-results">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{clusterResult.length} clusters found</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {clusterResult.map((cluster, i) => {
+                    const intentColor: Record<string, string> = {
+                      informational: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+                      commercial: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+                      transactional: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+                      navigational: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+                    };
+                    return (
+                      <div
+                        key={i}
+                        data-testid={`cluster-card-${i}`}
+                        className="border rounded-md p-3 space-y-2 bg-muted/20"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-semibold leading-tight flex-1">{cluster.name}</p>
+                          <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${intentColor[cluster.intent] ?? "bg-muted text-muted-foreground"}`}>
+                            {cluster.intent}
+                          </span>
+                        </div>
+                        <ul className="space-y-0.5">
+                          {cluster.keywords.map((kw, j) => (
+                            <li key={j} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                              <span className="w-1 h-1 rounded-full bg-muted-foreground/40 shrink-0" />
+                              {kw}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </CardContent>

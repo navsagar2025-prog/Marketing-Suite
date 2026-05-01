@@ -163,6 +163,63 @@ export interface SnapshotKeywordsResponse {
   date: string;
 }
 
+export interface KeywordTrendPoint {
+  /** ISO date string (YYYY-MM-DD) */
+  recordedDate: string;
+  /** @nullable */
+  rank?: number | null;
+}
+
+export interface KeywordTrendEntry {
+  id: number;
+  keyword: string;
+  websiteId: number;
+  history: KeywordTrendPoint[];
+}
+
+export interface KeywordTrendsResponse {
+  keywords: KeywordTrendEntry[];
+}
+
+export type KeywordRankAlertDirection =
+  (typeof KeywordRankAlertDirection)[keyof typeof KeywordRankAlertDirection];
+
+export const KeywordRankAlertDirection = {
+  up: "up",
+  down: "down",
+} as const;
+
+export interface KeywordRankAlert {
+  id: number;
+  keyword: string;
+  websiteId: number;
+  /** @nullable */
+  currentRank?: number | null;
+  /** @nullable */
+  previousRank?: number | null;
+  /** Positive = moved up (improved), negative = moved down (worsened) */
+  delta: number;
+  direction: KeywordRankAlertDirection;
+}
+
+export interface KeywordRankAlertsResponse {
+  /** Keywords that dropped 5+ positions */
+  dropped: KeywordRankAlert[];
+  /** Keywords that rose 5+ positions */
+  rising: KeywordRankAlert[];
+}
+
+export interface GscKeywordsSyncResponse {
+  /** Keywords whose rank was updated from GSC data */
+  updated: number;
+  /** Keywords with no matching GSC query */
+  notFound: number;
+  /** Total tracked keywords for this website */
+  total: number;
+  /** Date of the sync (YYYY-MM-DD) */
+  date: string;
+}
+
 export interface SocialPost {
   id: number;
   websiteId: number;
@@ -1654,6 +1711,29 @@ export interface SiteAuditResults {
   issues: SiteAuditIssueResult[];
 }
 
+export interface EmailTemplate {
+  id: number;
+  websiteId?: number | null;
+  name: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEmailTemplateBody {
+  name: string;
+  subject: string;
+  body: string;
+  websiteId?: number | null;
+}
+
+export interface UpdateEmailTemplateBody {
+  name?: string;
+  subject?: string;
+  body?: string;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };
@@ -1663,6 +1743,24 @@ export type GetKeywordRankHistoryParams = {
    * Number of days of history to return (default 90)
    */
   days?: number;
+};
+
+export type GetKeywordTrendsParams = {
+  /**
+   * Filter by website (omit for all websites)
+   */
+  websiteId?: number;
+  /**
+   * Number of days of history to return (default 30, max 90)
+   */
+  days?: number;
+};
+
+export type GetKeywordRankAlertsParams = {
+  /**
+   * Filter by website
+   */
+  websiteId?: number;
 };
 
 export type InitiateGoogleAuthParams = {
@@ -1736,6 +1834,10 @@ export type ListSocialPostsParams = {
   websiteId?: number;
   platform?: string;
   status?: string;
+};
+
+export type ListEmailTemplatesParams = {
+  websiteId?: number;
 };
 
 export type ListCampaignsParams = {

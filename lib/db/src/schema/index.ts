@@ -29,3 +29,4 @@ export * from "./keyword-research";
 export * from "./site-audits";
 export * from "./oauth-tokens";
 export * from "./gsc-cache";
+export * from "./email-templates";

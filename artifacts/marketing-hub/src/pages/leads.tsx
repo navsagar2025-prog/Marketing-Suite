@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Users, Trash2, Search, TrendingUp, ArrowUpDown, MessageSquare, Code2, Copy, Check, FileText, Eye } from "lucide-react";
+import { Plus, Users, Trash2, Search, TrendingUp, ArrowUpDown, MessageSquare, Code2, Copy, Check, FileText, Eye, Pencil, Download, Settings2, RefreshCw } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,10 +17,12 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   useListLeads,
   useCreateLead,
+  useUpdateLead,
   useDeleteLead,
   useGetLeadsFunnel,
   useListWebsites,
@@ -32,12 +34,16 @@ import {
   useUpdateLeadForm,
   useDeleteLeadForm,
   useGetLeadFormEmbed,
+  useGetLeadScoringConfig,
+  useUpdateLeadScoringConfig,
+  useRecalculateLeadScores,
   getListLeadsQueryKey,
   getGetLeadsFunnelQueryKey,
   getListConversationsQueryKey,
   getListLeadFormsQueryKey,
+  getGetLeadScoringConfigQueryKey,
 } from "@workspace/api-client-react";
-import type { Conversation, LeadForm, LeadFormField } from "@workspace/api-client-react";
+import type { Conversation, LeadForm, LeadFormField, Lead, LeadScoringConfig } from "@workspace/api-client-react";
 import ConversationDrawer from "@/components/ConversationDrawer";
 
 function highlightHtmlSnippet(code: string): string {
@@ -152,6 +158,245 @@ function ScoreBadge({ score, breakdown }: { score: number | null | undefined; br
 
 type SortKey = "createdAt" | "score";
 
+function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const updateMutation = useUpdateLead();
+
+  const [name, setName] = useState(lead.name);
+  const [email, setEmail] = useState(lead.email ?? "");
+  const [phone, setPhone] = useState(lead.phone ?? "");
+  const [status, setStatus] = useState(lead.status);
+  const [source, setSource] = useState(lead.source);
+  const [notes, setNotes] = useState(lead.notes ?? "");
+  const [value, setValue] = useState(lead.value != null ? String(lead.value) : "");
+
+  const handleSave = () => {
+    if (!name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
+    updateMutation.mutate(
+      {
+        id: lead.id,
+        data: {
+          name: name.trim(),
+          email: email.trim() || null,
+          phone: phone.trim() || null,
+          status,
+          source,
+          notes: notes.trim() || null,
+          value: value !== "" ? parseFloat(value) : null,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetLeadsFunnelQueryKey() });
+          toast({ title: "Lead updated" });
+          onClose();
+        },
+        onError: () => toast({ title: "Failed to update lead", variant: "destructive" }),
+      }
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Edit Lead</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm">Full Name</Label>
+            <Input data-testid="input-edit-lead-name" className="mt-1" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm">Email</Label>
+              <Input data-testid="input-edit-lead-email" className="mt-1" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Optional" />
+            </div>
+            <div>
+              <Label className="text-sm">Phone</Label>
+              <Input data-testid="input-edit-lead-phone" className="mt-1" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-sm">Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger data-testid="select-edit-lead-status" className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>{STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm">Source</Label>
+              <Select value={source} onValueChange={setSource}>
+                <SelectTrigger data-testid="select-edit-lead-source" className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>{SOURCE_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div>
+            <Label className="text-sm">Lead Value ($)</Label>
+            <Input data-testid="input-edit-lead-value" className="mt-1" type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="e.g. 500" />
+          </div>
+          <div>
+            <Label className="text-sm">Notes</Label>
+            <Textarea data-testid="input-edit-lead-notes" className="mt-1" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes..." />
+          </div>
+          <Button data-testid="button-save-lead-edit" className="w-full" onClick={handleSave} disabled={updateMutation.isPending}>
+            {updateMutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ScoringWeightField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-muted-foreground flex-1">{label}</span>
+      <Input
+        type="number"
+        min={0}
+        max={100}
+        className="w-20 h-7 text-sm text-right"
+        value={value}
+        onChange={e => onChange(parseInt(e.target.value) || 0)}
+      />
+    </div>
+  );
+}
+
+function ScoringTab() {
+  const { data: config, isLoading } = useGetLeadScoringConfig();
+  const updateMutation = useUpdateLeadScoringConfig();
+  const recalcMutation = useRecalculateLeadScores();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const [draft, setDraft] = useState<LeadScoringConfig | null>(null);
+
+  useEffect(() => {
+    if (config && !draft) setDraft(config);
+  }, [config]);
+
+  if (isLoading || !draft) {
+    return <div className="space-y-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>;
+  }
+
+  const update = (path: string[], v: number) => {
+    setDraft(prev => {
+      if (!prev) return prev;
+      const next = JSON.parse(JSON.stringify(prev)) as LeadScoringConfig;
+      let obj: Record<string, unknown> = next as unknown as Record<string, unknown>;
+      for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]] as Record<string, unknown>;
+      obj[path[path.length - 1]] = v;
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    if (!draft) return;
+    updateMutation.mutate({ data: draft }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetLeadScoringConfigQueryKey() });
+        toast({ title: "Scoring weights saved" });
+      },
+      onError: () => toast({ title: "Failed to save weights", variant: "destructive" }),
+    });
+  };
+
+  const handleRecalculate = () => {
+    recalcMutation.mutate(undefined, {
+      onSuccess: (res) => {
+        queryClient.invalidateQueries({ queryKey: getListLeadsQueryKey() });
+        toast({ title: `Recalculated scores for ${res.updated} leads` });
+      },
+      onError: () => toast({ title: "Recalculation failed", variant: "destructive" }),
+    });
+  };
+
+  return (
+    <div className="space-y-5 max-w-lg">
+      <p className="text-sm text-muted-foreground">Adjust how points are awarded to each lead. After saving, click "Recalculate" to update all existing leads.</p>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Source Points</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {(["paid", "referral", "social", "organic", "direct"] as const).map(k => (
+            <ScoringWeightField key={k} label={k.charAt(0).toUpperCase() + k.slice(1)} value={draft.source[k]} onChange={v => update(["source", k], v)} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Status Points</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {(["new", "contacted", "qualified", "converted", "lost"] as const).map(k => (
+            <ScoringWeightField key={k} label={k.charAt(0).toUpperCase() + k.slice(1)} value={draft.status[k]} onChange={v => update(["status", k], v)} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Value Tier Points</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {(["over1000", "over500", "over100", "over0"] as const).map(k => {
+            const label = { over1000: "> $1,000", over500: "> $500", over100: "> $100", over0: "> $0" }[k];
+            return <ScoringWeightField key={k} label={label} value={draft.valueTier[k]} onChange={v => update(["valueTier", k], v)} />;
+          })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Recency Bonus</CardTitle></CardHeader>
+        <CardContent>
+          <ScoringWeightField label="Points for leads created in last 7 days" value={draft.recencyBonus} onChange={v => update(["recencyBonus"], v)} />
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-2">
+        <Button data-testid="button-save-scoring" onClick={handleSave} disabled={updateMutation.isPending}>
+          {updateMutation.isPending ? "Saving..." : "Save Weights"}
+        </Button>
+        <Button
+          data-testid="button-recalculate-scores"
+          variant="outline"
+          onClick={handleRecalculate}
+          disabled={recalcMutation.isPending}
+          className="gap-1.5"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${recalcMutation.isPending ? "animate-spin" : ""}`} />
+          {recalcMutation.isPending ? "Recalculating..." : "Recalculate All"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function exportLeadsCSV(leads: Lead[]) {
+  const headers = ["ID", "Name", "Email", "Phone", "Source", "Status", "Value", "Score", "Notes", "Created"];
+  const rows = leads.map(l => [
+    l.id,
+    `"${(l.name ?? "").replace(/"/g, '""')}"`,
+    `"${(l.email ?? "").replace(/"/g, '""')}"`,
+    `"${(l.phone ?? "").replace(/"/g, '""')}"`,
+    l.source,
+    l.status,
+    l.value != null ? l.value : "",
+    l.score != null ? l.score : "",
+    `"${(l.notes ?? "").replace(/"/g, '""')}"`,
+    new Date(l.createdAt).toISOString().split("T")[0],
+  ]);
+  const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `leads-${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Leads() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -234,7 +479,8 @@ export default function Leads() {
       return sortDir === "asc" ? aDate - bDate : bDate - aDate;
     });
 
-  const [activeTab, setActiveTab] = useState<"leads" | "forms">("leads");
+  const [activeTab, setActiveTab] = useState<"leads" | "forms" | "scoring">("leads");
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   return (
     <div className="p-6 space-y-6">
@@ -259,8 +505,26 @@ export default function Leads() {
             >
               <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Forms</span>
             </button>
+            <button
+              data-testid="tab-scoring"
+              onClick={() => setActiveTab("scoring")}
+              className={`px-4 py-1.5 font-medium transition-colors ${activeTab === "scoring" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+            >
+              <span className="flex items-center gap-1.5"><Settings2 className="h-3.5 w-3.5" />Scoring</span>
+            </button>
           </div>
-          {activeTab === "forms" ? null : (
+          {activeTab === "leads" && (leads ?? []).length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="button-export-leads"
+              className="gap-1.5"
+              onClick={() => exportLeadsCSV(leads ?? [])}
+            >
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </Button>
+          )}
+          {activeTab === "leads" && (
             <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm" data-testid="button-add-lead"><Plus className="h-4 w-4 mr-1" /> Add Lead</Button>
@@ -350,8 +614,9 @@ export default function Leads() {
       </div>
 
       {activeTab === "forms" && <FormsTab />}
+      {activeTab === "scoring" && <ScoringTab />}
 
-      {activeTab !== "forms" && <>
+      {activeTab === "leads" && <>
       {/* Funnel */}
       {funnel && funnelData.some(d => d.value > 0) && (
         <Card>
@@ -488,6 +753,16 @@ export default function Leads() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                            data-testid={`button-edit-lead-${l.id}`}
+                            title="Edit lead"
+                            onClick={() => setEditingLead(l)}
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100"
                             data-testid={`button-qualify-lead-${l.id}`}
                             title="Qualify with AI"
                             onClick={() => setQualifyingLead({ id: l.id, name: l.name })}
@@ -519,6 +794,9 @@ export default function Leads() {
             queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
           }}
         />
+      )}
+      {editingLead && (
+        <EditLeadDialog lead={editingLead} onClose={() => setEditingLead(null)} />
       )}
       </>}
     </div>

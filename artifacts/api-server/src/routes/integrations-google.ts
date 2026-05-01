@@ -5,7 +5,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
-import { db, oauthTokensTable, gscCacheTable } from "@workspace/db";
+import { db, oauthTokensTable, gscCacheTable, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -344,6 +344,63 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
   } catch (err) {
     logger.error({ err }, "GSC data fetch error");
     res.status(502).json({ error: "Failed to fetch data from Google Search Console. Your connection may have expired — try reconnecting." });
+  }
+});
+
+/** POST /integrations/google/keywords-sync/:websiteId — pull live positions from GSC into tracked keywords */
+router.post("/integrations/google/keywords-sync/:websiteId", async (req, res): Promise<void> => {
+  const websiteId = parseInt(req.params.websiteId);
+  if (isNaN(websiteId)) { res.status(400).json({ error: "Invalid websiteId" }); return; }
+
+  const [token] = await db
+    .select()
+    .from(oauthTokensTable)
+    .where(and(
+      eq(oauthTokensTable.staffUserId, req.user!.id),
+      eq(oauthTokensTable.websiteId, websiteId),
+      eq(oauthTokensTable.provider, "google"),
+    ))
+    .limit(1);
+
+  if (!token) { res.status(404).json({ error: "Google Search Console is not connected for this website" }); return; }
+  if (!token.gscPropertyUrl) { res.status(400).json({ error: "No GSC property selected. Please select a property first." }); return; }
+
+  try {
+    const accessToken = await getValidAccessToken(token);
+    const endDate = formatDate(new Date());
+    const startDate = formatDate(new Date(Date.now() - 28 * 24 * 60 * 60 * 1000));
+
+    const gscRows = await fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["query"], 1000);
+
+    const gscMap = new Map<string, number>();
+    for (const row of gscRows) {
+      if (row.keys[0]) gscMap.set(row.keys[0].toLowerCase().trim(), Math.round(row.position));
+    }
+
+    const trackedKeywords = await db.select().from(keywordsTable).where(eq(keywordsTable.websiteId, websiteId));
+    const today = new Date().toISOString().slice(0, 10);
+
+    let updated = 0;
+    let notFound = 0;
+
+    for (const kw of trackedKeywords) {
+      const gscPosition = gscMap.get(kw.keyword.toLowerCase().trim());
+      if (gscPosition !== undefined) {
+        await db.update(keywordsTable).set({ currentRank: gscPosition }).where(eq(keywordsTable.id, kw.id));
+        await db
+          .insert(keywordRankHistoryTable)
+          .values({ keywordId: kw.id, rank: gscPosition, recordedDate: today })
+          .onConflictDoUpdate({ target: [keywordRankHistoryTable.keywordId, keywordRankHistoryTable.recordedDate], set: { rank: gscPosition } });
+        updated++;
+      } else {
+        notFound++;
+      }
+    }
+
+    res.json({ updated, notFound, total: trackedKeywords.length, date: today });
+  } catch (err) {
+    logger.error({ err }, "GSC keywords sync error");
+    res.status(502).json({ error: "Failed to sync from Google Search Console. Your connection may have expired — try reconnecting." });
   }
 });
 

@@ -880,9 +880,11 @@ function SortableStepCard({
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-0.5"
-            aria-label={`Delete step: ${step.label}`}
+            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-0.5 disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label={total === 1 ? "Cannot delete the last step" : `Delete step: ${step.label}`}
+            title={total === 1 ? "At least one step must remain in the checklist" : undefined}
             data-testid={`delete-step-${step.id}`}
+            disabled={total === 1}
             onClick={onDelete}
           >
             <Trash2 className="h-3.5 w-3.5" />

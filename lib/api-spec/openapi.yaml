@@ -345,7 +345,7 @@ paths:
     get:
       operationId: initiateGoogleAuth
       tags: [integrations]
-      summary: Start Google OAuth flow — redirects browser to Google consent page
+      summary: Get the Google OAuth authorization URL — frontend fetches this (with Bearer token) then navigates the browser to the returned URL
       security:
         - BearerAuth: []
       parameters:
@@ -355,8 +355,16 @@ paths:
           schema:
             type: integer
       responses:
-        "302":
-          description: Redirect to Google OAuth
+        "200":
+          description: Google OAuth URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authUrl:
+                    type: string
+                required: [authUrl]
         "400":
           description: Missing websiteId
         "503":

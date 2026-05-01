@@ -90,6 +90,19 @@ const PROVIDER_MODELS: Record<AiProvider, string[]> = {
   gemini: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash"],
 };
 
+const GSC_TOKEN_KEY = "auth_token";
+
+async function fetchGoogleAuthUrl(websiteId: number): Promise<string | null> {
+  const token = localStorage.getItem(GSC_TOKEN_KEY);
+  if (!token) return null;
+  const res = await fetch(`/api/integrations/google/auth?websiteId=${websiteId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.authUrl ?? null;
+}
+
 function GscWebsiteRow({ website }: { website: Website }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -98,12 +111,17 @@ function GscWebsiteRow({ website }: { website: Website }) {
   });
   const disconnectMutation = useDisconnectGoogleIntegration();
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!status?.configured) {
       toast({ title: "Google OAuth not configured", description: "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first.", variant: "destructive" });
       return;
     }
-    window.location.href = `/api/integrations/google/auth?websiteId=${website.id}`;
+    const authUrl = await fetchGoogleAuthUrl(website.id);
+    if (!authUrl) {
+      toast({ title: "Failed to initiate Google sign-in", description: "Please try again.", variant: "destructive" });
+      return;
+    }
+    window.location.href = authUrl;
   };
 
   const handleDisconnect = () => {

@@ -80,10 +80,16 @@ async function getValidAccessToken(tokenRow: typeof oauthTokensTable.$inferSelec
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-/** GET /integrations/google/auth?websiteId=N — initiate OAuth flow */
+/**
+ * GET /integrations/google/auth
+ * Returns the Google OAuth authorization URL as JSON.
+ * The frontend fetches this with the Bearer token, then navigates the browser to the returned URL.
+ * This keeps the route behind requireAuth while avoiding the problem of browser navigation
+ * (which cannot attach Authorization headers).
+ */
 router.get("/integrations/google/auth", async (req, res): Promise<void> => {
   if (!GOOGLE_CLIENT_ID) {
-    res.status(503).json({ error: "Google OAuth is not configured. Ask your admin to set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." });
+    res.status(503).json({ error: "Google OAuth is not configured. Ask your admin to set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.", configured: false });
     return;
   }
   const websiteId = parseInt(req.query.websiteId as string);
@@ -99,7 +105,8 @@ router.get("/integrations/google/auth", async (req, res): Promise<void> => {
     prompt: "consent",
     state,
   });
-  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  res.json({ authUrl });
 });
 
 /** GET /integrations/google/status/:websiteId */

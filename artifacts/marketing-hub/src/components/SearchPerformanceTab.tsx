@@ -19,6 +19,19 @@ import {
 import type { GscSearchPerformance, GscProperty } from "@workspace/api-client-react";
 import { TrendingUp, TrendingDown, Minus, ExternalLink, RefreshCw, Loader2, Search, Globe, BarChart2, Unlink } from "lucide-react";
 
+const TOKEN_KEY = "auth_token";
+
+async function fetchGoogleAuthUrl(websiteId: number): Promise<string | null> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  const res = await fetch(`/api/integrations/google/auth?websiteId=${websiteId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.authUrl ?? null;
+}
+
 type DateRange = "7days" | "28days" | "90days";
 
 function DeltaBadge({ delta, isPosition = false }: { delta: number | null; isPosition?: boolean }) {
@@ -309,12 +322,16 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
     }
   }, []);
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     if (!status?.configured) {
       toast({ title: "Google OAuth not configured", description: "Ask an admin to set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.", variant: "destructive" });
       return;
     }
-    const authUrl = `/api/integrations/google/auth?websiteId=${websiteId}`;
+    const authUrl = await fetchGoogleAuthUrl(websiteId);
+    if (!authUrl) {
+      toast({ title: "Failed to initiate Google sign-in", description: "Please try again.", variant: "destructive" });
+      return;
+    }
     window.location.href = authUrl;
   };
 

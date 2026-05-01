@@ -62,18 +62,26 @@ router.post("/competitors/analyse", async (req, res): Promise<void> => {
     return;
   }
 
-  const userWebsites = await db
-    .select({ id: websitesTable.id })
-    .from(websitesTable);
-  const websiteIds = userWebsites.map(w => w.id);
+  const websiteIdForContext = parsed.data.websiteId ?? null;
 
-  const trackedKeywords = websiteIds.length > 0
-    ? await db
+  let trackedKeywords: { keyword: string }[] = [];
+  if (websiteIdForContext) {
+    trackedKeywords = await db
+      .select({ keyword: keywordsTable.keyword })
+      .from(keywordsTable)
+      .where(eq(keywordsTable.websiteId, websiteIdForContext))
+      .limit(50);
+  } else {
+    const userWebsites = await db.select({ id: websitesTable.id }).from(websitesTable);
+    const websiteIds = userWebsites.map(w => w.id);
+    if (websiteIds.length > 0) {
+      trackedKeywords = await db
         .select({ keyword: keywordsTable.keyword })
         .from(keywordsTable)
         .where(inArray(keywordsTable.websiteId, websiteIds))
-        .limit(50)
-    : [];
+        .limit(50);
+    }
+  }
 
   const trackedList = trackedKeywords.map(k => k.keyword);
   const trackedContext = trackedList.length > 0

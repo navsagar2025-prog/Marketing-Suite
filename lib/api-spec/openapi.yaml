@@ -4252,6 +4252,10 @@ components:
         domain:
           type: string
           description: "Competitor domain to analyse (e.g. 'semrush.com' or 'https://semrush.com')"
+        websiteId:
+          type: integer
+          nullable: true
+          description: Optional website ID to scope the keyword gap context to a specific website's tracked keywords
       required:
         - domain
 

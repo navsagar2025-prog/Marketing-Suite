@@ -88,10 +88,13 @@ export default function CompetitorsPage() {
     }
   }, [websites, selectedWebsiteId]);
 
+  const websiteIdNum = selectedWebsiteId ? parseInt(selectedWebsiteId) : null;
+  const canTrack = websiteIdNum != null;
+
   function handleAnalyse() {
     if (!domain.trim()) return;
     analyseMutation.mutate(
-      { data: { domain: domain.trim() } },
+      { data: { domain: domain.trim(), websiteId: websiteIdNum ?? undefined } },
       {
         onSuccess: (data) => {
           setResult(data);
@@ -120,9 +123,6 @@ export default function CompetitorsPage() {
     setDomain(item.domain);
     setTrackedKeywords(new Set());
   }
-
-  const websiteIdNum = selectedWebsiteId ? parseInt(selectedWebsiteId) : null;
-  const canTrack = websiteIdNum != null;
 
   function handleTrack(kw: CompetitorGapOpportunity) {
     if (!canTrack) {

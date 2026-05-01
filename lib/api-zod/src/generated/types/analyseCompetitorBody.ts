@@ -9,4 +9,6 @@
 export interface AnalyseCompetitorBody {
   /** Competitor domain to analyse (e.g. 'semrush.com' or 'https://semrush.com') */
   domain: string;
+  /** Optional website ID to scope the keyword gap context to a specific website's tracked keywords */
+  websiteId?: number | null;
 }

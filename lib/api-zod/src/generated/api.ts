@@ -317,6 +317,12 @@ export const RunCompetitorAnalysisBody = zod.object({
     .describe(
       "Competitor domain to analyse (e.g. 'semrush.com' or 'https:\/\/semrush.com')",
     ),
+  websiteId: zod
+    .number()
+    .nullish()
+    .describe(
+      "Optional website ID to scope the keyword gap context to a specific website's tracked keywords",
+    ),
 });
 
 export const runCompetitorAnalysisResponseDomainOverviewAuthorityMin = 0;

@@ -309,6 +309,167 @@ export const GetKeywordResearchHistoryResponse = zod.array(
 );
 
 /**
+ * @summary AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
+ */
+export const RunCompetitorAnalysisBody = zod.object({
+  domain: zod
+    .string()
+    .describe(
+      "Competitor domain to analyse (e.g. 'semrush.com' or 'https:\/\/semrush.com')",
+    ),
+});
+
+export const runCompetitorAnalysisResponseDomainOverviewAuthorityMin = 0;
+export const runCompetitorAnalysisResponseDomainOverviewAuthorityMax = 100;
+
+export const runCompetitorAnalysisResponseKeywordThemesItemDifficultyMin = 0;
+export const runCompetitorAnalysisResponseKeywordThemesItemDifficultyMax = 100;
+
+export const runCompetitorAnalysisResponseGapOpportunitiesItemDifficultyMin = 0;
+export const runCompetitorAnalysisResponseGapOpportunitiesItemDifficultyMax = 100;
+
+export const RunCompetitorAnalysisResponse = zod.object({
+  sessionId: zod.number(),
+  domain: zod.string(),
+  fromCache: zod
+    .boolean()
+    .describe("True if this result came from the 24-hour cache"),
+  domainOverview: zod.object({
+    authority: zod
+      .number()
+      .min(runCompetitorAnalysisResponseDomainOverviewAuthorityMin)
+      .max(runCompetitorAnalysisResponseDomainOverviewAuthorityMax)
+      .describe("Estimated domain authority score (AI estimate)"),
+    trafficBand: zod
+      .enum(["<10K", "10K-100K", "100K-1M", "1M+"])
+      .describe("Estimated monthly organic traffic band"),
+    niche: zod.string().describe("Primary niche or specialisation"),
+    industry: zod.string().describe("Broader industry classification"),
+    summary: zod
+      .string()
+      .describe("Brief AI-generated strategic summary of the domain"),
+  }),
+  keywordThemes: zod.array(
+    zod.object({
+      theme: zod.string(),
+      difficulty: zod
+        .number()
+        .min(runCompetitorAnalysisResponseKeywordThemesItemDifficultyMin)
+        .max(runCompetitorAnalysisResponseKeywordThemesItemDifficultyMax),
+      intent: zod.enum([
+        "informational",
+        "commercial",
+        "navigational",
+        "transactional",
+      ]),
+      volumeBand: zod.enum(["<100", "100-1K", "1K-10K", "10K+"]),
+      description: zod.string(),
+    }),
+  ),
+  contentTopics: zod.array(
+    zod.object({
+      topic: zod.string(),
+      description: zod.string(),
+    }),
+  ),
+  gapOpportunities: zod.array(
+    zod.object({
+      keyword: zod.string(),
+      difficulty: zod
+        .number()
+        .min(runCompetitorAnalysisResponseGapOpportunitiesItemDifficultyMin)
+        .max(runCompetitorAnalysisResponseGapOpportunitiesItemDifficultyMax),
+      intent: zod.enum([
+        "informational",
+        "commercial",
+        "navigational",
+        "transactional",
+      ]),
+      volumeBand: zod.enum(["<100", "100-1K", "1K-10K", "10K+"]),
+      rationale: zod.string().describe("Why this is a gap opportunity"),
+    }),
+  ),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get the last 5 competitor domains analysed by the current user
+ */
+export const getCompetitorHistoryResponseDomainOverviewAuthorityMin = 0;
+export const getCompetitorHistoryResponseDomainOverviewAuthorityMax = 100;
+
+export const getCompetitorHistoryResponseKeywordThemesItemDifficultyMin = 0;
+export const getCompetitorHistoryResponseKeywordThemesItemDifficultyMax = 100;
+
+export const getCompetitorHistoryResponseGapOpportunitiesItemDifficultyMin = 0;
+export const getCompetitorHistoryResponseGapOpportunitiesItemDifficultyMax = 100;
+
+export const GetCompetitorHistoryResponseItem = zod.object({
+  id: zod.number(),
+  domain: zod.string(),
+  domainOverview: zod.object({
+    authority: zod
+      .number()
+      .min(getCompetitorHistoryResponseDomainOverviewAuthorityMin)
+      .max(getCompetitorHistoryResponseDomainOverviewAuthorityMax)
+      .describe("Estimated domain authority score (AI estimate)"),
+    trafficBand: zod
+      .enum(["<10K", "10K-100K", "100K-1M", "1M+"])
+      .describe("Estimated monthly organic traffic band"),
+    niche: zod.string().describe("Primary niche or specialisation"),
+    industry: zod.string().describe("Broader industry classification"),
+    summary: zod
+      .string()
+      .describe("Brief AI-generated strategic summary of the domain"),
+  }),
+  keywordThemes: zod.array(
+    zod.object({
+      theme: zod.string(),
+      difficulty: zod
+        .number()
+        .min(getCompetitorHistoryResponseKeywordThemesItemDifficultyMin)
+        .max(getCompetitorHistoryResponseKeywordThemesItemDifficultyMax),
+      intent: zod.enum([
+        "informational",
+        "commercial",
+        "navigational",
+        "transactional",
+      ]),
+      volumeBand: zod.enum(["<100", "100-1K", "1K-10K", "10K+"]),
+      description: zod.string(),
+    }),
+  ),
+  contentTopics: zod.array(
+    zod.object({
+      topic: zod.string(),
+      description: zod.string(),
+    }),
+  ),
+  gapOpportunities: zod.array(
+    zod.object({
+      keyword: zod.string(),
+      difficulty: zod
+        .number()
+        .min(getCompetitorHistoryResponseGapOpportunitiesItemDifficultyMin)
+        .max(getCompetitorHistoryResponseGapOpportunitiesItemDifficultyMax),
+      intent: zod.enum([
+        "informational",
+        "commercial",
+        "navigational",
+        "transactional",
+      ]),
+      volumeBand: zod.enum(["<100", "100-1K", "1K-10K", "10K+"]),
+      rationale: zod.string().describe("Why this is a gap opportunity"),
+    }),
+  ),
+  cachedUntil: zod.coerce.date(),
+  createdAt: zod.coerce.date(),
+});
+export const GetCompetitorHistoryResponse = zod.array(
+  GetCompetitorHistoryResponseItem,
+);
+
+/**
  * @summary Capture a rank snapshot for all tracked keywords now (admin only)
  */
 export const SnapshotKeywordRanksResponse = zod.object({

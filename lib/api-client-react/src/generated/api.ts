@@ -19,6 +19,7 @@ import type {
 import type {
   AddCompetitorBody,
   AdminUsageResponse,
+  AnalyseCompetitorBody,
   AnalyticsSummary,
   AppSettings,
   Backlink,
@@ -29,6 +30,8 @@ import type {
   ClusterKeywordsBody,
   ClusterKeywordsResponse,
   CompetitorAnalysis,
+  CompetitorAnalysisResult,
+  CompetitorHistoryItem,
   Conversation,
   ConversationMessage,
   CreateBacklinkBody,
@@ -1254,6 +1257,167 @@ export function useGetKeywordResearchHistory<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetKeywordResearchHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
+ */
+export const getRunCompetitorAnalysisUrl = () => {
+  return `/api/competitors/analyse`;
+};
+
+export const runCompetitorAnalysis = async (
+  analyseCompetitorBody: AnalyseCompetitorBody,
+  options?: RequestInit,
+): Promise<CompetitorAnalysisResult> => {
+  return customFetch<CompetitorAnalysisResult>(getRunCompetitorAnalysisUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(analyseCompetitorBody),
+  });
+};
+
+export const getRunCompetitorAnalysisMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runCompetitorAnalysis>>,
+    TError,
+    { data: BodyType<AnalyseCompetitorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof runCompetitorAnalysis>>,
+  TError,
+  { data: BodyType<AnalyseCompetitorBody> },
+  TContext
+> => {
+  const mutationKey = ["runCompetitorAnalysis"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof runCompetitorAnalysis>>,
+    { data: BodyType<AnalyseCompetitorBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return runCompetitorAnalysis(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RunCompetitorAnalysisMutationResult = NonNullable<
+  Awaited<ReturnType<typeof runCompetitorAnalysis>>
+>;
+export type RunCompetitorAnalysisMutationBody = BodyType<AnalyseCompetitorBody>;
+export type RunCompetitorAnalysisMutationError = ErrorType<void>;
+
+/**
+ * @summary AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
+ */
+export const useRunCompetitorAnalysis = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof runCompetitorAnalysis>>,
+    TError,
+    { data: BodyType<AnalyseCompetitorBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof runCompetitorAnalysis>>,
+  TError,
+  { data: BodyType<AnalyseCompetitorBody> },
+  TContext
+> => {
+  return useMutation(getRunCompetitorAnalysisMutationOptions(options));
+};
+
+/**
+ * @summary Get the last 5 competitor domains analysed by the current user
+ */
+export const getGetCompetitorHistoryUrl = () => {
+  return `/api/competitors/history`;
+};
+
+export const getCompetitorHistory = async (
+  options?: RequestInit,
+): Promise<CompetitorHistoryItem[]> => {
+  return customFetch<CompetitorHistoryItem[]>(getGetCompetitorHistoryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCompetitorHistoryQueryKey = () => {
+  return [`/api/competitors/history`] as const;
+};
+
+export const getGetCompetitorHistoryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCompetitorHistory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCompetitorHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCompetitorHistoryQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCompetitorHistory>>
+  > = ({ signal }) => getCompetitorHistory({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCompetitorHistory>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCompetitorHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCompetitorHistory>>
+>;
+export type GetCompetitorHistoryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the last 5 competitor domains analysed by the current user
+ */
+
+export function useGetCompetitorHistory<
+  TData = Awaited<ReturnType<typeof getCompetitorHistory>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCompetitorHistory>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCompetitorHistoryQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

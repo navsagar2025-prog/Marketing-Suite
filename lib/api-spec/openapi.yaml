@@ -36,6 +36,8 @@ tags:
     description: Embeddable lead capture form management
   - name: billing
     description: Plan and usage billing information
+  - name: competitors
+    description: AI-powered competitor domain analysis
 
 paths:
   /healthz:
@@ -288,6 +290,51 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/KeywordResearchSession"
+
+  # ─── Competitors ──────────────────────────────────────────────────────────────
+  /competitors/analyse:
+    post:
+      operationId: runCompetitorAnalysis
+      tags: [competitors]
+      summary: AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyseCompetitorBody"
+      responses:
+        "200":
+          description: Competitor analysis result (may be from 24h cache)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompetitorAnalysisResult"
+        "400":
+          description: Bad request
+        "429":
+          description: AI usage limit reached
+        "503":
+          description: AI unavailable
+
+  /competitors/history:
+    get:
+      operationId: getCompetitorHistory
+      tags: [competitors]
+      summary: Get the last 5 competitor domains analysed by the current user
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Competitor research history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CompetitorHistoryItem"
 
   /admin/keywords/snapshot:
     post:
@@ -4198,4 +4245,142 @@ components:
         usage:
           $ref: "#/components/schemas/BillingUsage"
       required: [plan, planName, monthlyPrice, limits, usage]
+
+    AnalyseCompetitorBody:
+      type: object
+      properties:
+        domain:
+          type: string
+          description: "Competitor domain to analyse (e.g. 'semrush.com' or 'https://semrush.com')"
+      required:
+        - domain
+
+    CompetitorDomainOverview:
+      type: object
+      properties:
+        authority:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Estimated domain authority score (AI estimate)
+        trafficBand:
+          type: string
+          enum: ["<10K", "10K-100K", "100K-1M", "1M+"]
+          description: Estimated monthly organic traffic band
+        niche:
+          type: string
+          description: Primary niche or specialisation
+        industry:
+          type: string
+          description: Broader industry classification
+        summary:
+          type: string
+          description: Brief AI-generated strategic summary of the domain
+      required: [authority, trafficBand, niche, industry, summary]
+
+    CompetitorKeywordTheme:
+      type: object
+      properties:
+        theme:
+          type: string
+        difficulty:
+          type: integer
+          minimum: 0
+          maximum: 100
+        intent:
+          type: string
+          enum: ["informational", "commercial", "navigational", "transactional"]
+        volumeBand:
+          type: string
+          enum: ["<100", "100-1K", "1K-10K", "10K+"]
+        description:
+          type: string
+      required: [theme, difficulty, intent, volumeBand, description]
+
+    CompetitorContentTopic:
+      type: object
+      properties:
+        topic:
+          type: string
+        description:
+          type: string
+      required: [topic, description]
+
+    CompetitorGapOpportunity:
+      type: object
+      properties:
+        keyword:
+          type: string
+        difficulty:
+          type: integer
+          minimum: 0
+          maximum: 100
+        intent:
+          type: string
+          enum: ["informational", "commercial", "navigational", "transactional"]
+        volumeBand:
+          type: string
+          enum: ["<100", "100-1K", "1K-10K", "10K+"]
+        rationale:
+          type: string
+          description: Why this is a gap opportunity
+      required: [keyword, difficulty, intent, volumeBand, rationale]
+
+    CompetitorAnalysisResult:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        domain:
+          type: string
+        fromCache:
+          type: boolean
+          description: True if this result came from the 24-hour cache
+        domainOverview:
+          $ref: "#/components/schemas/CompetitorDomainOverview"
+        keywordThemes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorKeywordTheme"
+        contentTopics:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorContentTopic"
+        gapOpportunities:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorGapOpportunity"
+        createdAt:
+          type: string
+          format: date-time
+      required: [sessionId, domain, fromCache, domainOverview, keywordThemes, contentTopics, gapOpportunities, createdAt]
+
+    CompetitorHistoryItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        domain:
+          type: string
+        domainOverview:
+          $ref: "#/components/schemas/CompetitorDomainOverview"
+        keywordThemes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorKeywordTheme"
+        contentTopics:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorContentTopic"
+        gapOpportunities:
+          type: array
+          items:
+            $ref: "#/components/schemas/CompetitorGapOpportunity"
+        cachedUntil:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, domain, domainOverview, keywordThemes, contentTopics, gapOpportunities, cachedUntil, createdAt]
 

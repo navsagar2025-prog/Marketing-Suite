@@ -31,6 +31,7 @@ import UtmBuilderPage from "@/pages/utm-builder";
 import AbTestsPage from "@/pages/ab-tests";
 import OutreachPage from "@/pages/outreach";
 import ReportsPage from "@/pages/reports";
+import CompetitorsPage from "@/pages/competitors";
 import ReportDetailPage from "@/pages/report-detail";
 import SharedReportPage from "@/pages/shared-report";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -133,6 +134,9 @@ function ProtectedRouter() {
             </Route>
             <Route path="/keywords">
               <PermissionGuard module="keywords"><Keywords /></PermissionGuard>
+            </Route>
+            <Route path="/competitors">
+              <PermissionGuard module="keywords"><CompetitorsPage /></PermissionGuard>
             </Route>
             <Route path="/social">
               <PermissionGuard module="social"><Social /></PermissionGuard>

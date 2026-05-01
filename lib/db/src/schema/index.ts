@@ -15,6 +15,7 @@ export * from "./ip-allowlist";
 export * from "./ai-usage";
 export * from "./link-suggestions";
 export * from "./competitor-analyses";
+export * from "./competitor-research";
 export * from "./sequences";
 export * from "./lead-forms";
 export * from "./blog-posts";

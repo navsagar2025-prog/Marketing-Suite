@@ -1390,6 +1390,134 @@ export interface BillingMe {
   usage: BillingUsage;
 }
 
+export interface AnalyseCompetitorBody {
+  /** Competitor domain to analyse (e.g. 'semrush.com' or 'https://semrush.com') */
+  domain: string;
+}
+
+/**
+ * Estimated monthly organic traffic band
+ */
+export type CompetitorDomainOverviewTrafficBand =
+  (typeof CompetitorDomainOverviewTrafficBand)[keyof typeof CompetitorDomainOverviewTrafficBand];
+
+export const CompetitorDomainOverviewTrafficBand = {
+  "<10K": "<10K",
+  "10K-100K": "10K-100K",
+  "100K-1M": "100K-1M",
+  "1M+": "1M+",
+} as const;
+
+export interface CompetitorDomainOverview {
+  /**
+   * Estimated domain authority score (AI estimate)
+   * @minimum 0
+   * @maximum 100
+   */
+  authority: number;
+  /** Estimated monthly organic traffic band */
+  trafficBand: CompetitorDomainOverviewTrafficBand;
+  /** Primary niche or specialisation */
+  niche: string;
+  /** Broader industry classification */
+  industry: string;
+  /** Brief AI-generated strategic summary of the domain */
+  summary: string;
+}
+
+export type CompetitorKeywordThemeIntent =
+  (typeof CompetitorKeywordThemeIntent)[keyof typeof CompetitorKeywordThemeIntent];
+
+export const CompetitorKeywordThemeIntent = {
+  informational: "informational",
+  commercial: "commercial",
+  navigational: "navigational",
+  transactional: "transactional",
+} as const;
+
+export type CompetitorKeywordThemeVolumeBand =
+  (typeof CompetitorKeywordThemeVolumeBand)[keyof typeof CompetitorKeywordThemeVolumeBand];
+
+export const CompetitorKeywordThemeVolumeBand = {
+  "<100": "<100",
+  "100-1K": "100-1K",
+  "1K-10K": "1K-10K",
+  "10K+": "10K+",
+} as const;
+
+export interface CompetitorKeywordTheme {
+  theme: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  difficulty: number;
+  intent: CompetitorKeywordThemeIntent;
+  volumeBand: CompetitorKeywordThemeVolumeBand;
+  description: string;
+}
+
+export interface CompetitorContentTopic {
+  topic: string;
+  description: string;
+}
+
+export type CompetitorGapOpportunityIntent =
+  (typeof CompetitorGapOpportunityIntent)[keyof typeof CompetitorGapOpportunityIntent];
+
+export const CompetitorGapOpportunityIntent = {
+  informational: "informational",
+  commercial: "commercial",
+  navigational: "navigational",
+  transactional: "transactional",
+} as const;
+
+export type CompetitorGapOpportunityVolumeBand =
+  (typeof CompetitorGapOpportunityVolumeBand)[keyof typeof CompetitorGapOpportunityVolumeBand];
+
+export const CompetitorGapOpportunityVolumeBand = {
+  "<100": "<100",
+  "100-1K": "100-1K",
+  "1K-10K": "1K-10K",
+  "10K+": "10K+",
+} as const;
+
+export interface CompetitorGapOpportunity {
+  keyword: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  difficulty: number;
+  intent: CompetitorGapOpportunityIntent;
+  volumeBand: CompetitorGapOpportunityVolumeBand;
+  /** Why this is a gap opportunity */
+  rationale: string;
+}
+
+export interface CompetitorAnalysisResult {
+  sessionId: number;
+  domain: string;
+  /** True if this result came from the 24-hour cache */
+  fromCache: boolean;
+  domainOverview: CompetitorDomainOverview;
+  keywordThemes: CompetitorKeywordTheme[];
+  contentTopics: CompetitorContentTopic[];
+  gapOpportunities: CompetitorGapOpportunity[];
+  createdAt: string;
+}
+
+export interface CompetitorHistoryItem {
+  id: number;
+  domain: string;
+  domainOverview: CompetitorDomainOverview;
+  keywordThemes: CompetitorKeywordTheme[];
+  contentTopics: CompetitorContentTopic[];
+  gapOpportunities: CompetitorGapOpportunity[];
+  cachedUntil: string;
+  createdAt: string;
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };

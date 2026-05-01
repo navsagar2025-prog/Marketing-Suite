@@ -29,6 +29,7 @@ import clientReportsRouter from "./client-reports";
 import outreachRouter from "./outreach";
 import billingRouter from "./billing";
 import competitorsRouter from "./competitors";
+import siteAuditRouter from "./site-audit";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -63,6 +64,7 @@ router.use("/ab-tests", requirePermission("analytics"));
 router.use("/reports", requirePermission("analytics"));
 router.use("/outreach", requirePermission("backlinks"));
 router.use("/competitors", requirePermission("keywords"));
+router.use("/audit", requirePermission("websites"));
 
 router.use(websitesRouter);
 router.use(keywordsRouter);
@@ -86,6 +88,7 @@ router.use(clientReportsRouter);
 router.use(outreachRouter);
 router.use(billingRouter);
 router.use(competitorsRouter);
+router.use(siteAuditRouter);
 router.use(adminRouter);
 
 export default router;

@@ -38,6 +38,8 @@ tags:
     description: Plan and usage billing information
   - name: competitors
     description: AI-powered competitor domain analysis
+  - name: site-audit
+    description: Full-site technical SEO crawler
 
 paths:
   /healthz:
@@ -335,6 +337,80 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CompetitorHistoryItem"
+
+  # ─── Site Audit ───────────────────────────────────────────────────────────────
+  /audit/site/{websiteId}:
+    post:
+      operationId: startSiteAudit
+      tags: [site-audit]
+      summary: Start a full-site background crawl audit
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "202":
+          description: Crawl started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteAuditStatus"
+        "400":
+          description: Bad request
+        "404":
+          description: Website not found
+        "409":
+          description: Crawl already in progress
+
+  /audit/site/{websiteId}/status:
+    get:
+      operationId: getSiteAuditStatus
+      tags: [site-audit]
+      summary: Get current crawl progress for a website's latest audit
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteAuditStatus"
+        "404":
+          description: No audit found for this website
+
+  /audit/site/{websiteId}/results:
+    get:
+      operationId: getSiteAuditResults
+      tags: [site-audit]
+      summary: Get full results of the latest completed site audit
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Full audit results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteAuditResults"
+        "404":
+          description: No completed audit found for this website
 
   /admin/keywords/snapshot:
     post:
@@ -4387,4 +4463,118 @@ components:
           type: string
           format: date-time
       required: [id, domain, domainOverview, keywordThemes, contentTopics, gapOpportunities, cachedUntil, createdAt]
+
+    # ─── Site Audit Schemas ──────────────────────────────────────────────────────
+    SiteAuditStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        status:
+          type: string
+          enum: ["queued", "crawling", "complete", "failed"]
+        pagesFound:
+          type: integer
+        pagesCrawled:
+          type: integer
+        healthScore:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, websiteId, status, pagesFound, pagesCrawled, createdAt]
+
+    SiteAuditPageResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        statusCode:
+          type: integer
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        metaDescription:
+          type: string
+          nullable: true
+        h1:
+          type: string
+          nullable: true
+        wordCount:
+          type: integer
+          nullable: true
+        responseTimeMs:
+          type: integer
+          nullable: true
+        issueCount:
+          type: integer
+        score:
+          type: integer
+          nullable: true
+        crawledAt:
+          type: string
+          format: date-time
+      required: [id, url, issueCount, crawledAt]
+
+    SiteAuditIssueResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        pageUrl:
+          type: string
+        issueType:
+          type: string
+        severity:
+          type: string
+          enum: ["critical", "warning", "info"]
+        description:
+          type: string
+        recommendation:
+          type: string
+      required: [id, pageUrl, issueType, severity, description, recommendation]
+
+    SiteAuditResults:
+      type: object
+      properties:
+        id:
+          type: integer
+        websiteId:
+          type: integer
+        status:
+          type: string
+          enum: ["queued", "crawling", "complete", "failed"]
+        pagesFound:
+          type: integer
+        pagesCrawled:
+          type: integer
+        healthScore:
+          type: integer
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        pages:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiteAuditPageResult"
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiteAuditIssueResult"
+      required: [id, websiteId, status, pagesFound, pagesCrawled, createdAt, pages, issues]
 

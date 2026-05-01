@@ -103,6 +103,8 @@ import type {
   SeoAudit,
   Sequence,
   SequenceEnrollment,
+  SiteAuditResults,
+  SiteAuditStatus,
   SnapshotKeywordsResponse,
   SocialPost,
   SuggestKeywordsBody,
@@ -1418,6 +1420,268 @@ export function useGetCompetitorHistory<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetCompetitorHistoryQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Start a full-site background crawl audit
+ */
+export const getStartSiteAuditUrl = (websiteId: number) => {
+  return `/api/audit/site/${websiteId}`;
+};
+
+export const startSiteAudit = async (
+  websiteId: number,
+  options?: RequestInit,
+): Promise<SiteAuditStatus> => {
+  return customFetch<SiteAuditStatus>(getStartSiteAuditUrl(websiteId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getStartSiteAuditMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startSiteAudit>>,
+    TError,
+    { websiteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startSiteAudit>>,
+  TError,
+  { websiteId: number },
+  TContext
+> => {
+  const mutationKey = ["startSiteAudit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startSiteAudit>>,
+    { websiteId: number }
+  > = (props) => {
+    const { websiteId } = props ?? {};
+
+    return startSiteAudit(websiteId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartSiteAuditMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startSiteAudit>>
+>;
+
+export type StartSiteAuditMutationError = ErrorType<void>;
+
+/**
+ * @summary Start a full-site background crawl audit
+ */
+export const useStartSiteAudit = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startSiteAudit>>,
+    TError,
+    { websiteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startSiteAudit>>,
+  TError,
+  { websiteId: number },
+  TContext
+> => {
+  return useMutation(getStartSiteAuditMutationOptions(options));
+};
+
+/**
+ * @summary Get current crawl progress for a website's latest audit
+ */
+export const getGetSiteAuditStatusUrl = (websiteId: number) => {
+  return `/api/audit/site/${websiteId}/status`;
+};
+
+export const getSiteAuditStatus = async (
+  websiteId: number,
+  options?: RequestInit,
+): Promise<SiteAuditStatus> => {
+  return customFetch<SiteAuditStatus>(getGetSiteAuditStatusUrl(websiteId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSiteAuditStatusQueryKey = (websiteId: number) => {
+  return [`/api/audit/site/${websiteId}/status`] as const;
+};
+
+export const getGetSiteAuditStatusQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSiteAuditStatus>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSiteAuditStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSiteAuditStatusQueryKey(websiteId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSiteAuditStatus>>
+  > = ({ signal }) =>
+    getSiteAuditStatus(websiteId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!websiteId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSiteAuditStatus>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSiteAuditStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSiteAuditStatus>>
+>;
+export type GetSiteAuditStatusQueryError = ErrorType<void>;
+
+/**
+ * @summary Get current crawl progress for a website's latest audit
+ */
+
+export function useGetSiteAuditStatus<
+  TData = Awaited<ReturnType<typeof getSiteAuditStatus>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSiteAuditStatus>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSiteAuditStatusQueryOptions(websiteId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get full results of the latest completed site audit
+ */
+export const getGetSiteAuditResultsUrl = (websiteId: number) => {
+  return `/api/audit/site/${websiteId}/results`;
+};
+
+export const getSiteAuditResults = async (
+  websiteId: number,
+  options?: RequestInit,
+): Promise<SiteAuditResults> => {
+  return customFetch<SiteAuditResults>(getGetSiteAuditResultsUrl(websiteId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSiteAuditResultsQueryKey = (websiteId: number) => {
+  return [`/api/audit/site/${websiteId}/results`] as const;
+};
+
+export const getGetSiteAuditResultsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSiteAuditResults>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSiteAuditResults>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSiteAuditResultsQueryKey(websiteId);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSiteAuditResults>>
+  > = ({ signal }) =>
+    getSiteAuditResults(websiteId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!websiteId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSiteAuditResults>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSiteAuditResultsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSiteAuditResults>>
+>;
+export type GetSiteAuditResultsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get full results of the latest completed site audit
+ */
+
+export function useGetSiteAuditResults<
+  TData = Awaited<ReturnType<typeof getSiteAuditResults>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSiteAuditResults>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSiteAuditResultsQueryOptions(websiteId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1520,6 +1520,82 @@ export interface CompetitorHistoryItem {
   createdAt: string;
 }
 
+export type SiteAuditStatusStatus =
+  (typeof SiteAuditStatusStatus)[keyof typeof SiteAuditStatusStatus];
+
+export const SiteAuditStatusStatus = {
+  queued: "queued",
+  crawling: "crawling",
+  complete: "complete",
+  failed: "failed",
+} as const;
+
+export interface SiteAuditStatus {
+  id: number;
+  websiteId: number;
+  status: SiteAuditStatusStatus;
+  pagesFound: number;
+  pagesCrawled: number;
+  healthScore?: number | null;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+export interface SiteAuditPageResult {
+  id: number;
+  url: string;
+  statusCode?: number | null;
+  title?: string | null;
+  metaDescription?: string | null;
+  h1?: string | null;
+  wordCount?: number | null;
+  responseTimeMs?: number | null;
+  issueCount: number;
+  score?: number | null;
+  crawledAt: string;
+}
+
+export type SiteAuditIssueResultSeverity =
+  (typeof SiteAuditIssueResultSeverity)[keyof typeof SiteAuditIssueResultSeverity];
+
+export const SiteAuditIssueResultSeverity = {
+  critical: "critical",
+  warning: "warning",
+  info: "info",
+} as const;
+
+export interface SiteAuditIssueResult {
+  id: number;
+  pageUrl: string;
+  issueType: string;
+  severity: SiteAuditIssueResultSeverity;
+  description: string;
+  recommendation: string;
+}
+
+export type SiteAuditResultsStatus =
+  (typeof SiteAuditResultsStatus)[keyof typeof SiteAuditResultsStatus];
+
+export const SiteAuditResultsStatus = {
+  queued: "queued",
+  crawling: "crawling",
+  complete: "complete",
+  failed: "failed",
+} as const;
+
+export interface SiteAuditResults {
+  id: number;
+  websiteId: number;
+  status: SiteAuditResultsStatus;
+  pagesFound: number;
+  pagesCrawled: number;
+  healthScore?: number | null;
+  createdAt: string;
+  completedAt?: string | null;
+  pages: SiteAuditPageResult[];
+  issues: SiteAuditIssueResult[];
+}
+
 export type ListKeywordsParams = {
   websiteId?: number;
 };

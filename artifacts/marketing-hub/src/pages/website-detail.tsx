@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, Crosshair } from "lucide-react";
+import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, Crosshair, Activity, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +26,9 @@ import {
   useDeleteCompetitor,
   useAnalyseCompetitor,
   useCreateKeyword,
+  useStartSiteAudit,
+  useGetSiteAuditStatus,
+  useGetSiteAuditResults,
   getGetWebsiteQueryKey,
   getGetWebsiteAnalyticsQueryKey,
   getListKeywordsQueryKey,
@@ -34,8 +37,10 @@ import {
   getListSeoAuditsQueryKey,
   getListLinkSuggestionsQueryKey,
   getListCompetitorsQueryKey,
+  getGetSiteAuditStatusQueryKey,
+  getGetSiteAuditResultsQueryKey,
 } from "@workspace/api-client-react";
-import type { SeoAudit, SeoAuditIssue, LinkSuggestion, CompetitorAnalysis } from "@workspace/api-client-react";
+import type { SeoAudit, SeoAuditIssue, LinkSuggestion, CompetitorAnalysis, SiteAuditIssueResult, SiteAuditPageResult } from "@workspace/api-client-react";
 
 function severityIcon(severity: string) {
   if (severity === "critical") return <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />;
@@ -483,6 +488,316 @@ function AuditTab({ websiteId, websiteUrl, websiteName }: { websiteId: number; w
   );
 }
 
+function SiteIssueBadge({ severity }: { severity: string }) {
+  if (severity === "critical") return <Badge variant="destructive" className="text-xs shrink-0">Critical</Badge>;
+  if (severity === "warning") return <Badge className="text-xs bg-yellow-500 hover:bg-yellow-500 shrink-0">Warning</Badge>;
+  return <Badge variant="outline" className="text-xs shrink-0">Info</Badge>;
+}
+
+function SiteIssueRow({ issue }: { issue: SiteAuditIssueResult }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="border-b last:border-0 py-2 px-3">
+      <div className="flex items-start gap-2 justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <SiteIssueBadge severity={issue.severity} />
+            <span className="text-xs font-mono text-muted-foreground truncate max-w-[200px]" title={issue.pageUrl}>
+              {issue.pageUrl.replace(/^https?:\/\/[^/]+/, "") || "/"}
+            </span>
+          </div>
+          <p className="text-sm font-medium mt-0.5">{issue.description}</p>
+          {expanded && (
+            <p className="text-xs text-muted-foreground mt-1">{issue.recommendation}</p>
+          )}
+        </div>
+        <button
+          className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
+          onClick={() => setExpanded(!expanded)}
+          aria-label="toggle recommendation"
+        >
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SitePageRow({ page }: { page: SiteAuditPageResult }) {
+  const score = page.score ?? 0;
+  const scoreColor = score >= 70 ? "text-green-600" : score >= 40 ? "text-yellow-600" : "text-red-600";
+  const statusColor = (page.statusCode ?? 0) >= 400 ? "text-red-600" : (page.statusCode ?? 0) >= 300 ? "text-yellow-600" : "text-muted-foreground";
+
+  return (
+    <tr className="border-b last:border-0 hover:bg-muted/20">
+      <td className="py-2 px-3 max-w-[280px]">
+        <div className="flex items-center gap-1">
+          <a
+            href={page.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-primary hover:underline truncate block"
+            title={page.url}
+          >
+            {page.url.replace(/^https?:\/\/[^/]+/, "") || "/"}
+          </a>
+          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+        </div>
+        {page.title && <p className="text-xs text-muted-foreground truncate">{page.title}</p>}
+      </td>
+      <td className={`py-2 px-3 text-xs text-right font-mono ${statusColor}`}>{page.statusCode ?? "—"}</td>
+      <td className={`py-2 px-3 text-xs text-right font-semibold ${scoreColor}`}>{page.score ?? "—"}</td>
+      <td className="py-2 px-3 text-xs text-right text-muted-foreground">{page.issueCount}</td>
+      <td className="py-2 px-3 text-xs text-right text-muted-foreground">
+        {page.responseTimeMs != null ? `${(page.responseTimeMs / 1000).toFixed(1)}s` : "—"}
+      </td>
+    </tr>
+  );
+}
+
+function SiteAuditTab({ websiteId }: { websiteId: number }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [issueFilter, setIssueFilter] = useState<"all" | "critical" | "warning" | "info">("all");
+
+  const startMutation = useStartSiteAudit();
+
+  const { data: status } = useGetSiteAuditStatus(websiteId, {
+    query: {
+      queryKey: getGetSiteAuditStatusQueryKey(websiteId),
+      retry: false,
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        if (data && (data.status === "crawling" || data.status === "queued")) return 2000;
+        return false;
+      },
+    },
+  });
+
+  const isCrawling = status?.status === "crawling" || status?.status === "queued";
+
+  const { data: results } = useGetSiteAuditResults(websiteId, {
+    query: {
+      queryKey: getGetSiteAuditResultsQueryKey(websiteId),
+      enabled: status?.status === "complete",
+      retry: false,
+    },
+  });
+
+  const handleStart = () => {
+    startMutation.mutate(
+      { websiteId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetSiteAuditStatusQueryKey(websiteId) });
+          toast({ title: "Site audit started — crawling your website..." });
+        },
+        onError: (err) => {
+          const msg = (err as { message?: string })?.message ?? "Failed to start audit";
+          if (msg.includes("already in progress")) {
+            toast({ title: "Crawl already running", description: "Wait for the current crawl to finish.", variant: "destructive" });
+          } else {
+            toast({ title: "Failed to start audit", description: msg, variant: "destructive" });
+          }
+        },
+      }
+    );
+  };
+
+  const issues = results?.issues ?? [];
+  const pages = results?.pages ?? [];
+
+  const criticalCount = issues.filter((i) => i.severity === "critical").length;
+  const warningCount = issues.filter((i) => i.severity === "warning").length;
+  const infoCount = issues.filter((i) => i.severity === "info").length;
+
+  const filteredIssues = issueFilter === "all" ? issues : issues.filter((i) => i.severity === issueFilter);
+
+  const progressPct = status && status.pagesFound > 0
+    ? Math.min(100, Math.round((status.pagesCrawled / status.pagesFound) * 100))
+    : 0;
+
+  const healthScore = results?.healthScore ?? status?.healthScore;
+  const lastAuditTime = status?.completedAt
+    ? new Date(status.completedAt)
+    : status?.createdAt
+    ? new Date(status.createdAt)
+    : null;
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 className="text-base font-semibold">Full Site Audit</h2>
+          {lastAuditTime && status?.status === "complete" && (
+            <p className="text-xs text-muted-foreground">
+              Last crawled {Math.round((Date.now() - lastAuditTime.getTime()) / 60000)} min ago
+              · {status.pagesCrawled} page{status.pagesCrawled !== 1 ? "s" : ""} scanned
+            </p>
+          )}
+        </div>
+        <Button
+          size="sm"
+          onClick={handleStart}
+          disabled={startMutation.isPending || isCrawling}
+          data-testid="button-run-site-audit"
+        >
+          {isCrawling ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Crawling...</>
+          ) : startMutation.isPending ? (
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Starting...</>
+          ) : status?.status === "complete" ? (
+            <><RefreshCw className="h-4 w-4 mr-2" /> Re-crawl Site</>
+          ) : (
+            <><Activity className="h-4 w-4 mr-2" /> Run Full Audit</>
+          )}
+        </Button>
+      </div>
+
+      {/* Crawl progress */}
+      {isCrawling && (
+        <Card>
+          <CardContent className="pt-4 pb-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Crawling your website...</p>
+              <span className="text-xs text-muted-foreground">{progressPct}%</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+              <div
+                className="h-2 bg-primary rounded-full transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {status?.pagesCrawled ?? 0} pages crawled of {status?.pagesFound ?? 0} found
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Failed state */}
+      {status?.status === "failed" && (
+        <Card>
+          <CardContent className="py-8 text-center space-y-3">
+            <AlertTriangle className="h-8 w-8 mx-auto text-red-500 opacity-70" />
+            <p className="text-sm font-medium text-red-600">Crawl failed</p>
+            <p className="text-xs text-muted-foreground">The crawler could not reach your website. Check your website URL and try again.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No audit yet */}
+      {!status && !startMutation.isPending && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Activity className="h-10 w-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-medium">No site audit yet</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Click "Run Full Audit" to crawl your entire website and find technical SEO issues.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results */}
+      {results && results.status === "complete" && (
+        <div className="space-y-4">
+          {/* Health score + summary */}
+          <Card>
+            <CardContent className="pt-6 pb-4">
+              <div className="flex items-center gap-6 flex-wrap">
+                <ScoreRing score={healthScore ?? 0} />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Site Health Score</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(healthScore ?? 0) >= 70 ? "Good overall health" : (healthScore ?? 0) >= 40 ? "Needs attention" : "Critical issues detected"}
+                  </p>
+                  <div className="flex gap-3 text-xs mt-2 flex-wrap">
+                    {criticalCount > 0 && <span className="text-red-600 font-medium">{criticalCount} critical</span>}
+                    {warningCount > 0 && <span className="text-yellow-600 font-medium">{warningCount} warnings</span>}
+                    {infoCount > 0 && <span className="text-blue-600 font-medium">{infoCount} info</span>}
+                    {issues.length === 0 && <span className="text-green-600 font-medium">No issues found!</span>}
+                  </div>
+                </div>
+                <div className="ml-auto text-right hidden sm:block">
+                  <p className="text-xs text-muted-foreground">Pages scanned</p>
+                  <p className="text-2xl font-bold font-display">{results.pagesCrawled}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Issues */}
+          {issues.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <CardTitle className="text-sm">Issues ({issues.length})</CardTitle>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {(["all", "critical", "warning", "info"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setIssueFilter(f)}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                          issueFilter === f
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-muted hover:border-muted-foreground text-muted-foreground"
+                        }`}
+                      >
+                        {f === "all" ? `All (${issues.length})` : f === "critical" ? `Critical (${criticalCount})` : f === "warning" ? `Warning (${warningCount})` : `Info (${infoCount})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y-0 max-h-[400px] overflow-y-auto">
+                  {filteredIssues.slice(0, 200).map((issue) => (
+                    <SiteIssueRow key={issue.id} issue={issue} />
+                  ))}
+                  {filteredIssues.length === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-6">No {issueFilter} issues found.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Page inventory */}
+          {pages.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Page Inventory ({pages.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 overflow-x-auto">
+                <div className="max-h-[400px] overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-background border-b">
+                      <tr>
+                        <th className="text-left py-2 px-3 font-medium">Page</th>
+                        <th className="text-right py-2 px-3 font-medium">Status</th>
+                        <th className="text-right py-2 px-3 font-medium">Score</th>
+                        <th className="text-right py-2 px-3 font-medium">Issues</th>
+                        <th className="text-right py-2 px-3 font-medium">Load time</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pages.slice(0, 500).map((page) => (
+                        <SitePageRow key={page.id} page={page} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CompetitorCard({
   competitor,
   websiteId,
@@ -870,6 +1185,7 @@ export default function WebsiteDetail() {
         <TabsList>
           <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
           <TabsTrigger value="audit" data-testid="tab-seo-audit">SEO Audit</TabsTrigger>
+          <TabsTrigger value="site-audit" data-testid="tab-site-audit">Full Site Audit</TabsTrigger>
           <TabsTrigger value="internal-links" data-testid="tab-internal-links">Internal Links</TabsTrigger>
           <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
         </TabsList>
@@ -985,6 +1301,10 @@ export default function WebsiteDetail() {
 
         <TabsContent value="audit" className="mt-4">
           <AuditTab websiteId={id} websiteUrl={website.url} websiteName={website.name} />
+        </TabsContent>
+
+        <TabsContent value="site-audit" className="mt-4">
+          <SiteAuditTab websiteId={id} />
         </TabsContent>
 
         <TabsContent value="internal-links" className="mt-4">

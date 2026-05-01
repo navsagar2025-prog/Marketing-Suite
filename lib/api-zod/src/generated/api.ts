@@ -476,6 +476,74 @@ export const GetCompetitorHistoryResponse = zod.array(
 );
 
 /**
+ * @summary Start a full-site background crawl audit
+ */
+export const StartSiteAuditParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+/**
+ * @summary Get current crawl progress for a website's latest audit
+ */
+export const GetSiteAuditStatusParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const GetSiteAuditStatusResponse = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  status: zod.enum(["queued", "crawling", "complete", "failed"]),
+  pagesFound: zod.number(),
+  pagesCrawled: zod.number(),
+  healthScore: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  completedAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Get full results of the latest completed site audit
+ */
+export const GetSiteAuditResultsParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const GetSiteAuditResultsResponse = zod.object({
+  id: zod.number(),
+  websiteId: zod.number(),
+  status: zod.enum(["queued", "crawling", "complete", "failed"]),
+  pagesFound: zod.number(),
+  pagesCrawled: zod.number(),
+  healthScore: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+  completedAt: zod.coerce.date().nullish(),
+  pages: zod.array(
+    zod.object({
+      id: zod.number(),
+      url: zod.string(),
+      statusCode: zod.number().nullish(),
+      title: zod.string().nullish(),
+      metaDescription: zod.string().nullish(),
+      h1: zod.string().nullish(),
+      wordCount: zod.number().nullish(),
+      responseTimeMs: zod.number().nullish(),
+      issueCount: zod.number(),
+      score: zod.number().nullish(),
+      crawledAt: zod.coerce.date(),
+    }),
+  ),
+  issues: zod.array(
+    zod.object({
+      id: zod.number(),
+      pageUrl: zod.string(),
+      issueType: zod.string(),
+      severity: zod.enum(["critical", "warning", "info"]),
+      description: zod.string(),
+      recommendation: zod.string(),
+    }),
+  ),
+});
+
+/**
  * @summary Capture a rank snapshot for all tracked keywords now (admin only)
  */
 export const SnapshotKeywordRanksResponse = zod.object({

@@ -70,6 +70,9 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 - `GET /api/settings/payment` — Get payment gateway settings (admin only; returns provider, currency, key statuses)
 - `POST /api/settings/payment` — Update payment gateway settings (admin only; accepts stripePublishableKey, stripeSecretKey, stripeWebhookSecret, razorpayKeyId, razorpayKeySecret, provider, currency; secret keys encrypted at rest; Stripe currencies: usd/gbp/eur, Razorpay: inr)
 - `POST /api/settings/payment/test` — Test active payment provider connection (stripe: balance.retrieve; razorpay: payments.all)
+- `POST /api/audit/site/:websiteId` — Start a full-site background BFS crawl audit (returns 202, fires async crawl)
+- `GET /api/audit/site/:websiteId/status` — Get current crawl progress (status: queued/crawling/complete/failed, pagesFound, pagesCrawled)
+- `GET /api/audit/site/:websiteId/results` — Get full results of latest completed audit (pages + issues)
 - `POST /api/websites/detect` — Auto-detect niche/SEO score from URL via crawl + AI
 - `POST /api/websites/:id/audit` — Run full SEO audit (crawl URL + AI analysis, store snapshot)
 - `GET /api/websites/:id/audits` — List audit history for a website
@@ -83,7 +86,16 @@ pnpm workspace monorepo using TypeScript. This project is an SEO & Marketing Com
 
 ## Database Schema (lib/db)
 
-Tables: `websites`, `keywords`, `keyword_rank_history`, `keyword_research_sessions`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `competitor_research_sessions`, `staff_users`, `client_reports`
+Tables: `websites`, `keywords`, `keyword_rank_history`, `keyword_research_sessions`, `social_posts`, `campaigns`, `backlinks`, `leads`, `conversations`, `messages`, `media_assets`, `app_settings`, `seo_audits`, `link_suggestions`, `competitor_analyses`, `competitor_research_sessions`, `staff_users`, `client_reports`, `site_audits`, `site_audit_pages`, `site_audit_issues`
+
+### site_audits / site_audit_pages / site_audit_issues tables
+- `site_audits`: `id`, `websiteId` (FK→websites cascade), `status` (enum: queued/crawling/complete/failed), `pagesFound`, `pagesCrawled`, `healthScore` (0-100), `createdAt`, `completedAt`
+- `site_audit_pages`: `id`, `siteAuditId` (FK→site_audits cascade), `url`, `statusCode`, `title`, `metaDescription`, `h1`, `wordCount`, `responseTimeMs`, `issueCount`, `score`, `crawledAt`
+- `site_audit_issues`: `id`, `siteAuditId` (FK→site_audits cascade), `pageUrl`, `issueType`, `severity` (enum: critical/warning/info), `description`, `recommendation`
+- Crawler: BFS up to 100 pages, concurrency 3, 10s timeout, cheerio for HTML parsing, respects robots.txt, same-domain only
+- Issue types detected: missing_title, title_too_short, title_too_long, missing_meta_description, meta_description_too_long, missing_h1, missing_canonical, noindex, redirect, slow_page (>3s), thin_content (<300 words), broken_link (4xx), unreachable
+- Health score = 100 - weighted issue deductions / max deductions × 100
+- Frontend: "Full Site Audit" tab on website detail page with progress bar polling, health score ring, filterable issues table, page inventory
 
 ### staff_users.plan
 - `plan`: pgEnum `staff_plan` — values: `starter`, `growth`, `agency` — defaults to `starter`

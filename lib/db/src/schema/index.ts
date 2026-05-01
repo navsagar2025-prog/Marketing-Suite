@@ -26,3 +26,4 @@ export * from "./webhook-events";
 export * from "./client-reports";
 export * from "./outreach-contacts";
 export * from "./keyword-research";
+export * from "./site-audits";

@@ -12,6 +12,7 @@ import {
   useConnectGscProperty,
   useDisconnectGoogleIntegration,
   useGetGscSearchPerformance,
+  getGscSearchPerformance,
   getGetGoogleIntegrationStatusQueryKey,
   getListGscPropertiesQueryKey,
   getGetGscSearchPerformanceQueryKey,
@@ -94,7 +95,7 @@ function QueryTable({ queries, label }: { queries: GscSearchPerformance["queries
                     className={`text-right py-2 px-3 font-medium cursor-pointer hover:text-primary transition-colors ${sort === col ? "text-primary" : ""}`}
                     onClick={() => setSort(col)}
                   >
-                    {col === "ctr" ? "CTR" : col === "avgPosition" ? "Pos." : col.charAt(0).toUpperCase() + col.slice(1)}
+                    {col === "ctr" ? "CTR" : col === "position" ? "Pos." : col.charAt(0).toUpperCase() + col.slice(1)}
                     {sort === col && " ↓"}
                   </th>
                 ))}
@@ -280,12 +281,25 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
   const qc = useQueryClient();
   const [dateRange, setDateRange] = useState<DateRange>("28days");
   const [showPropertySelector, setShowPropertySelector] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    setIsRefreshing(true);
+    try {
+      await getGscSearchPerformance(websiteId, { dateRange, refresh: true });
+      await qc.invalidateQueries({ queryKey: getGetGscSearchPerformanceQueryKey(websiteId) });
+    } catch {
+      toast({ title: "Refresh failed", description: "Could not fetch fresh data from Google Search Console.", variant: "destructive" });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   const { data: status, isLoading: statusLoading } = useGetGoogleIntegrationStatus(websiteId, {
     query: { queryKey: getGetGoogleIntegrationStatusQueryKey(websiteId) },
   });
 
-  const { data: performance, isLoading: perfLoading, error: perfError, refetch } = useGetGscSearchPerformance(
+  const { data: performance, isLoading: perfLoading, error: perfError } = useGetGscSearchPerformance(
     websiteId,
     { dateRange },
     {
@@ -387,8 +401,8 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
             </Button>
           )}
           {status?.connected && status.propertyUrl && !perfLoading && (
-            <Button size="sm" variant="ghost" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4" />
+            <Button size="sm" variant="ghost" onClick={handleRefresh} disabled={isRefreshing}>
+              {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
           )}
         </div>

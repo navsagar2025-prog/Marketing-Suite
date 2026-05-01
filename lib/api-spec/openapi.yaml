@@ -490,6 +490,11 @@ paths:
             type: string
             enum: [7days, 28days, 90days]
           description: Date range for the report (default 28days)
+        - name: refresh
+          in: query
+          schema:
+            type: boolean
+          description: "When true, bypass the 1-hour cache and fetch fresh data from GSC"
       responses:
         "200":
           description: Search performance data

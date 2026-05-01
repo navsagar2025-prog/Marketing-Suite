@@ -255,6 +255,7 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
 
   const dateRange = (req.query.dateRange as string) ?? "28days";
   if (!DATE_RANGES[dateRange]) { res.status(400).json({ error: "dateRange must be 7days, 28days, or 90days" }); return; }
+  const forceRefresh = req.query.refresh === "true";
 
   const [token] = await db
     .select()
@@ -277,7 +278,7 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
     .orderBy(desc(gscCacheTable.cachedAt))
     .limit(1);
 
-  if (cached && Date.now() - cached.cachedAt.getTime() < CACHE_TTL_MS) {
+  if (!forceRefresh && cached && Date.now() - cached.cachedAt.getTime() < CACHE_TTL_MS) {
     res.json(cached.data);
     return;
   }
@@ -295,8 +296,8 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
     const [totals, priorTotals, queryRows, pageRows, allPositionRows] = await Promise.all([
       fetchGscPropertyTotals(accessToken, token.gscPropertyUrl, startDate, endDate),
       fetchGscPropertyTotals(accessToken, token.gscPropertyUrl, priorStart, priorEnd),
-      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["query"], 25),
-      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["page"], 25),
+      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["query"], 50),
+      fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["page"], 50),
       fetchGscAnalytics(accessToken, token.gscPropertyUrl, startDate, endDate, ["query"], 1000),
     ]);
 

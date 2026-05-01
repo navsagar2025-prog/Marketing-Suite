@@ -94,6 +94,7 @@ export * from "./gscSearchPerformance";
 export * from "./gscStatus";
 export * from "./gscSummaryMetrics";
 export * from "./healthStatus";
+export * from "./initiateGoogleAuth200";
 export * from "./initiateGoogleAuthParams";
 export * from "./keyword";
 export * from "./keywordIntent";

@@ -476,10 +476,14 @@ export const GetCompetitorHistoryResponse = zod.array(
 );
 
 /**
- * @summary Start Google OAuth flow — redirects browser to Google consent page
+ * @summary Get the Google OAuth authorization URL — frontend fetches this (with Bearer token) then navigates the browser to the returned URL
  */
 export const InitiateGoogleAuthQueryParams = zod.object({
   websiteId: zod.coerce.number(),
+});
+
+export const InitiateGoogleAuthResponse = zod.object({
+  authUrl: zod.string(),
 });
 
 /**
@@ -548,6 +552,12 @@ export const GetGscSearchPerformanceQueryParams = zod.object({
     .enum(["7days", "28days", "90days"])
     .optional()
     .describe("Date range for the report (default 28days)"),
+  refresh: zod.coerce
+    .boolean()
+    .optional()
+    .describe(
+      "When true, bypass the 1-hour cache and fetch fresh data from GSC",
+    ),
 });
 
 export const GetGscSearchPerformanceResponse = zod.object({

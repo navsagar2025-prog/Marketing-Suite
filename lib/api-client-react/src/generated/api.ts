@@ -75,6 +75,7 @@ import type {
   GscSearchPerformance,
   GscStatus,
   HealthStatus,
+  InitiateGoogleAuth200,
   InitiateGoogleAuthParams,
   Keyword,
   KeywordRankHistory,
@@ -1437,7 +1438,7 @@ export function useGetCompetitorHistory<
 }
 
 /**
- * @summary Start Google OAuth flow — redirects browser to Google consent page
+ * @summary Get the Google OAuth authorization URL — frontend fetches this (with Bearer token) then navigates the browser to the returned URL
  */
 export const getInitiateGoogleAuthUrl = (params: InitiateGoogleAuthParams) => {
   const normalizedParams = new URLSearchParams();
@@ -1458,8 +1459,8 @@ export const getInitiateGoogleAuthUrl = (params: InitiateGoogleAuthParams) => {
 export const initiateGoogleAuth = async (
   params: InitiateGoogleAuthParams,
   options?: RequestInit,
-): Promise<unknown> => {
-  return customFetch<unknown>(getInitiateGoogleAuthUrl(params), {
+): Promise<InitiateGoogleAuth200> => {
+  return customFetch<InitiateGoogleAuth200>(getInitiateGoogleAuthUrl(params), {
     ...options,
     method: "GET",
   });
@@ -1510,7 +1511,7 @@ export type InitiateGoogleAuthQueryResult = NonNullable<
 export type InitiateGoogleAuthQueryError = ErrorType<void>;
 
 /**
- * @summary Start Google OAuth flow — redirects browser to Google consent page
+ * @summary Get the Google OAuth authorization URL — frontend fetches this (with Bearer token) then navigates the browser to the returned URL
  */
 
 export function useInitiateGoogleAuth<

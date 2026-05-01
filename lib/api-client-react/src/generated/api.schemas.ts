@@ -1669,6 +1669,10 @@ export type InitiateGoogleAuthParams = {
   websiteId: number;
 };
 
+export type InitiateGoogleAuth200 = {
+  authUrl: string;
+};
+
 export type ConnectGscProperty200 = {
   success?: boolean;
   propertyUrl?: string;
@@ -1683,6 +1687,10 @@ export type GetGscSearchPerformanceParams = {
    * Date range for the report (default 28days)
    */
   dateRange?: GetGscSearchPerformanceDateRange;
+  /**
+   * When true, bypass the 1-hour cache and fetch fresh data from GSC
+   */
+  refresh?: boolean;
 };
 
 export type GetGscSearchPerformanceDateRange =

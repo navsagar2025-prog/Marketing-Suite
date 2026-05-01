@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, gt, desc } from "drizzle-orm";
-import { db, competitorResearchSessionsTable, keywordsTable } from "@workspace/db";
+import { eq, and, desc, inArray } from "drizzle-orm";
+import { db, competitorResearchSessionsTable, keywordsTable, websitesTable } from "@workspace/db";
 import { RunCompetitorAnalysisBody } from "@workspace/api-zod";
 import { callAI } from "../lib/ai-provider.js";
 import { checkAndIncrementUsage } from "../lib/ai-usage.js";
@@ -32,23 +32,26 @@ router.post("/competitors/analyse", async (req, res): Promise<void> => {
 
   const now = new Date();
 
-  const [cached] = await db
+  const [ownCached] = await db
     .select()
     .from(competitorResearchSessionsTable)
     .where(
-      eq(competitorResearchSessionsTable.domain, domain),
+      and(
+        eq(competitorResearchSessionsTable.staffUserId, userId),
+        eq(competitorResearchSessionsTable.domain, domain),
+      )
     )
     .orderBy(desc(competitorResearchSessionsTable.createdAt))
     .limit(1);
 
-  if (cached && cached.cachedUntil > now) {
-    const result = cached.result as Record<string, unknown>;
+  if (ownCached && ownCached.cachedUntil > now) {
+    const result = ownCached.result as Record<string, unknown>;
     res.json({
-      sessionId: cached.id,
-      domain: cached.domain,
+      sessionId: ownCached.id,
+      domain: ownCached.domain,
       fromCache: true,
       ...result,
-      createdAt: cached.createdAt.toISOString(),
+      createdAt: ownCached.createdAt.toISOString(),
     });
     return;
   }
@@ -59,10 +62,18 @@ router.post("/competitors/analyse", async (req, res): Promise<void> => {
     return;
   }
 
-  const trackedKeywords = await db
-    .select({ keyword: keywordsTable.keyword })
-    .from(keywordsTable)
-    .limit(50);
+  const userWebsites = await db
+    .select({ id: websitesTable.id })
+    .from(websitesTable);
+  const websiteIds = userWebsites.map(w => w.id);
+
+  const trackedKeywords = websiteIds.length > 0
+    ? await db
+        .select({ keyword: keywordsTable.keyword })
+        .from(keywordsTable)
+        .where(inArray(keywordsTable.websiteId, websiteIds))
+        .limit(50)
+    : [];
 
   const trackedList = trackedKeywords.map(k => k.keyword);
   const trackedContext = trackedList.length > 0
@@ -144,6 +155,10 @@ Requirements:
     const raw = await callAI(prompt, { maxTokens: 3000, jsonMode: true });
     const text = typeof raw === "string" ? raw : JSON.stringify(raw);
     aiResult = JSON.parse(text);
+
+    if (!aiResult?.domainOverview || !Array.isArray(aiResult.keywordThemes)) {
+      throw new Error("Malformed AI response");
+    }
   } catch {
     res.status(503).json({ error: "AI analysis failed — please try again" });
     return;
@@ -153,9 +168,9 @@ Requirements:
 
   const resultPayload = {
     domainOverview: aiResult.domainOverview,
-    keywordThemes: aiResult.keywordThemes ?? [],
-    contentTopics: aiResult.contentTopics ?? [],
-    gapOpportunities: aiResult.gapOpportunities ?? [],
+    keywordThemes: Array.isArray(aiResult.keywordThemes) ? aiResult.keywordThemes : [],
+    contentTopics: Array.isArray(aiResult.contentTopics) ? aiResult.contentTopics : [],
+    gapOpportunities: Array.isArray(aiResult.gapOpportunities) ? aiResult.gapOpportunities : [],
   };
 
   const [session] = await db

@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
+import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown, GripVertical, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -794,12 +794,13 @@ interface SortableStepCardProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
 }
 
 function SortableStepCard({
   step, idx, total,
   onToggle, onLabelChange, onHrefChange, onDescChange,
-  onMoveUp, onMoveDown, onDelete,
+  onMoveUp, onMoveDown, onDelete, onDuplicate,
 }: SortableStepCardProps) {
   const {
     attributes,
@@ -877,6 +878,16 @@ function SortableStepCard({
           <Badge variant={BUILT_IN_STEP_IDS.has(step.id) ? "outline" : "secondary"} className="text-xs ml-1">
             {BUILT_IN_STEP_IDS.has(step.id) ? (STEP_ID_LABELS[step.id] ?? step.id) : "Custom"}
           </Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground ml-0.5"
+            aria-label={`Duplicate step: ${step.label}`}
+            data-testid={`duplicate-step-${step.id}`}
+            onClick={onDuplicate}
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -1002,6 +1013,23 @@ function OnboardingTab() {
     setDraft(prev => (prev ?? (data ?? []).map(s => ({ ...s }))).filter(s => s.id !== id));
   }
 
+  function duplicateStep(id: string) {
+    setDraft(prev => {
+      const current = (prev ?? (data ?? [])).map(s => ({ ...s }));
+      const idx = current.findIndex(s => s.id === id);
+      if (idx === -1) return current;
+      const original = current[idx];
+      const copy: OnboardingStepConfig = {
+        ...original,
+        id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        label: `Copy of ${original.label}`,
+      };
+      const next = [...current];
+      next.splice(idx + 1, 0, copy);
+      return next;
+    });
+  }
+
   function addCustomStep() {
     const label = newLabel.trim();
     const href = newHref.trim() || "/";
@@ -1104,6 +1132,7 @@ function OnboardingTab() {
                         onMoveUp={() => { initDraft(data ?? []); moveStep(step.id, "up"); }}
                         onMoveDown={() => { initDraft(data ?? []); moveStep(step.id, "down"); }}
                         onDelete={() => { initDraft(data ?? []); deleteStep(step.id); }}
+                        onDuplicate={() => duplicateStep(step.id)}
                       />
                     ))}
                   </div>

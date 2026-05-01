@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -571,6 +571,12 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    if (selectedWebsiteId === "none" && websites.length === 1) {
+      setSelectedWebsiteId(String(websites[0].id));
+    }
+  }, [websites, selectedWebsiteId]);
+
   const researchMutation = useResearchKeywords();
   const createKeywordMutation = useCreateKeyword();
   const { data: history } = useGetKeywordResearchHistory({
@@ -580,8 +586,9 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
   const handleResearch = () => {
     const trimmed = seedInput.trim();
     if (!trimmed) return;
+    const wsIdNum = parseInt(selectedWebsiteId, 10);
     researchMutation.mutate(
-      { data: { seedInput: trimmed } },
+      { data: { seedInput: trimmed, websiteId: !isNaN(wsIdNum) && wsIdNum > 0 ? wsIdNum : undefined } },
       {
         onSuccess: (data) => {
           setResults(data.suggestions);
@@ -665,7 +672,7 @@ function KeywordResearchPanel({ aiDisabled, websites }: {
               disabled={aiDisabled || researchMutation.isPending}
               className="flex-1 min-w-48"
             />
-            {websites.length > 1 && (
+            {websites.length >= 1 && (
               <Select value={selectedWebsiteId} onValueChange={setSelectedWebsiteId}>
                 <SelectTrigger className="w-44">
                   <SelectValue placeholder="Select website" />

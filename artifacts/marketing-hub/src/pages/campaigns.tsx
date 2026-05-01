@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Megaphone, Sparkles, Trash2, Search, ImageIcon, Send, Users, Settings, Mail, Eye, EyeOff, List, ChevronDown, ChevronUp, Pencil, PlayCircle, PauseCircle } from "lucide-react";
 import { HelpTooltip } from "@/components/HelpTooltip";
+import PlanLimitWarning from "@/components/PlanLimitWarning";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +34,8 @@ import {
   useDeleteSequence,
   useGenerateSequence,
   getListSequencesQueryKey,
+  useGetBillingMe,
+  getGetBillingMeQueryKey,
 } from "@workspace/api-client-react";
 import type { Sequence, CreateSequenceBody } from "@workspace/api-client-react";
 import { AiMediaDialog } from "@/components/AiMediaDialog";
@@ -617,6 +620,7 @@ export default function Campaigns() {
   const queryClient = useQueryClient();
   const { data: campaigns, isLoading } = useListCampaigns();
   const { data: websites } = useListWebsites();
+  const { data: billing } = useGetBillingMe({ query: { queryKey: getGetBillingMeQueryKey() } });
   const createMutation = useCreateCampaign();
   const deleteMutation = useDeleteCampaign();
   const generateMutation = useGenerateCampaignCopy();
@@ -845,6 +849,8 @@ export default function Campaigns() {
           </div>
         )}
       </div>
+
+      <PlanLimitWarning billing={billing} metric="campaigns" />
 
       {/* Tab Bar */}
       <div className="flex border-b border-border">

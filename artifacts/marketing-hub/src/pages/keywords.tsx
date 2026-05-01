@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import PlanLimitWarning from "@/components/PlanLimitWarning";
 import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1194,6 +1195,8 @@ export default function Keywords() {
           </Select>
         )}
       </div>
+
+      {!showKwLimitNudge && <PlanLimitWarning billing={billing} metric="keywords" />}
 
       {/* Keyword limit nudge */}
       {showKwLimitNudge && (

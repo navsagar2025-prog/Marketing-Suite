@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import PlanLimitWarning from "@/components/PlanLimitWarning";
 import { Plus, Globe, ExternalLink, Trash2, Search, Loader2, Sparkles, CheckCircle, X, Rocket, Zap } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -380,6 +381,8 @@ export default function Websites() {
           </button>
         </div>
       )}
+
+      <PlanLimitWarning billing={billing} metric="websites" />
 
       {/* Grid */}
       {isLoading ? (

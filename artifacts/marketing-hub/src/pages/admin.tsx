@@ -825,7 +825,7 @@ function OnboardingTab() {
     if (!href.startsWith("/") && !href.startsWith("http")) {
       toast({ title: 'Link must start with "/" or "http"', variant: "destructive" }); return;
     }
-    const id = `custom_${Date.now()}`;
+    const id = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const newStep: OnboardingStepConfig = { id, label, href, enabled: true, ...(newDesc.trim() ? { description: newDesc.trim() } : {}) };
     const current = (draft ?? data ?? []).map(s => ({ ...s }));
     setDraft([...current, newStep]);

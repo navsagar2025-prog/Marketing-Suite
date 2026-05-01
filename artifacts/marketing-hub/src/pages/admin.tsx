@@ -1,4 +1,21 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type CSSProperties } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -766,6 +783,157 @@ const STEP_ID_LABELS: Record<string, string> = {
 
 const BUILT_IN_STEP_IDS = new Set(["add_website", "run_audit", "track_keyword", "create_campaign"]);
 
+interface SortableStepCardProps {
+  step: OnboardingStepConfig;
+  idx: number;
+  total: number;
+  onToggle: (checked: boolean) => void;
+  onLabelChange: (value: string) => void;
+  onHrefChange: (value: string) => void;
+  onDescChange: (value: string) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  onDelete: () => void;
+}
+
+function SortableStepCard({
+  step, idx, total,
+  onToggle, onLabelChange, onHrefChange, onDescChange,
+  onMoveUp, onMoveDown, onDelete,
+}: SortableStepCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: step.id });
+
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="border rounded-lg p-4 space-y-3 bg-card"
+      data-testid={`onboarding-step-${step.id}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            ref={setActivatorNodeRef}
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors shrink-0 touch-none"
+            aria-label="Drag to reorder"
+            tabIndex={0}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <span className="text-xs font-medium text-muted-foreground tabular-nums w-10 shrink-0">
+            Step {idx + 1}
+          </span>
+          <Switch
+            id={`step-enabled-${step.id}`}
+            checked={step.enabled}
+            onCheckedChange={onToggle}
+            aria-label={`Enable step: ${STEP_ID_LABELS[step.id] ?? step.label}`}
+          />
+          <Label
+            htmlFor={`step-enabled-${step.id}`}
+            className="text-xs text-muted-foreground cursor-pointer select-none"
+          >
+            {step.enabled ? "Enabled" : "Disabled"}
+          </Label>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            aria-label="Move step up"
+            disabled={idx === 0}
+            onClick={onMoveUp}
+          >
+            <ArrowUp className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            aria-label="Move step down"
+            disabled={idx === total - 1}
+            onClick={onMoveDown}
+          >
+            <ArrowDown className="h-3.5 w-3.5" />
+          </Button>
+          <Badge variant={BUILT_IN_STEP_IDS.has(step.id) ? "outline" : "secondary"} className="text-xs ml-1">
+            {BUILT_IN_STEP_IDS.has(step.id) ? (STEP_ID_LABELS[step.id] ?? step.id) : "Custom"}
+          </Badge>
+          {!BUILT_IN_STEP_IDS.has(step.id) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-0.5"
+              aria-label={`Delete custom step: ${step.label}`}
+              data-testid={`delete-custom-step-${step.id}`}
+              onClick={onDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor={`step-label-${step.id}`} className="text-xs font-medium">Label</Label>
+          <Input
+            id={`step-label-${step.id}`}
+            value={step.label}
+            onChange={e => onLabelChange(e.target.value)}
+            placeholder="Step label"
+            className="text-sm h-8"
+            disabled={!step.enabled}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`step-href-${step.id}`} className="text-xs font-medium">Link (path)</Label>
+          <Input
+            id={`step-href-${step.id}`}
+            value={step.href}
+            onChange={e => onHrefChange(e.target.value)}
+            placeholder="/page-path"
+            className="text-sm h-8 font-mono"
+            disabled={!step.enabled}
+          />
+        </div>
+      </div>
+      {!BUILT_IN_STEP_IDS.has(step.id) && (
+        <div className="space-y-1">
+          <Label htmlFor={`step-desc-${step.id}`} className="text-xs font-medium">
+            Description <span className="text-muted-foreground font-normal">(optional — shown as hint text)</span>
+          </Label>
+          <Input
+            id={`step-desc-${step.id}`}
+            value={step.description ?? ""}
+            onChange={e => onDescChange(e.target.value)}
+            placeholder="e.g. Book your kickoff call with our team"
+            className="text-sm h-8"
+            disabled={!step.enabled}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OnboardingTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -790,6 +958,12 @@ function OnboardingTab() {
   const [newHref, setNewHref] = useState("/");
   const [newDesc, setNewDesc] = useState("");
 
+  // DnD sensors — require 8px movement before drag starts to avoid false triggers on click
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   function initDraft(current: OnboardingStepConfig[]) {
     if (!draft) setDraft(current.map(s => ({ ...s })));
   }
@@ -812,6 +986,16 @@ function OnboardingTab() {
       [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
       return reordered;
     });
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const current = (draft ?? data ?? []).map(s => ({ ...s }));
+    const oldIndex = current.findIndex(s => s.id === active.id);
+    const newIndex = current.findIndex(s => s.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setDraft(arrayMove(current, oldIndex, newIndex));
   }
 
   function deleteStep(id: string) {
@@ -892,7 +1076,7 @@ function OnboardingTab() {
             <CardTitle className="text-base">Onboarding Checklist Steps</CardTitle>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Customise the steps shown to new users in the Getting Started checklist. Toggle steps on or off, edit their label and link, and use the arrows to reorder them.
+            Customise the steps shown to new users in the Getting Started checklist. Toggle steps on or off, edit their label and link, and drag the grip handle to reorder.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -900,134 +1084,31 @@ function OnboardingTab() {
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : (
             <>
-              <div className="space-y-3">
-                {steps.map((step, idx) => (
-                  <div
-                    key={step.id}
-                    className="border rounded-lg p-4 space-y-3"
-                    data-testid={`onboarding-step-${step.id}`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <GripVertical className="h-4 w-4 text-muted-foreground/40 shrink-0" aria-hidden="true" />
-                        <span className="text-xs font-medium text-muted-foreground tabular-nums w-10 shrink-0">
-                          Step {idx + 1}
-                        </span>
-                        <Switch
-                          id={`step-enabled-${step.id}`}
-                          checked={step.enabled}
-                          onCheckedChange={(checked) => {
-                            initDraft(data ?? []);
-                            updateStep(step.id, { enabled: checked });
-                          }}
-                          aria-label={`Enable step: ${STEP_ID_LABELS[step.id] ?? step.id}`}
-                        />
-                        <Label
-                          htmlFor={`step-enabled-${step.id}`}
-                          className="text-xs text-muted-foreground cursor-pointer select-none"
-                        >
-                          {step.enabled ? "Enabled" : "Disabled"}
-                        </Label>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                          aria-label="Move step up"
-                          disabled={idx === 0}
-                          onClick={() => {
-                            initDraft(data ?? []);
-                            moveStep(step.id, "up");
-                          }}
-                        >
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                          aria-label="Move step down"
-                          disabled={idx === steps.length - 1}
-                          onClick={() => {
-                            initDraft(data ?? []);
-                            moveStep(step.id, "down");
-                          }}
-                        >
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        </Button>
-                        <Badge variant={BUILT_IN_STEP_IDS.has(step.id) ? "outline" : "secondary"} className="text-xs ml-1">
-                          {BUILT_IN_STEP_IDS.has(step.id) ? (STEP_ID_LABELS[step.id] ?? step.id) : "Custom"}
-                        </Badge>
-                        {!BUILT_IN_STEP_IDS.has(step.id) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 ml-0.5"
-                            aria-label={`Delete custom step: ${step.label}`}
-                            data-testid={`delete-custom-step-${step.id}`}
-                            onClick={() => deleteStep(step.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label htmlFor={`step-label-${step.id}`} className="text-xs font-medium">
-                          Label
-                        </Label>
-                        <Input
-                          id={`step-label-${step.id}`}
-                          value={step.label}
-                          onChange={(e) => {
-                            initDraft(data ?? []);
-                            updateStep(step.id, { label: e.target.value });
-                          }}
-                          placeholder="Step label"
-                          className="text-sm h-8"
-                          disabled={!step.enabled}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor={`step-href-${step.id}`} className="text-xs font-medium">
-                          Link (path)
-                        </Label>
-                        <Input
-                          id={`step-href-${step.id}`}
-                          value={step.href}
-                          onChange={(e) => {
-                            initDraft(data ?? []);
-                            updateStep(step.id, { href: e.target.value });
-                          }}
-                          placeholder="/page-path"
-                          className="text-sm h-8 font-mono"
-                          disabled={!step.enabled}
-                        />
-                      </div>
-                    </div>
-                    {!BUILT_IN_STEP_IDS.has(step.id) && (
-                      <div className="space-y-1">
-                        <Label htmlFor={`step-desc-${step.id}`} className="text-xs font-medium">
-                          Description <span className="text-muted-foreground font-normal">(optional — shown as hint text)</span>
-                        </Label>
-                        <Input
-                          id={`step-desc-${step.id}`}
-                          value={step.description ?? ""}
-                          onChange={(e) => {
-                            initDraft(data ?? []);
-                            updateStep(step.id, { description: e.target.value });
-                          }}
-                          placeholder="e.g. Book your kickoff call with our team"
-                          className="text-sm h-8"
-                          disabled={!step.enabled}
-                        />
-                      </div>
-                    )}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={steps.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-3">
+                    {steps.map((step, idx) => (
+                      <SortableStepCard
+                        key={step.id}
+                        step={step}
+                        idx={idx}
+                        total={steps.length}
+                        onToggle={(checked) => { initDraft(data ?? []); updateStep(step.id, { enabled: checked }); }}
+                        onLabelChange={(v) => { initDraft(data ?? []); updateStep(step.id, { label: v }); }}
+                        onHrefChange={(v) => { initDraft(data ?? []); updateStep(step.id, { href: v }); }}
+                        onDescChange={(v) => { initDraft(data ?? []); updateStep(step.id, { description: v }); }}
+                        onMoveUp={() => { initDraft(data ?? []); moveStep(step.id, "up"); }}
+                        onMoveDown={() => { initDraft(data ?? []); moveStep(step.id, "down"); }}
+                        onDelete={() => deleteStep(step.id)}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
 
               {/* Add custom step form */}
               <div className="border rounded-lg p-4 space-y-3 border-dashed" data-testid="add-custom-step-form">

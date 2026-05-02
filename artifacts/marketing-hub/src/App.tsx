@@ -18,6 +18,8 @@ import SettingsPage from "@/pages/settings";
 import CalendarPage from "@/pages/calendar";
 import NotFound from "@/pages/not-found";
 import LoginPage from "@/pages/login";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import ReportPage from "@/pages/report";
 import LandingPage from "@/pages/landing";
 import PricingPage from "@/pages/pricing";
@@ -96,6 +98,8 @@ function ProtectedRouter() {
     return (
       <Switch>
         <Route path="/login" component={LoginPage} />
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/welcome" component={WelcomePage} />
         <Route path="/pricing" component={PricingPage} />
         <Route path="/report/:token">

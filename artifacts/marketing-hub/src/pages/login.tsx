@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,11 @@ function getPlanFromSearch(): string | null {
   return null;
 }
 
+function getResetSuccessFromSearch(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("reset") === "1";
+}
+
 export default function LoginPage() {
   const { login } = useAuth();
   const [, setLocation] = useLocation();
@@ -28,6 +33,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [resetSuccess] = useState(() => getResetSuccessFromSearch());
 
   useEffect(() => {
     setSelectedPlan(getPlanFromSearch());
@@ -80,6 +86,16 @@ export default function LoginPage() {
           <CardDescription>Sign in to access the platform</CardDescription>
         </CardHeader>
         <CardContent>
+          {resetSuccess && (
+            <div
+              className="mb-4 flex items-center gap-2.5 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2.5"
+              data-testid="reset-success-banner"
+            >
+              <p className="text-sm text-green-700 dark:text-green-400">
+                Your password has been reset. Sign in with your new password.
+              </p>
+            </div>
+          )}
           {selectedPlan && (
             <div
               className="mb-4 flex items-center gap-2.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5"
@@ -107,7 +123,14 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link href="/forgot-password">
+                  <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline-offset-4 hover:underline" data-testid="link-forgot-password">
+                    Forgot password?
+                  </span>
+                </Link>
+              </div>
               <Input
                 id="password"
                 data-testid="input-password"

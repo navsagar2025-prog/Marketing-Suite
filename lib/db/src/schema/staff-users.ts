@@ -8,6 +8,7 @@ export const planEnum = pgEnum("staff_plan", ["starter", "growth", "agency"]);
 export const staffUsersTable = pgTable("staff_users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
+  email: text("email").unique(),
   passwordHash: text("password_hash").notNull(),
   role: staffRoleEnum("role").notNull().default("staff"),
   permissions: jsonb("permissions").$type<string[] | null>().default(null),

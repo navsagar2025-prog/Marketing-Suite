@@ -135,6 +135,7 @@ router.get("/admin/staff", async (_req, res): Promise<void> => {
     .select({
       id: staffUsersTable.id,
       username: staffUsersTable.username,
+      email: staffUsersTable.email,
       role: staffUsersTable.role,
       permissions: staffUsersTable.permissions,
       plan: staffUsersTable.plan,
@@ -146,8 +147,8 @@ router.get("/admin/staff", async (_req, res): Promise<void> => {
 });
 
 router.post("/admin/staff", async (req, res): Promise<void> => {
-  const { username, password, role, permissions } = req.body as {
-    username?: string; password?: string; role?: string; permissions?: string[] | null;
+  const { username, password, role, permissions, email } = req.body as {
+    username?: string; password?: string; role?: string; permissions?: string[] | null; email?: string;
   };
   if (!username || !password) {
     res.status(400).json({ error: "Username and password are required" });
@@ -165,15 +166,18 @@ router.post("/admin/staff", async (req, res): Promise<void> => {
   }
   // Admin users always get null permissions (full access). Staff get the provided list (deduplicated) or null (full access).
   const resolvedPermissions: string[] | null = validRole === "admin" ? null : (Array.isArray(permissions) ? [...new Set(permissions)] : null);
+  const normalizedEmail = email?.trim().toLowerCase() || null;
   try {
     const [user] = await db.insert(staffUsersTable).values({
       username: username.trim().toLowerCase(),
+      email: normalizedEmail,
       passwordHash,
       role: validRole,
       permissions: resolvedPermissions,
     }).returning({
       id: staffUsersTable.id,
       username: staffUsersTable.username,
+      email: staffUsersTable.email,
       role: staffUsersTable.role,
       permissions: staffUsersTable.permissions,
       createdAt: staffUsersTable.createdAt,
@@ -182,6 +186,30 @@ router.post("/admin/staff", async (req, res): Promise<void> => {
   } catch {
     res.status(409).json({ error: "Username already exists" });
   }
+});
+
+router.patch("/admin/staff/:id/email", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const { email } = req.body as { email?: string };
+  const normalizedEmail = email?.trim().toLowerCase() || null;
+  const [updated] = await db
+    .update(staffUsersTable)
+    .set({ email: normalizedEmail })
+    .where(eq(staffUsersTable.id, id))
+    .returning({
+      id: staffUsersTable.id,
+      username: staffUsersTable.username,
+      email: staffUsersTable.email,
+    });
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  res.json(updated);
 });
 
 router.patch("/admin/users/:id/permissions", async (req, res): Promise<void> => {

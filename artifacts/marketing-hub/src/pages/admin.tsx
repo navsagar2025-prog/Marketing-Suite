@@ -64,6 +64,7 @@ interface AllowlistEntry {
 interface StaffUser {
   id: number;
   username: string;
+  email: string | null;
   role: "admin" | "staff";
   permissions: string[] | null;
   plan: "starter" | "growth" | "agency";
@@ -489,6 +490,7 @@ function StaffTab() {
 
   const [usernameInput, setUsernameInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
+  const [emailInput, setEmailInput] = useState("");
   const [roleInput, setRoleInput] = useState<"staff" | "admin">("staff");
   const [newUserFullAccess, setNewUserFullAccess] = useState(true);
   const [newUserPermissions, setNewUserPermissions] = useState<string[]>([]);
@@ -496,6 +498,8 @@ function StaffTab() {
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [editFullAccess, setEditFullAccess] = useState(true);
+  const [editEmailUserId, setEditEmailUserId] = useState<number | null>(null);
+  const [editEmailValue, setEditEmailValue] = useState("");
 
   function openPermissionsPanel(staff: StaffUser) {
     if (expandedUserId === staff.id) {
@@ -517,6 +521,7 @@ function StaffTab() {
         body: JSON.stringify({
           username: usernameInput,
           password: passwordInput,
+          email: emailInput.trim() || undefined,
           role: roleInput,
           permissions,
         }),
@@ -531,10 +536,33 @@ function StaffTab() {
       qc.invalidateQueries({ queryKey: ["admin-staff"] });
       setUsernameInput("");
       setPasswordInput("");
+      setEmailInput("");
       setRoleInput("staff");
       setNewUserFullAccess(true);
       setNewUserPermissions([]);
       toast({ title: "Staff account created" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const updateEmailMutation = useMutation({
+    mutationFn: async ({ id, email }: { id: number; email: string }) => {
+      const res = await fetch(`${base}/api/admin/staff/${id}/email`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+      setEditEmailUserId(null);
+      setEditEmailValue("");
+      toast({ title: "Email updated" });
     },
     onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
   });
@@ -625,6 +653,13 @@ function StaffTab() {
               onChange={e => setPasswordInput(e.target.value)}
               className="flex-1 min-w-0"
             />
+            <Input
+              type="email"
+              placeholder="Email (optional)"
+              value={emailInput}
+              onChange={e => setEmailInput(e.target.value)}
+              className="flex-1 min-w-0"
+            />
             <select
               value={roleInput}
               onChange={e => setRoleInput(e.target.value as "staff" | "admin")}
@@ -668,15 +703,44 @@ function StaffTab() {
               {data.map(staff => (
                 <div key={staff.id} className="border-b last:border-0">
                   <div className="flex items-center justify-between py-2.5">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1 mr-2">
                       <p className="text-sm font-medium truncate">{staff.username}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Created {new Date(staff.createdAt).toLocaleDateString()}
-                        {" · "}
-                        <span className={staff.permissions?.length === 0 ? "text-destructive" : ""}>
-                          {permissionsSummary(staff)}
-                        </span>
-                      </p>
+                      {editEmailUserId === staff.id ? (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Input
+                            type="email"
+                            placeholder="email@example.com"
+                            value={editEmailValue}
+                            onChange={e => setEditEmailValue(e.target.value)}
+                            className="h-6 text-xs py-0 px-2 w-40"
+                            onKeyDown={e => {
+                              if (e.key === "Enter") updateEmailMutation.mutate({ id: staff.id, email: editEmailValue });
+                              if (e.key === "Escape") { setEditEmailUserId(null); setEditEmailValue(""); }
+                            }}
+                            autoFocus
+                          />
+                          <Button size="sm" className="h-6 text-xs px-2 py-0" onClick={() => updateEmailMutation.mutate({ id: staff.id, email: editEmailValue })} disabled={updateEmailMutation.isPending}>
+                            {updateEmailMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 text-xs px-2 py-0" onClick={() => { setEditEmailUserId(null); setEditEmailValue(""); }}>Cancel</Button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Created {new Date(staff.createdAt).toLocaleDateString()}
+                          {" · "}
+                          <span className={staff.permissions?.length === 0 ? "text-destructive" : ""}>
+                            {permissionsSummary(staff)}
+                          </span>
+                          {" · "}
+                          <button
+                            className="hover:underline cursor-pointer"
+                            onClick={() => { setEditEmailUserId(staff.id); setEditEmailValue(staff.email ?? ""); }}
+                            title="Set email for password reset"
+                          >
+                            {staff.email ? staff.email : <span className="text-amber-600 dark:text-amber-400">no email set</span>}
+                          </button>
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0 ml-2">
                       <select

@@ -30,3 +30,4 @@ export * from "./site-audits";
 export * from "./oauth-tokens";
 export * from "./gsc-cache";
 export * from "./email-templates";
+export * from "./password-reset-tokens";

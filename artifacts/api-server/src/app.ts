@@ -155,6 +155,7 @@ app.get("/robots.txt", (req, res): void => {
   const body = [
     "User-agent: *",
     "Allow: /",
+    "Disallow: /api",
     "Disallow: /api/",
     "Disallow: /dashboard",
     "Disallow: /websites",

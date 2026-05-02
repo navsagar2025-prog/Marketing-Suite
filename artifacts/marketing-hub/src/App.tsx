@@ -34,6 +34,7 @@ import AbTestsPage from "@/pages/ab-tests";
 import OutreachPage from "@/pages/outreach";
 import ReportsPage from "@/pages/reports";
 import CompetitorsPage from "@/pages/competitors";
+import LocalSeoPage from "@/pages/local-seo";
 import ReportDetailPage from "@/pages/report-detail";
 import SharedReportPage from "@/pages/shared-report";
 import WelcomePage from "@/pages/welcome";
@@ -148,6 +149,9 @@ function ProtectedRouter() {
             </Route>
             <Route path="/competitors">
               <PermissionGuard module="keywords"><CompetitorsPage /></PermissionGuard>
+            </Route>
+            <Route path="/local-seo">
+              <PermissionGuard module="keywords"><LocalSeoPage /></PermissionGuard>
             </Route>
             <Route path="/social">
               <PermissionGuard module="social"><Social /></PermissionGuard>

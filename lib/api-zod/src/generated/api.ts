@@ -383,6 +383,29 @@ export const GetKeywordRankAlertsResponse = zod.object({
 });
 
 /**
+ * @summary AI-powered local keyword suggestions for a topic and location
+ */
+export const GenerateLocalSeoKeywordsBody = zod.object({
+  topic: zod.string(),
+  location: zod.string().optional(),
+  websiteId: zod.number().optional(),
+});
+
+export const GenerateLocalSeoKeywordsResponse = zod.object({
+  suggestions: zod.array(
+    zod.object({
+      keyword: zod.string(),
+      intent: zod.enum(["transactional", "informational", "navigational"]),
+      volumeBand: zod.enum(["<100", "100-1K", "1K-10K", "10K+"]),
+      difficulty: zod.number(),
+      tip: zod.string(),
+    }),
+  ),
+  topic: zod.string(),
+  location: zod.string().nullish(),
+});
+
+/**
  * @summary AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
  */
 export const RunCompetitorAnalysisBody = zod.object({
@@ -687,6 +710,16 @@ export const GetGscSearchPerformanceResponse = zod.object({
       count: zod.number(),
     }),
   ),
+  quickWins: zod.array(
+    zod.object({
+      query: zod.string(),
+      position: zod.number(),
+      impressions: zod.number(),
+      clicks: zod.number(),
+      ctr: zod.number(),
+      opportunityScore: zod.number(),
+    }),
+  ),
   dateRange: zod.string(),
   cachedAt: zod.coerce.date(),
 });
@@ -769,6 +802,15 @@ export const GetGa4ReportResponse = zod.object({
       percentage: zod.number(),
     }),
   ),
+  timeseries: zod
+    .array(
+      zod.object({
+        date: zod.string().describe("Date in YYYY-MM-DD format"),
+        sessions: zod.number(),
+        users: zod.number(),
+      }),
+    )
+    .describe("Daily sessions and users for the selected date range"),
   dateRange: zod.string(),
   ga4PropertyId: zod.string(),
   cachedAt: zod
@@ -2572,6 +2614,27 @@ export const UpdateSettingsResponse = zod.object({
   aiEnabled: zod.boolean(),
   aiApiKeyConfigured: zod.boolean(),
   dismissedTips: zod.array(zod.string()),
+});
+
+/**
+ * @summary Get notification settings
+ */
+export const GetNotificationSettingsResponse = zod.object({
+  rankAlertsEnabled: zod.boolean(),
+  rankAlertsEmailTo: zod.string(),
+});
+
+/**
+ * @summary Update notification settings
+ */
+export const UpdateNotificationSettingsBody = zod.object({
+  rankAlertsEnabled: zod.boolean().optional(),
+  rankAlertsEmailTo: zod.string().optional(),
+});
+
+export const UpdateNotificationSettingsResponse = zod.object({
+  rankAlertsEnabled: zod.boolean(),
+  rankAlertsEmailTo: zod.string(),
 });
 
 /**

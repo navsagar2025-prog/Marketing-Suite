@@ -31,6 +31,7 @@ import {
   FlaskConical,
   FileBarChart,
   Send,
+  MapPin,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const navItems = [
   { path: "/websites", label: "Websites", icon: Globe, permission: "websites" },
   { path: "/keywords", label: "Keywords", icon: Search, permission: "keywords" },
   { path: "/competitors", label: "Competitors", icon: Swords, permission: "keywords" },
+  { path: "/local-seo", label: "Local SEO", icon: MapPin, permission: "keywords" },
   { path: "/social", label: "Social Media", icon: Share2, permission: "social" },
   { path: "/calendar", label: "Calendar", icon: CalendarDays, permission: "calendar" },
   { path: "/campaigns", label: "Campaigns", icon: Megaphone, permission: "campaigns" },

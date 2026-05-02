@@ -1648,11 +1648,21 @@ export interface GscPositionBucket {
   count: number;
 }
 
+export interface GscQuickWin {
+  query: string;
+  position: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  opportunityScore: number;
+}
+
 export interface GscSearchPerformance {
   summary: GscSummaryMetrics;
   queries: GscQueryRow[];
   pages: GscPageRow[];
   positionDistribution: GscPositionBucket[];
+  quickWins: GscQuickWin[];
   dateRange: string;
   cachedAt: string;
 }
@@ -1697,6 +1707,7 @@ export interface Ga4ReportData {
   topPages: Ga4TopPage[];
   trafficSources: Ga4TrafficSource[];
   devices: Ga4Device[];
+  /** Daily sessions and users for the selected date range */
   timeseries: Ga4TimeseriesPoint[];
   dateRange: string;
   ga4PropertyId: string;
@@ -1795,6 +1806,55 @@ export interface CreateEmailTemplateBody {
   subject: string;
   body: string;
   websiteId?: number | null;
+}
+
+export interface NotificationSettings {
+  rankAlertsEnabled: boolean;
+  rankAlertsEmailTo: string;
+}
+
+export interface UpdateNotificationSettingsBody {
+  rankAlertsEnabled?: boolean;
+  rankAlertsEmailTo?: string;
+}
+
+export type LocalSeoKeywordSuggestionIntent =
+  (typeof LocalSeoKeywordSuggestionIntent)[keyof typeof LocalSeoKeywordSuggestionIntent];
+
+export const LocalSeoKeywordSuggestionIntent = {
+  transactional: "transactional",
+  informational: "informational",
+  navigational: "navigational",
+} as const;
+
+export type LocalSeoKeywordSuggestionVolumeBand =
+  (typeof LocalSeoKeywordSuggestionVolumeBand)[keyof typeof LocalSeoKeywordSuggestionVolumeBand];
+
+export const LocalSeoKeywordSuggestionVolumeBand = {
+  "<100": "<100",
+  "100-1K": "100-1K",
+  "1K-10K": "1K-10K",
+  "10K+": "10K+",
+} as const;
+
+export interface LocalSeoKeywordSuggestion {
+  keyword: string;
+  intent: LocalSeoKeywordSuggestionIntent;
+  volumeBand: LocalSeoKeywordSuggestionVolumeBand;
+  difficulty: number;
+  tip: string;
+}
+
+export interface LocalSeoKeywordsResponse {
+  suggestions: LocalSeoKeywordSuggestion[];
+  topic: string;
+  location?: string | null;
+}
+
+export interface LocalSeoKeywordsBody {
+  topic: string;
+  location?: string;
+  websiteId?: number;
 }
 
 export interface UpdateEmailTemplateBody {

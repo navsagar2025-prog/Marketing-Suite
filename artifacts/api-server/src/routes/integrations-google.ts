@@ -312,6 +312,19 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
       { bucket: "21+", count: allPositionRows.filter(r => r.position > 20).length },
     ];
 
+    const quickWins = allPositionRows
+      .filter(r => r.position >= 4 && r.position <= 20 && r.impressions >= 10)
+      .sort((a, b) => b.impressions - a.impressions)
+      .slice(0, 30)
+      .map(r => ({
+        query: r.keys[0],
+        position: Math.round(r.position * 10) / 10,
+        impressions: r.impressions,
+        clicks: r.clicks,
+        ctr: r.ctr,
+        opportunityScore: Math.round(r.impressions * (1 - r.ctr) * (1 / r.position) * 10),
+      }));
+
     const responseData = {
       summary: {
         clicks: totals.clicks,
@@ -332,6 +345,7 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
         ctr: r.ctr, position: Math.round(r.position * 10) / 10,
       })),
       positionDistribution,
+      quickWins,
       dateRange,
       cachedAt: new Date().toISOString(),
     };

@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import cron from "node-cron";
 import { runRankSnapshot } from "./routes/keywords";
 import { runSequenceEngine } from "./routes/sequences";
+import { sendRankAlertDigest } from "./lib/rank-alert-email.js";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
 import { getDbSetting } from "./lib/ai-provider";
 
@@ -125,6 +126,14 @@ seedAdminUser()
         .catch((err) => logger.error({ err }, "Daily keyword rank snapshot failed"));
     }, { timezone: "UTC" });
     logger.info("Daily keyword rank snapshot cron scheduled (00:00 UTC)");
+
+    cron.schedule("0 2 * * *", () => {
+      logger.info("Running daily rank alert email digest");
+      sendRankAlertDigest()
+        .then((result) => logger.info(result, "Rank alert email digest complete"))
+        .catch((err) => logger.error({ err }, "Rank alert email digest failed"));
+    }, { timezone: "UTC" });
+    logger.info("Daily rank alert email digest cron scheduled (02:00 UTC)");
 
     cron.schedule("0 1 * * *", () => {
       logger.info("Running daily sequence engine");

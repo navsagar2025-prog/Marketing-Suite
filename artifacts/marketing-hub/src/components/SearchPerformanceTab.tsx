@@ -18,7 +18,8 @@ import {
   getGetGscSearchPerformanceQueryKey,
 } from "@workspace/api-client-react";
 import type { GscSearchPerformance, GscProperty } from "@workspace/api-client-react";
-import { TrendingUp, TrendingDown, Minus, ExternalLink, RefreshCw, Loader2, Search, Globe, BarChart2, Unlink } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ExternalLink, RefreshCw, Loader2, Search, Globe, BarChart2, Unlink, Zap } from "lucide-react";
+import type { GscQuickWin } from "@workspace/api-client-react";
 
 const TOKEN_KEY = "auth_token";
 
@@ -200,6 +201,73 @@ function PositionChart({ data }: { data: GscSearchPerformance["positionDistribut
           </BarChart>
         </ResponsiveContainer>
         <p className="text-xs text-muted-foreground text-center mt-1">Number of queries ranking in each position range</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickWinsPanel({ quickWins }: { quickWins: GscQuickWin[] }) {
+  if (quickWins.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm font-medium">No quick wins found</p>
+          <p className="text-xs text-muted-foreground mt-1">Quick wins appear when your site ranks #4–20 with high impression volume.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-amber-500" />
+          <CardTitle className="text-sm">Quick Wins — Page 2 & 3 Keywords ({quickWins.length})</CardTitle>
+        </div>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          These queries rank #4–20 with significant impressions. A small content improvement could push them to page 1.
+        </p>
+      </CardHeader>
+      <CardContent className="p-0 overflow-x-auto">
+        <div className="max-h-[360px] overflow-y-auto">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-background border-b">
+              <tr>
+                <th className="text-left py-2 px-3 font-medium">Query</th>
+                <th className="text-right py-2 px-3 font-medium">Position</th>
+                <th className="text-right py-2 px-3 font-medium">Impressions</th>
+                <th className="text-right py-2 px-3 font-medium">CTR</th>
+                <th className="text-right py-2 px-3 font-medium">Opportunity</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quickWins.map((row, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-muted/20">
+                  <td className="py-1.5 px-3 max-w-[240px]">
+                    <span className="truncate block" title={row.query}>{row.query}</span>
+                  </td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">
+                    <span className={`font-semibold ${row.position <= 10 ? "text-amber-600" : "text-muted-foreground"}`}>
+                      #{row.position.toFixed(1)}
+                    </span>
+                  </td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{row.impressions.toLocaleString()}</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">{(row.ctr * 100).toFixed(1)}%</td>
+                  <td className="py-1.5 px-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <div
+                        className="h-1.5 rounded-full bg-amber-400"
+                        style={{ width: `${Math.min(100, (row.opportunityScore / 100) * 60 + 10)}px` }}
+                      />
+                      <span className="text-amber-600 font-medium tabular-nums">{row.opportunityScore}</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   );
@@ -511,6 +579,9 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
               {performance.pages.length > 0 && (
                 <PageTable pages={performance.pages} />
               )}
+
+              {/* Quick Wins */}
+              <QuickWinsPanel quickWins={performance.quickWins ?? []} />
 
               <p className="text-xs text-muted-foreground text-center">
                 Data cached · last updated {new Date(performance.cachedAt).toLocaleString()}

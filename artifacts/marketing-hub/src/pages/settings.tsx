@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +101,104 @@ async function fetchGoogleAuthUrl(websiteId: number): Promise<string | null> {
   if (!res.ok) return null;
   const data = await res.json();
   return data.authUrl ?? null;
+}
+
+const TOKEN_KEY = "auth_token";
+function authHeader() { return { Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) ?? ""}` }; }
+
+const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+
+function NotificationSettingsCard() {
+  const { toast } = useToast();
+  const [enabled, setEnabled] = useState(false);
+  const [emailTo, setEmailTo] = useState("");
+  const [dirty, setDirty] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["notification-settings"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/api/settings/notifications`, { headers: authHeader() });
+      if (!res.ok) throw new Error("Failed to load");
+      return res.json() as Promise<{ rankAlertsEnabled: boolean; rankAlertsEmailTo: string }>;
+    },
+  });
+
+  useEffect(() => {
+    if (data) { setEnabled(data.rankAlertsEnabled); setEmailTo(data.rankAlertsEmailTo); }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE_URL}/api/settings/notifications`, {
+        method: "PATCH",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ rankAlertsEnabled: enabled, rankAlertsEmailTo: emailTo }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => { toast({ title: "Notification settings saved" }); setDirty(false); },
+    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded bg-muted"><Bell className="h-4 w-4" /></div>
+          <div>
+            <CardTitle className="text-base">Rank Change Notifications</CardTitle>
+            <CardDescription className="mt-0.5">Get a daily email digest when keyword rankings change significantly (±5 positions).</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="h-10 rounded-md bg-muted animate-pulse" />
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Daily rank alert emails</p>
+                <p className="text-xs text-muted-foreground">Sent at 02:00 UTC after the daily rank snapshot</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={enabled}
+                aria-label="Enable daily rank alert emails"
+                data-testid="rank-alerts-toggle"
+                onClick={() => { setEnabled(v => !v); setDirty(true); }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {enabled ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8" />}
+              </button>
+            </div>
+
+            {enabled && (
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Send alerts to</label>
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={emailTo}
+                  onChange={e => { setEmailTo(e.target.value); setDirty(true); }}
+                />
+                <p className="text-xs text-muted-foreground">The email address that receives the daily rank change digest.</p>
+              </div>
+            )}
+
+            {dirty && (
+              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                Save
+              </Button>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function GscWebsiteRow({ website }: { website: Website }) {
@@ -1895,6 +1993,11 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Rank Change Notifications (admin only) */}
+      {isAdmin && (
+        <NotificationSettingsCard />
       )}
 
       {/* Google Search Console Integration (admin only) */}

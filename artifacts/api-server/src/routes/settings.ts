@@ -260,4 +260,29 @@ router.get("/settings/onboarding-steps", async (_req, res): Promise<void> => {
   res.json(steps);
 });
 
+router.get("/settings/notifications", requireAdmin, async (_req, res): Promise<void> => {
+  const rankAlertsEnabled = await getDbSetting("rank_alerts_email_enabled");
+  const rankAlertsEmailTo = await getDbSetting("rank_alerts_email_to");
+  res.json({
+    rankAlertsEnabled: rankAlertsEnabled === "true",
+    rankAlertsEmailTo: rankAlertsEmailTo ?? "",
+  });
+});
+
+router.patch("/settings/notifications", requireAdmin, async (req, res): Promise<void> => {
+  const { rankAlertsEnabled, rankAlertsEmailTo } = req.body ?? {};
+  if (typeof rankAlertsEnabled === "boolean") {
+    await setDbSetting("rank_alerts_email_enabled", rankAlertsEnabled ? "true" : "false");
+  }
+  if (typeof rankAlertsEmailTo === "string") {
+    await setDbSetting("rank_alerts_email_to", rankAlertsEmailTo.trim());
+  }
+  const enabled = await getDbSetting("rank_alerts_email_enabled");
+  const emailTo = await getDbSetting("rank_alerts_email_to");
+  res.json({
+    rankAlertsEnabled: enabled === "true",
+    rankAlertsEmailTo: emailTo ?? "",
+  });
+});
+
 export default router;

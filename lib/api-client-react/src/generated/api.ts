@@ -111,8 +111,11 @@ import type {
   ListLeadsParams,
   ListMediaAssetsParams,
   ListSocialPostsParams,
+  LocalSeoKeywordsBody,
+  LocalSeoKeywordsResponse,
   MediaAsset,
   MyUsageResponse,
+  NotificationSettings,
   PaymentSettings,
   ProcessSequencesResponse,
   RecalculateScoresResponse,
@@ -144,6 +147,7 @@ import type {
   UpdateLeadBody,
   UpdateLeadFormBody,
   UpdateLeadNoteBody,
+  UpdateNotificationSettingsBody,
   UpdatePaymentSettingsBody,
   UpdateSequenceBody,
   UpdateSettingsBody,
@@ -1493,6 +1497,96 @@ export function useGetKeywordRankAlerts<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary AI-powered local keyword suggestions for a topic and location
+ */
+export const getGenerateLocalSeoKeywordsUrl = () => {
+  return `/api/local-seo/keywords`;
+};
+
+export const generateLocalSeoKeywords = async (
+  localSeoKeywordsBody: LocalSeoKeywordsBody,
+  options?: RequestInit,
+): Promise<LocalSeoKeywordsResponse> => {
+  return customFetch<LocalSeoKeywordsResponse>(
+    getGenerateLocalSeoKeywordsUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(localSeoKeywordsBody),
+    },
+  );
+};
+
+export const getGenerateLocalSeoKeywordsMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateLocalSeoKeywords>>,
+    TError,
+    { data: BodyType<LocalSeoKeywordsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateLocalSeoKeywords>>,
+  TError,
+  { data: BodyType<LocalSeoKeywordsBody> },
+  TContext
+> => {
+  const mutationKey = ["generateLocalSeoKeywords"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateLocalSeoKeywords>>,
+    { data: BodyType<LocalSeoKeywordsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateLocalSeoKeywords(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateLocalSeoKeywordsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateLocalSeoKeywords>>
+>;
+export type GenerateLocalSeoKeywordsMutationBody =
+  BodyType<LocalSeoKeywordsBody>;
+export type GenerateLocalSeoKeywordsMutationError = ErrorType<void>;
+
+/**
+ * @summary AI-powered local keyword suggestions for a topic and location
+ */
+export const useGenerateLocalSeoKeywords = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateLocalSeoKeywords>>,
+    TError,
+    { data: BodyType<LocalSeoKeywordsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateLocalSeoKeywords>>,
+  TError,
+  { data: BodyType<LocalSeoKeywordsBody> },
+  TContext
+> => {
+  return useMutation(getGenerateLocalSeoKeywordsMutationOptions(options));
+};
 
 /**
  * @summary AI-powered competitor domain analysis — domain overview, keyword themes, content topics, and gap opportunities
@@ -9914,6 +10008,169 @@ export const useUpdateSettings = <
   TContext
 > => {
   return useMutation(getUpdateSettingsMutationOptions(options));
+};
+
+/**
+ * @summary Get notification settings
+ */
+export const getGetNotificationSettingsUrl = () => {
+  return `/api/settings/notifications`;
+};
+
+export const getNotificationSettings = async (
+  options?: RequestInit,
+): Promise<NotificationSettings> => {
+  return customFetch<NotificationSettings>(getGetNotificationSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNotificationSettingsQueryKey = () => {
+  return [`/api/settings/notifications`] as const;
+};
+
+export const getGetNotificationSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNotificationSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNotificationSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetNotificationSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getNotificationSettings>>
+  > = ({ signal }) => getNotificationSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNotificationSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNotificationSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNotificationSettings>>
+>;
+export type GetNotificationSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get notification settings
+ */
+
+export function useGetNotificationSettings<
+  TData = Awaited<ReturnType<typeof getNotificationSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getNotificationSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNotificationSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update notification settings
+ */
+export const getUpdateNotificationSettingsUrl = () => {
+  return `/api/settings/notifications`;
+};
+
+export const updateNotificationSettings = async (
+  updateNotificationSettingsBody: UpdateNotificationSettingsBody,
+  options?: RequestInit,
+): Promise<NotificationSettings> => {
+  return customFetch<NotificationSettings>(getUpdateNotificationSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateNotificationSettingsBody),
+  });
+};
+
+export const getUpdateNotificationSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateNotificationSettings>>,
+    TError,
+    { data: BodyType<UpdateNotificationSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateNotificationSettings>>,
+  TError,
+  { data: BodyType<UpdateNotificationSettingsBody> },
+  TContext
+> => {
+  const mutationKey = ["updateNotificationSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateNotificationSettings>>,
+    { data: BodyType<UpdateNotificationSettingsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateNotificationSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateNotificationSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateNotificationSettings>>
+>;
+export type UpdateNotificationSettingsMutationBody =
+  BodyType<UpdateNotificationSettingsBody>;
+export type UpdateNotificationSettingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update notification settings
+ */
+export const useUpdateNotificationSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateNotificationSettings>>,
+    TError,
+    { data: BodyType<UpdateNotificationSettingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateNotificationSettings>>,
+  TError,
+  { data: BodyType<UpdateNotificationSettingsBody> },
+  TContext
+> => {
+  return useMutation(getUpdateNotificationSettingsMutationOptions(options));
 };
 
 /**

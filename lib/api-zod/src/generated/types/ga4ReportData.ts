@@ -7,6 +7,7 @@
  */
 import type { Ga4Device } from "./ga4Device";
 import type { Ga4Summary } from "./ga4Summary";
+import type { Ga4TimeseriesPoint } from "./ga4TimeseriesPoint";
 import type { Ga4TopPage } from "./ga4TopPage";
 import type { Ga4TrafficSource } from "./ga4TrafficSource";
 
@@ -15,6 +16,8 @@ export interface Ga4ReportData {
   topPages: Ga4TopPage[];
   trafficSources: Ga4TrafficSource[];
   devices: Ga4Device[];
+  /** Daily sessions and users for the selected date range */
+  timeseries: Ga4TimeseriesPoint[];
   dateRange: string;
   ga4PropertyId: string;
   /** ISO timestamp of when this data was last stored in cache. Always present — set to the fetch time even for fresh (uncached) responses. */

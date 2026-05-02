@@ -8,6 +8,7 @@
 import type { GscPageRow } from "./gscPageRow";
 import type { GscPositionBucket } from "./gscPositionBucket";
 import type { GscQueryRow } from "./gscQueryRow";
+import type { GscQuickWin } from "./gscQuickWin";
 import type { GscSummaryMetrics } from "./gscSummaryMetrics";
 
 export interface GscSearchPerformance {
@@ -15,6 +16,7 @@ export interface GscSearchPerformance {
   queries: GscQueryRow[];
   pages: GscPageRow[];
   positionDistribution: GscPositionBucket[];
+  quickWins: GscQuickWin[];
   dateRange: string;
   cachedAt: Date;
 }

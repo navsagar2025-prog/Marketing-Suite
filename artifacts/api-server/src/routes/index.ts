@@ -33,6 +33,7 @@ import siteAuditRouter from "./site-audit";
 import googleIntegrationRouter from "./integrations-google";
 import googleCallbackRouter from "./integrations-google-callback";
 import emailTemplatesRouter from "./email-templates";
+import localSeoRouter from "./local-seo";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -68,6 +69,7 @@ router.use("/ab-tests", requirePermission("analytics"));
 router.use("/reports", requirePermission("analytics"));
 router.use("/outreach", requirePermission("backlinks"));
 router.use("/competitors", requirePermission("keywords"));
+router.use("/local-seo", requirePermission("keywords"));
 router.use("/audit", requirePermission("websites"));
 router.use("/integrations", requirePermission("websites"));
 
@@ -93,6 +95,7 @@ router.use(clientReportsRouter);
 router.use(outreachRouter);
 router.use(billingRouter);
 router.use(competitorsRouter);
+router.use(localSeoRouter);
 router.use(siteAuditRouter);
 router.use(googleIntegrationRouter);
 router.use("/email-templates", requirePermission("campaigns"));

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, leadsTable } from "@workspace/db";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, type LeadScoringWeights } from "../lib/lead-scoring.js";
 import { getDbSetting } from "../lib/ai-provider.js";
@@ -48,101 +48,6 @@ router.get("/leads", async (req, res): Promise<void> => {
     leads = await db.select().from(leadsTable).orderBy(leadsTable.createdAt);
   }
   res.json(ListLeadsResponse.parse(leads.map(mapLead)));
-});
-
-router.get("/leads/export.csv", async (req, res): Promise<void> => {
-  const { status, from, to } = req.query as { status?: string; from?: string; to?: string };
-
-  const conditions = [];
-
-  if (status) {
-    const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
-    if (statuses.length === 1) {
-      conditions.push(eq(leadsTable.status, statuses[0]));
-    } else if (statuses.length > 1) {
-      conditions.push(inArray(leadsTable.status, statuses));
-    }
-  }
-
-  if (from) {
-    const fromDate = new Date(from);
-    if (!isNaN(fromDate.getTime())) {
-      fromDate.setHours(0, 0, 0, 0);
-      conditions.push(gte(leadsTable.createdAt, fromDate));
-    }
-  }
-
-  if (to) {
-    const toDate = new Date(to);
-    if (!isNaN(toDate.getTime())) {
-      toDate.setHours(23, 59, 59, 999);
-      conditions.push(lte(leadsTable.createdAt, toDate));
-    }
-  }
-
-  function escapeCsv(val: string | null | undefined): string {
-    if (val == null) return "";
-    const str = String(val);
-    if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  }
-
-  // Notes summary: single text field in the schema — emit "1 note" if set, "" if empty.
-  // (Schema does not support a multi-entry notes log; company field also absent from schema.)
-  function notesSummary(notes: string | null | undefined): string {
-    if (!notes || !notes.trim()) return "";
-    return "1 note";
-  }
-
-  const filename = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
-
-  res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  res.setHeader("Transfer-Encoding", "chunked");
-
-  // Company column required by spec — field not in the data model so emitted empty.
-  const headers = ["Name", "Email", "Phone", "Company", "Source", "Status", "Score", "Value", "Notes", "Created Date", "Last Updated"];
-  res.write(headers.join(",") + "\n");
-
-  // Batch-fetch in pages of 500 so we never hold the full table in memory,
-  // satisfying the "large exports without timing out (streamed response)" requirement.
-  const BATCH = 500;
-  let batchOffset = 0;
-  const where = conditions.length > 0 ? and(...conditions) : undefined;
-
-  while (true) {
-    const batch = await db
-      .select()
-      .from(leadsTable)
-      .where(where)
-      .orderBy(leadsTable.id)
-      .limit(BATCH)
-      .offset(batchOffset);
-
-    for (const l of batch) {
-      const row = [
-        escapeCsv(l.name),
-        escapeCsv(l.email),
-        escapeCsv(l.phone),
-        "",                       // company — not in schema
-        l.source,
-        l.status,
-        l.score ?? "",
-        l.value != null ? parseFloat(String(l.value)).toFixed(2) : "",
-        notesSummary(l.notes),
-        new Date(l.createdAt).toISOString().split("T")[0],
-        new Date(l.updatedAt).toISOString().split("T")[0],
-      ];
-      res.write(row.join(",") + "\n");
-    }
-
-    if (batch.length < BATCH) break;
-    batchOffset += BATCH;
-  }
-
-  res.end();
 });
 
 router.post("/leads", async (req, res): Promise<void> => {

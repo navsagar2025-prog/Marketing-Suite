@@ -465,37 +465,25 @@ export default function Leads() {
   const [exportFrom, setExportFrom] = useState("");
   const [exportTo, setExportTo] = useState("");
   const [exportStatuses, setExportStatuses] = useState<string[]>([]);
-  const [exportLoading, setExportLoading] = useState(false);
-
   const toggleExportStatus = (s: string) => {
     setExportStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
-  const handleExportCSV = async () => {
-    setExportLoading(true);
-    try {
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const params = new URLSearchParams();
-      if (exportStatuses.length > 0) params.set("status", exportStatuses.join(","));
-      if (exportFrom) params.set("from", exportFrom);
-      if (exportTo) params.set("to", exportTo);
-      const url = `${base}/api/leads/export.csv${params.toString() ? `?${params}` : ""}`;
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (!res.ok) { toast({ title: "Export failed", variant: "destructive" }); return; }
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objectUrl;
-      a.download = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(objectUrl);
-      setExportOpen(false);
-    } catch {
-      toast({ title: "Export failed", variant: "destructive" });
-    } finally {
-      setExportLoading(false);
-    }
+  const handleExportCSV = () => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const params = new URLSearchParams();
+    if (exportStatuses.length > 0) params.set("status", exportStatuses.join(","));
+    if (exportFrom) params.set("from", exportFrom);
+    if (exportTo) params.set("to", exportTo);
+    const token = localStorage.getItem("auth_token");
+    if (token) params.set("token", token);
+    const a = document.createElement("a");
+    a.href = `${base}/api/leads/export.csv?${params}`;
+    a.download = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setExportOpen(false);
   };
 
   return (
@@ -602,10 +590,9 @@ export default function Leads() {
                   className="w-full gap-1.5"
                   size="sm"
                   onClick={handleExportCSV}
-                  disabled={exportLoading}
                 >
                   <Download className="h-3.5 w-3.5" />
-                  {exportLoading ? "Exporting..." : "Download CSV"}
+                  Download CSV
                 </Button>
               </PopoverContent>
             </Popover>

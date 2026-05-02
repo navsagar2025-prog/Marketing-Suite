@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,7 +8,13 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { useGetGa4Report, getGetGa4ReportQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetGa4Report,
+  getGetGa4ReportQueryKey,
+  getGa4Report,
+  type GetGa4ReportRefresh,
+} from "@workspace/api-client-react";
 
 const COLORS = [
   "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
@@ -35,23 +41,53 @@ function formatDuration(seconds: number): string {
   return `${m}m ${s}s`;
 }
 
+function formatCachedAt(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
+
 type DateRange = "7d" | "30d" | "90d";
 const DATE_RANGE_LABELS: Record<DateRange, string> = { "7d": "7 days", "30d": "30 days", "90d": "90 days" };
 
 export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const queryParams = { dateRange };
+  const queryKey = getGetGa4ReportQueryKey(websiteId, queryParams);
 
   const { data: ga4Data, isLoading, error } = useGetGa4Report(
     websiteId,
-    { dateRange },
+    queryParams,
     {
       query: {
         enabled: !!websiteId,
-        queryKey: getGetGa4ReportQueryKey(websiteId, { dateRange }),
+        queryKey,
         retry: false,
       },
     }
   );
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const fresh = await getGa4Report(websiteId, {
+        dateRange,
+        refresh: "true" as GetGa4ReportRefresh,
+      });
+      queryClient.setQueryData(queryKey, fresh);
+    } catch {
+      // silently ignore — the existing data stays visible
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const ga4ErrorCode = error
     ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error === "GA4_PROPERTY_NOT_SET"
@@ -61,23 +97,56 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
 
   return (
     <div className="space-y-4">
-      {/* Date range selector */}
-      <div className="flex items-center justify-end">
-        <div className="flex rounded-md border border-input overflow-hidden">
-          {(["7d", "30d", "90d"] as DateRange[]).map(range => (
-            <button
-              key={range}
-              onClick={() => setDateRange(range)}
-              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                dateRange === range
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-background text-muted-foreground hover:bg-muted"
-              }`}
-              data-testid={`button-ga4-range-${range}`}
+      {/* Date range selector + refresh */}
+      <div className="flex items-center justify-between gap-2">
+        {/* Last updated label */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-h-[24px]">
+          {ga4Data?.cachedAt && !isRefreshing && (
+            <span data-testid="label-ga4-cached-at">
+              Last updated {formatCachedAt(ga4Data.cachedAt)}
+            </span>
+          )}
+          {isRefreshing && (
+            <span className="flex items-center gap-1">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              Refreshing…
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Refresh button */}
+          {ga4Data && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Refresh from Google Analytics"
+              data-testid="button-ga4-refresh"
             >
-              {range}
-            </button>
-          ))}
+              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
+          )}
+
+          {/* Date range toggle */}
+          <div className="flex rounded-md border border-input overflow-hidden">
+            {(["7d", "30d", "90d"] as DateRange[]).map(range => (
+              <button
+                key={range}
+                onClick={() => setDateRange(range)}
+                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                  dateRange === range
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+                data-testid={`button-ga4-range-${range}`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

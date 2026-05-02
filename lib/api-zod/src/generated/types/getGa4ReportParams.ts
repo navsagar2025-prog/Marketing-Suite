@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GetGa4ReportDateRange } from "./getGa4ReportDateRange";
+import type { GetGa4ReportRefresh } from "./getGa4ReportRefresh";
 
 export type GetGa4ReportParams = {
   /**
@@ -20,4 +21,8 @@ export type GetGa4ReportParams = {
    * Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.
    */
   endDate?: string;
+  /**
+   * Pass "true" to bypass the server-side cache and force a fresh fetch from GA4.
+   */
+  refresh?: GetGa4ReportRefresh;
 };

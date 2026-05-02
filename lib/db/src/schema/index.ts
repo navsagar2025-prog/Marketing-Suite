@@ -30,6 +30,7 @@ export * from "./keyword-research";
 export * from "./site-audits";
 export * from "./oauth-tokens";
 export * from "./gsc-cache";
+export * from "./ga4-cache";
 export * from "./email-templates";
 export * from "./password-reset-tokens";
 export * from "./login-attempts";

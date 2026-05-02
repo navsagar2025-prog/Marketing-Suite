@@ -1692,6 +1692,8 @@ export interface Ga4ReportData {
   devices: Ga4Device[];
   dateRange: string;
   ga4PropertyId: string;
+  /** ISO timestamp of when this data was cached. Null when freshly fetched. */
+  cachedAt?: string | null;
 }
 
 export type SiteAuditStatusStatus =
@@ -1877,6 +1879,10 @@ export type GetGa4ReportParams = {
    * Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.
    */
   endDate?: string;
+  /**
+   * Pass "true" to bypass the server-side cache and force a fresh fetch from GA4.
+   */
+  refresh?: GetGa4ReportRefresh;
 };
 
 export type GetGa4ReportDateRange =
@@ -1886,6 +1892,13 @@ export const GetGa4ReportDateRange = {
   "7d": "7d",
   "30d": "30d",
   "90d": "90d",
+} as const;
+
+export type GetGa4ReportRefresh =
+  (typeof GetGa4ReportRefresh)[keyof typeof GetGa4ReportRefresh];
+
+export const GetGa4ReportRefresh = {
+  true: "true",
 } as const;
 
 export type UpdateStaffUserPlanBodyPlan =

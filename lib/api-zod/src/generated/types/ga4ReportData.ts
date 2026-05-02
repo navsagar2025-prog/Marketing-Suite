@@ -17,4 +17,6 @@ export interface Ga4ReportData {
   devices: Ga4Device[];
   dateRange: string;
   ga4PropertyId: string;
+  /** ISO timestamp of when this data was cached. Null when freshly fetched. */
+  cachedAt?: string | null;
 }

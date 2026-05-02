@@ -734,6 +734,12 @@ export const GetGa4ReportQueryParams = zod.object({
     .describe(
       "Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.",
     ),
+  refresh: zod
+    .enum(["true"])
+    .optional()
+    .describe(
+      'Pass \"true\" to bypass the server-side cache and force a fresh fetch from GA4.',
+    ),
 });
 
 export const GetGa4ReportResponse = zod.object({
@@ -765,6 +771,12 @@ export const GetGa4ReportResponse = zod.object({
   ),
   dateRange: zod.string(),
   ga4PropertyId: zod.string(),
+  cachedAt: zod
+    .string()
+    .nullish()
+    .describe(
+      "ISO timestamp of when this data was cached. Null when freshly fetched.",
+    ),
 });
 
 /**

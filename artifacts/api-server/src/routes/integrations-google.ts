@@ -5,7 +5,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
-import { db, oauthTokensTable, gscCacheTable, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
+import { db, oauthTokensTable, gscCacheTable, ga4CacheTable, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
@@ -378,6 +378,14 @@ async function runGa4Report(
   return res.json() as Promise<Record<string, unknown>>;
 }
 
+// TTL per date-range shorthand (ms)
+const GA4_CACHE_TTL: Record<string, number> = {
+  "7d":  15 * 60 * 1000,        // 15 minutes
+  "30d": 60 * 60 * 1000,        // 1 hour
+  "90d": 4  * 60 * 60 * 1000,   // 4 hours
+};
+const GA4_EXPLICIT_TTL = 60 * 60 * 1000; // 1 hour for explicit date ranges
+
 /** POST /integrations/google/ga4/:websiteId/property — save GA4 Property ID */
 router.post("/integrations/google/ga4/:websiteId/property", async (req, res): Promise<void> => {
   const websiteId = parseInt(req.params.websiteId);
@@ -399,6 +407,8 @@ router.post("/integrations/google/ga4/:websiteId/property", async (req, res): Pr
 
   const normalized = ga4PropertyId?.trim() ? normalizeGa4PropertyId(ga4PropertyId) : null;
   await db.update(oauthTokensTable).set({ ga4PropertyId: normalized }).where(eq(oauthTokensTable.id, token.id));
+  // Invalidate all cached GA4 data for this website when the property ID changes
+  await db.delete(ga4CacheTable).where(eq(ga4CacheTable.websiteId, websiteId));
   res.json({ success: true, ga4PropertyId: normalized });
 });
 
@@ -407,9 +417,13 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
   const websiteId = parseInt(req.params.websiteId);
   if (isNaN(websiteId)) { res.status(400).json({ error: "Invalid websiteId" }); return; }
 
+  const forceRefresh = req.query.refresh === "true";
+
   // Support explicit startDate/endDate params OR the convenience dateRange shorthand
   let startDate: string;
   let endDate = "today";
+  let dateRange: string | undefined;
+  let cacheTtl: number;
   const explicitStart = req.query.startDate as string | undefined;
   const explicitEnd = req.query.endDate as string | undefined;
   if (explicitStart) {
@@ -423,12 +437,17 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
       }
       endDate = explicitEnd;
     }
+    cacheTtl = GA4_EXPLICIT_TTL;
   } else {
-    const dateRange = (req.query.dateRange as string) ?? "30d";
+    dateRange = (req.query.dateRange as string) ?? "30d";
     const resolved = GA4_DATE_RANGES[dateRange];
     if (!resolved) { res.status(400).json({ error: "dateRange must be 7d, 30d, or 90d" }); return; }
     startDate = resolved;
+    cacheTtl = GA4_CACHE_TTL[dateRange] ?? GA4_EXPLICIT_TTL;
   }
+
+  // Cache key: prefer dateRange shorthand, fall back to explicit date string
+  const cacheKey = dateRange ? `dr:${dateRange}` : `sd:${startDate}:${endDate}`;
 
   const [token] = await db
     .select()
@@ -442,6 +461,19 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
 
   if (!token) { res.status(404).json({ error: "Google not connected for this website" }); return; }
   if (!token.ga4PropertyId) { res.status(400).json({ error: "GA4_PROPERTY_NOT_SET", message: "No GA4 property configured. Enter your GA4 Property ID in Settings." }); return; }
+
+  // Check cache (skip on forceRefresh)
+  const [cached] = await db
+    .select()
+    .from(ga4CacheTable)
+    .where(and(eq(ga4CacheTable.websiteId, websiteId), eq(ga4CacheTable.cacheKey, cacheKey)))
+    .orderBy(desc(ga4CacheTable.cachedAt))
+    .limit(1);
+
+  if (!forceRefresh && cached && Date.now() - cached.cachedAt.getTime() < cacheTtl) {
+    res.json(cached.data);
+    return;
+  }
 
   const propertyId = token.ga4PropertyId;
   const dateRangeParam = [{ startDate, endDate }];
@@ -515,14 +547,27 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
       };
     });
 
-    res.json({
+    const now = new Date();
+    const responseData = {
       summary: { sessions, users, bounceRate: Math.round(bounceRate * 1000) / 10, avgSessionDuration: Math.round(avgSessionDuration) },
       topPages,
       trafficSources,
       devices,
-      dateRange,
+      dateRange: dateRange ?? `${startDate}:${endDate}`,
       ga4PropertyId: propertyId,
-    });
+      cachedAt: now.toISOString(),
+    };
+
+    // Upsert into cache
+    if (cached) {
+      await db.update(ga4CacheTable)
+        .set({ data: responseData, cachedAt: now })
+        .where(eq(ga4CacheTable.id, cached.id));
+    } else {
+      await db.insert(ga4CacheTable).values({ websiteId, cacheKey, data: responseData });
+    }
+
+    res.json(responseData);
   } catch (err) {
     logger.error({ err }, "GA4 data fetch error");
     res.status(502).json({ error: "Failed to fetch data from Google Analytics 4. Your connection may have expired or the property ID is incorrect — try reconnecting." });

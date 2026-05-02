@@ -93,6 +93,7 @@ export * from "./generateVideoBodyDurationSeconds";
 export * from "./getCampaignRecipientsParams";
 export * from "./getGa4ReportDateRange";
 export * from "./getGa4ReportParams";
+export * from "./getGa4ReportRefresh";
 export * from "./getGscSearchPerformanceDateRange";
 export * from "./getGscSearchPerformanceParams";
 export * from "./getKeywordRankAlertsParams";

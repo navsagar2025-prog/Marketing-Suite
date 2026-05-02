@@ -649,6 +649,12 @@ paths:
           schema:
             type: string
           description: Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.
+        - name: refresh
+          in: query
+          schema:
+            type: string
+            enum: ["true"]
+          description: Pass "true" to bypass the server-side cache and force a fresh fetch from GA4.
       responses:
         "200":
           description: GA4 report data
@@ -5360,6 +5366,10 @@ components:
           type: string
         ga4PropertyId:
           type: string
+        cachedAt:
+          type: string
+          nullable: true
+          description: ISO timestamp of when this data was cached. Null when freshly fetched.
       required: [summary, topPages, trafficSources, devices, dateRange, ga4PropertyId]
 
     # ─── Site Audit Schemas ──────────────────────────────────────────────────────

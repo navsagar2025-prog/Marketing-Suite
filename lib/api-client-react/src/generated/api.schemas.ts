@@ -1685,11 +1685,19 @@ export interface Ga4Device {
   percentage: number;
 }
 
+export interface Ga4TimeseriesPoint {
+  /** Date in YYYY-MM-DD format */
+  date: string;
+  sessions: number;
+  users: number;
+}
+
 export interface Ga4ReportData {
   summary: Ga4Summary;
   topPages: Ga4TopPage[];
   trafficSources: Ga4TrafficSource[];
   devices: Ga4Device[];
+  timeseries: Ga4TimeseriesPoint[];
   dateRange: string;
   ga4PropertyId: string;
   /** ISO timestamp of when this data was last stored in cache. Always present — set to the fetch time even for fresh (uncached) responses. */

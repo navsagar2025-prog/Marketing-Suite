@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
+  LineChart, Line, Legend,
 } from "recharts";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -226,6 +227,57 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
               </Card>
             ))}
           </div>
+
+          {/* Sessions over time line chart */}
+          <Card data-testid="card-ga4-timeseries">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Sessions over time</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {ga4Data.timeseries.length === 0 ? (
+                <div className="h-56 flex items-center justify-center text-sm text-muted-foreground">No daily data available</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={ga4Data.timeseries} margin={{ left: 0, right: 10, top: 4, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                      tickFormatter={(v: string) => {
+                        const d = new Date(v + "T00:00:00");
+                        return `${d.getMonth() + 1}/${d.getDate()}`;
+                      }}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 12 }}
+                      labelFormatter={(v: string) => new Date(v + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="sessions"
+                      name="Sessions"
+                      stroke="hsl(var(--chart-1))"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="users"
+                      name="Users"
+                      stroke="hsl(var(--chart-2))"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Traffic Sources + Device Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -5345,6 +5345,18 @@ components:
           type: number
       required: [category, sessions, percentage]
 
+    Ga4TimeseriesPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Date in YYYY-MM-DD format
+        sessions:
+          type: number
+        users:
+          type: number
+      required: [date, sessions, users]
+
     Ga4ReportData:
       type: object
       properties:
@@ -5362,6 +5374,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Ga4Device"
+        timeseries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ga4TimeseriesPoint"
+          description: Daily sessions and users for the selected date range
         dateRange:
           type: string
         ga4PropertyId:
@@ -5369,7 +5386,7 @@ components:
         cachedAt:
           type: string
           description: ISO timestamp of when this data was last stored in cache. Always present — set to the fetch time even for fresh (uncached) responses.
-      required: [summary, topPages, trafficSources, devices, dateRange, ga4PropertyId, cachedAt]
+      required: [summary, topPages, trafficSources, devices, timeseries, dateRange, ga4PropertyId, cachedAt]
 
     # ─── Site Audit Schemas ──────────────────────────────────────────────────────
     SiteAuditStatus:

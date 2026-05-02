@@ -481,7 +481,7 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
   try {
     const accessToken = await getValidAccessToken(token);
 
-    const [summaryData, topPagesData, sourcesData, devicesData] = await Promise.all([
+    const [summaryData, topPagesData, sourcesData, devicesData, timeseriesData] = await Promise.all([
       runGa4Report(accessToken, propertyId, {
         dateRanges: dateRangeParam,
         metrics: [
@@ -508,6 +508,12 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
         dateRanges: dateRangeParam,
         dimensions: [{ name: "deviceCategory" }],
         metrics: [{ name: "sessions" }],
+      }),
+      runGa4Report(accessToken, propertyId, {
+        dateRanges: dateRangeParam,
+        dimensions: [{ name: "date" }],
+        metrics: [{ name: "sessions" }, { name: "activeUsers" }],
+        orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
       }),
     ]);
 
@@ -547,12 +553,25 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
       };
     });
 
+    const timeseriesRows = (timeseriesData.rows as Ga4Row[] | undefined) ?? [];
+    const timeseries = timeseriesRows.map(r => {
+      const raw = r.dimensionValues?.[0]?.value ?? "";
+      // GA4 returns dates as YYYYMMDD — convert to YYYY-MM-DD
+      const date = raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` : raw;
+      return {
+        date,
+        sessions: parseInt(r.metricValues[0]?.value ?? "0", 10),
+        users: parseInt(r.metricValues[1]?.value ?? "0", 10),
+      };
+    });
+
     const now = new Date();
     const responseData = {
       summary: { sessions, users, bounceRate: Math.round(bounceRate * 1000) / 10, avgSessionDuration: Math.round(avgSessionDuration) },
       topPages,
       trafficSources,
       devices,
+      timeseries,
       dateRange: dateRange ?? `${startDate}:${endDate}`,
       ga4PropertyId: propertyId,
       cachedAt: now.toISOString(),

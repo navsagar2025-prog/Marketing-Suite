@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown, GripVertical, Copy } from "lucide-react";
+import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, Unlock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown, GripVertical, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -59,6 +59,14 @@ interface AllowlistEntry {
   ip: string;
   note: string | null;
   createdAt: string;
+}
+
+interface LockedIp {
+  id: number;
+  ip: string;
+  attempts: number;
+  lastAttemptAt: string;
+  lockedUntil: string;
 }
 
 interface StaffUser {
@@ -324,6 +332,23 @@ function AllowlistTab() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
+  const { data: lockedIps, isLoading: lockedLoading } = useAdminFetch<LockedIp[]>(
+    ["admin-locked-ips"],
+    "/api/admin/locked-ips"
+  );
+
+  const unlockMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`${base}/api/admin/locked-ips/${id}`, { method: "DELETE", headers });
+      if (!res.ok) throw new Error("Failed to unlock");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-locked-ips"] });
+      toast({ title: "IP unlocked" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
   const { data, isLoading } = useAdminFetch<AllowlistEntry[]>(["admin-allowlist"], "/api/admin/allowlist");
 
   const [ipInput, setIpInput] = useState("");
@@ -365,6 +390,47 @@ function AllowlistTab() {
 
   return (
     <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Lock className="h-4 w-4 text-destructive" />
+            Login Lockouts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {lockedLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+          ) : !lockedIps?.length ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No IPs currently locked out.</p>
+          ) : (
+            <div className="space-y-2">
+              {lockedIps.map(entry => (
+                <div key={entry.id} className="flex items-center justify-between py-2 border-b last:border-0" data-testid={`locked-ip-row-${entry.id}`}>
+                  <div>
+                    <p className="text-sm font-mono font-medium">{entry.ip}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.attempts} attempt{entry.attempts !== 1 ? "s" : ""} &middot; locked until{" "}
+                      {new Date(entry.lockedUntil).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    data-testid={`button-unlock-ip-${entry.id}`}
+                    onClick={() => unlockMutation.mutate(entry.id)}
+                    disabled={unlockMutation.isPending}
+                  >
+                    <Unlock className="h-3.5 w-3.5" />
+                    Unlock
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader><CardTitle className="text-base">Add IP to Allowlist</CardTitle></CardHeader>
         <CardContent>

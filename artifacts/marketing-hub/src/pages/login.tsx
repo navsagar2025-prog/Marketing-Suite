@@ -55,6 +55,10 @@ export default function LoginPage() {
       if (!res.ok) {
         const data = await res.json();
         setError(data.error ?? "Login failed");
+        if (res.status === 429 && data.lockedUntil) {
+          const mins = Math.ceil((new Date(data.lockedUntil).getTime() - Date.now()) / 60000);
+          setError(`Too many failed attempts. This IP is locked out for ${mins} more minute(s).`);
+        }
         return;
       }
 

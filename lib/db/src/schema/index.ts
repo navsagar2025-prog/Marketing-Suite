@@ -31,3 +31,4 @@ export * from "./oauth-tokens";
 export * from "./gsc-cache";
 export * from "./email-templates";
 export * from "./password-reset-tokens";
+export * from "./login-attempts";

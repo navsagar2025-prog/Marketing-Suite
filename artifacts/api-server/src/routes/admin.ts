@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { ALL_MODULES } from "@workspace/api-zod";
 import bcrypt from "bcryptjs";
-import { eq, desc, count, sum, countDistinct, and, gte } from "drizzle-orm";
-import { db, staffUsersTable, ipRateLimitsTable, ipAllowlistTable, leadsTable } from "@workspace/db";
+import { eq, desc, count, sum, countDistinct, and, gte, gt, isNotNull } from "drizzle-orm";
+import { db, staffUsersTable, ipRateLimitsTable, ipAllowlistTable, leadsTable, loginAttemptsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth.js";
 import { runRankSnapshot } from "./keywords.js";
 import { SnapshotKeywordRanksResponse } from "@workspace/api-zod";
@@ -95,6 +95,30 @@ router.get("/admin/visitor-stats", async (_req, res): Promise<void> => {
     ipsAtLimitToday: Number(limitedStats?.ipsAtLimitToday ?? 0),
     dailyData,
   });
+});
+
+router.get("/admin/locked-ips", async (_req, res): Promise<void> => {
+  const now = new Date();
+  const locked = await db
+    .select()
+    .from(loginAttemptsTable)
+    .where(and(isNotNull(loginAttemptsTable.lockedUntil), gt(loginAttemptsTable.lockedUntil, now)))
+    .orderBy(desc(loginAttemptsTable.lockedUntil));
+  res.json(locked);
+});
+
+router.delete("/admin/locked-ips/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const [deleted] = await db.delete(loginAttemptsTable).where(eq(loginAttemptsTable.id, id)).returning();
+  if (!deleted) {
+    res.status(404).json({ error: "Record not found" });
+    return;
+  }
+  res.sendStatus(204);
 });
 
 router.get("/admin/allowlist", async (_req, res): Promise<void> => {

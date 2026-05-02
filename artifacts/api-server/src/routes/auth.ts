@@ -1,10 +1,14 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, sql } from "drizzle-orm";
 import { randomBytes, createHash } from "crypto";
-import { db, staffUsersTable, passwordResetTokensTable } from "@workspace/db";
+import { db, staffUsersTable, passwordResetTokensTable, loginAttemptsTable } from "@workspace/db";
 import { signToken, requireAuth } from "../lib/auth.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
+import { logger } from "../lib/logger.js";
+
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000;
 
 const VALID_PLANS = ["starter", "growth", "agency"] as const;
 type Plan = (typeof VALID_PLANS)[number];
@@ -18,17 +22,44 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
+  const now = new Date();
+
+  const [attempt] = await db.select().from(loginAttemptsTable).where(eq(loginAttemptsTable.ip, ip));
+  if (attempt?.lockedUntil && attempt.lockedUntil > now) {
+    const retryAfterSeconds = Math.ceil((attempt.lockedUntil.getTime() - now.getTime()) / 1000);
+    res.status(429).json({
+      error: `Too many login attempts. Try again in ${Math.ceil(retryAfterSeconds / 60)} minute(s).`,
+      retryAfterSeconds,
+      lockedUntil: attempt.lockedUntil.toISOString(),
+    });
+    return;
+  }
+
   const [user] = await db.select().from(staffUsersTable).where(eq(staffUsersTable.username, username.trim().toLowerCase()));
-  if (!user) {
+  const valid = user ? await bcrypt.compare(password, user.passwordHash) : false;
+
+  if (!user || !valid) {
+    await db
+      .insert(loginAttemptsTable)
+      .values({ ip, attempts: 1, lastAttemptAt: now })
+      .onConflictDoUpdate({
+        target: loginAttemptsTable.ip,
+        set: { attempts: sql`${loginAttemptsTable.attempts} + 1`, lastAttemptAt: now },
+      });
+
+    const [updated] = await db.select().from(loginAttemptsTable).where(eq(loginAttemptsTable.ip, ip));
+    if (updated && updated.attempts >= MAX_LOGIN_ATTEMPTS) {
+      const lockedUntil = new Date(now.getTime() + LOCKOUT_MS);
+      await db.update(loginAttemptsTable).set({ lockedUntil }).where(eq(loginAttemptsTable.ip, ip));
+      logger.warn({ ip, attempts: updated.attempts }, "Login brute-force lockout triggered");
+    }
+
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
-  }
+  await db.delete(loginAttemptsTable).where(eq(loginAttemptsTable.ip, ip));
 
   const permissions = user.role === "admin" ? null : (user.permissions ?? null);
   const token = signToken({ id: user.id, username: user.username, role: user.role, permissions });

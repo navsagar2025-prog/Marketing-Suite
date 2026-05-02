@@ -638,7 +638,17 @@ paths:
           schema:
             type: string
             enum: [7d, 30d, 90d]
-          description: Date range (default 30d)
+          description: Convenience date range shorthand (default 30d). Ignored when startDate is provided.
+        - name: startDate
+          in: query
+          schema:
+            type: string
+          description: Explicit start date in YYYY-MM-DD format. Takes precedence over dateRange.
+        - name: endDate
+          in: query
+          schema:
+            type: string
+          description: Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.
       responses:
         "200":
           description: GA4 report data

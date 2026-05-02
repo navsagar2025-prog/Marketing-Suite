@@ -407,9 +407,28 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
   const websiteId = parseInt(req.params.websiteId);
   if (isNaN(websiteId)) { res.status(400).json({ error: "Invalid websiteId" }); return; }
 
-  const dateRange = (req.query.dateRange as string) ?? "30d";
-  const startDate = GA4_DATE_RANGES[dateRange];
-  if (!startDate) { res.status(400).json({ error: "dateRange must be 7d, 30d, or 90d" }); return; }
+  // Support explicit startDate/endDate params OR the convenience dateRange shorthand
+  let startDate: string;
+  let endDate = "today";
+  const explicitStart = req.query.startDate as string | undefined;
+  const explicitEnd = req.query.endDate as string | undefined;
+  if (explicitStart) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(explicitStart)) {
+      res.status(400).json({ error: "startDate must be in YYYY-MM-DD format" }); return;
+    }
+    startDate = explicitStart;
+    if (explicitEnd) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(explicitEnd)) {
+        res.status(400).json({ error: "endDate must be in YYYY-MM-DD format" }); return;
+      }
+      endDate = explicitEnd;
+    }
+  } else {
+    const dateRange = (req.query.dateRange as string) ?? "30d";
+    const resolved = GA4_DATE_RANGES[dateRange];
+    if (!resolved) { res.status(400).json({ error: "dateRange must be 7d, 30d, or 90d" }); return; }
+    startDate = resolved;
+  }
 
   const [token] = await db
     .select()
@@ -425,7 +444,7 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
   if (!token.ga4PropertyId) { res.status(400).json({ error: "GA4_PROPERTY_NOT_SET", message: "No GA4 property configured. Enter your GA4 Property ID in Settings." }); return; }
 
   const propertyId = token.ga4PropertyId;
-  const dateRangeParam = [{ startDate, endDate: "today" }];
+  const dateRangeParam = [{ startDate, endDate }];
 
   try {
     const accessToken = await getValidAccessToken(token);

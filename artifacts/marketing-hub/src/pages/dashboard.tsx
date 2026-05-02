@@ -398,6 +398,31 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* GA4 Traffic Shortcut */}
+      <Card className="border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50/60 to-transparent dark:from-blue-950/30">
+        <CardContent className="py-4 px-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/40">
+                <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold">Google Analytics 4 Dashboard</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  View sessions, top pages, traffic sources, and device breakdown for any connected website.
+                </p>
+              </div>
+            </div>
+            <Link href="/analytics">
+              <Button size="sm" variant="outline" className="shrink-0 gap-1.5 text-xs">
+                View Traffic
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

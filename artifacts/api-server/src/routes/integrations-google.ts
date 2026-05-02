@@ -558,14 +558,13 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
       cachedAt: now.toISOString(),
     };
 
-    // Upsert into cache
-    if (cached) {
-      await db.update(ga4CacheTable)
-        .set({ data: responseData, cachedAt: now })
-        .where(eq(ga4CacheTable.id, cached.id));
-    } else {
-      await db.insert(ga4CacheTable).values({ websiteId, cacheKey, data: responseData });
-    }
+    // Upsert into cache — uses the unique index on (websiteId, cacheKey) for atomic conflict resolution
+    await db.insert(ga4CacheTable)
+      .values({ websiteId, cacheKey, data: responseData, cachedAt: now })
+      .onConflictDoUpdate({
+        target: [ga4CacheTable.websiteId, ga4CacheTable.cacheKey],
+        set: { data: responseData, cachedAt: now },
+      });
 
     res.json(responseData);
   } catch (err) {

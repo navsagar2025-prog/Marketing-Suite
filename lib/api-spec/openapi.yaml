@@ -5368,9 +5368,8 @@ components:
           type: string
         cachedAt:
           type: string
-          nullable: true
-          description: ISO timestamp of when this data was cached. Null when freshly fetched.
-      required: [summary, topPages, trafficSources, devices, dateRange, ga4PropertyId]
+          description: ISO timestamp of when this data was last stored in cache. Always present — set to the fetch time even for fresh (uncached) responses.
+      required: [summary, topPages, trafficSources, devices, dateRange, ga4PropertyId, cachedAt]
 
     # ─── Site Audit Schemas ──────────────────────────────────────────────────────
     SiteAuditStatus:

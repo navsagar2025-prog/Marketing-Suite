@@ -773,9 +773,8 @@ export const GetGa4ReportResponse = zod.object({
   ga4PropertyId: zod.string(),
   cachedAt: zod
     .string()
-    .nullish()
     .describe(
-      "ISO timestamp of when this data was cached. Null when freshly fetched.",
+      "ISO timestamp of when this data was last stored in cache. Always present — set to the fetch time even for fresh (uncached) responses.",
     ),
 });
 

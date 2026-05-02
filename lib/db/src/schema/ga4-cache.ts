@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { websitesTable } from "./websites";
 
 export const ga4CacheTable = pgTable("ga4_cache", {
@@ -7,6 +7,8 @@ export const ga4CacheTable = pgTable("ga4_cache", {
   cacheKey: text("cache_key").notNull(),
   data: jsonb("data").notNull(),
   cachedAt: timestamp("cached_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("ga4_cache_website_key").on(t.websiteId, t.cacheKey),
+]);
 
 export type Ga4Cache = typeof ga4CacheTable.$inferSelect;

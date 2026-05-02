@@ -4,6 +4,7 @@ export * from "./campaigns";
 export * from "./social-posts";
 export * from "./backlinks";
 export * from "./leads";
+export * from "./lead-notes";
 export * from "./conversations";
 export * from "./messages";
 export * from "./media-assets";

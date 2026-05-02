@@ -42,6 +42,7 @@ import type {
   CreateKeywordBody,
   CreateLeadBody,
   CreateLeadFormBody,
+  CreateLeadNoteBody,
   CreateMediaAssetBody,
   CreateSequenceBody,
   CreateSocialPostBody,
@@ -98,6 +99,7 @@ import type {
   LeadFormEmbedResponse,
   LeadFormSubmitBody,
   LeadFormSubmitResponse,
+  LeadNote,
   LeadScoringConfig,
   LeadSequenceEnrollment,
   LeadsFunnel,
@@ -141,6 +143,7 @@ import type {
   UpdateKeywordBody,
   UpdateLeadBody,
   UpdateLeadFormBody,
+  UpdateLeadNoteBody,
   UpdatePaymentSettingsBody,
   UpdateSequenceBody,
   UpdateSettingsBody,
@@ -6003,6 +6006,353 @@ export const useDeleteLead = <
   TContext
 > => {
   return useMutation(getDeleteLeadMutationOptions(options));
+};
+
+/**
+ * @summary List notes for a lead
+ */
+export const getListLeadNotesUrl = (leadId: number) => {
+  return `/api/leads/${leadId}/notes`;
+};
+
+export const listLeadNotes = async (
+  leadId: number,
+  options?: RequestInit,
+): Promise<LeadNote[]> => {
+  return customFetch<LeadNote[]>(getListLeadNotesUrl(leadId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListLeadNotesQueryKey = (leadId: number) => {
+  return [`/api/leads/${leadId}/notes`] as const;
+};
+
+export const getListLeadNotesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listLeadNotes>>,
+  TError = ErrorType<unknown>,
+>(
+  leadId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLeadNotes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListLeadNotesQueryKey(leadId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listLeadNotes>>> = ({
+    signal,
+  }) => listLeadNotes(leadId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!leadId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listLeadNotes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListLeadNotesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listLeadNotes>>
+>;
+export type ListLeadNotesQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List notes for a lead
+ */
+
+export function useListLeadNotes<
+  TData = Awaited<ReturnType<typeof listLeadNotes>>,
+  TError = ErrorType<unknown>,
+>(
+  leadId: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listLeadNotes>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListLeadNotesQueryOptions(leadId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Add a note to a lead
+ */
+export const getCreateLeadNoteUrl = (leadId: number) => {
+  return `/api/leads/${leadId}/notes`;
+};
+
+export const createLeadNote = async (
+  leadId: number,
+  createLeadNoteBody: CreateLeadNoteBody,
+  options?: RequestInit,
+): Promise<LeadNote> => {
+  return customFetch<LeadNote>(getCreateLeadNoteUrl(leadId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createLeadNoteBody),
+  });
+};
+
+export const getCreateLeadNoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLeadNote>>,
+    TError,
+    { leadId: number; data: BodyType<CreateLeadNoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createLeadNote>>,
+  TError,
+  { leadId: number; data: BodyType<CreateLeadNoteBody> },
+  TContext
+> => {
+  const mutationKey = ["createLeadNote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createLeadNote>>,
+    { leadId: number; data: BodyType<CreateLeadNoteBody> }
+  > = (props) => {
+    const { leadId, data } = props ?? {};
+
+    return createLeadNote(leadId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateLeadNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createLeadNote>>
+>;
+export type CreateLeadNoteMutationBody = BodyType<CreateLeadNoteBody>;
+export type CreateLeadNoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Add a note to a lead
+ */
+export const useCreateLeadNote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createLeadNote>>,
+    TError,
+    { leadId: number; data: BodyType<CreateLeadNoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createLeadNote>>,
+  TError,
+  { leadId: number; data: BodyType<CreateLeadNoteBody> },
+  TContext
+> => {
+  return useMutation(getCreateLeadNoteMutationOptions(options));
+};
+
+/**
+ * @summary Toggle pin on a lead note
+ */
+export const getUpdateLeadNoteUrl = (leadId: number, noteId: number) => {
+  return `/api/leads/${leadId}/notes/${noteId}`;
+};
+
+export const updateLeadNote = async (
+  leadId: number,
+  noteId: number,
+  updateLeadNoteBody: UpdateLeadNoteBody,
+  options?: RequestInit,
+): Promise<LeadNote> => {
+  return customFetch<LeadNote>(getUpdateLeadNoteUrl(leadId, noteId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateLeadNoteBody),
+  });
+};
+
+export const getUpdateLeadNoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLeadNote>>,
+    TError,
+    { leadId: number; noteId: number; data: BodyType<UpdateLeadNoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateLeadNote>>,
+  TError,
+  { leadId: number; noteId: number; data: BodyType<UpdateLeadNoteBody> },
+  TContext
+> => {
+  const mutationKey = ["updateLeadNote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateLeadNote>>,
+    { leadId: number; noteId: number; data: BodyType<UpdateLeadNoteBody> }
+  > = (props) => {
+    const { leadId, noteId, data } = props ?? {};
+
+    return updateLeadNote(leadId, noteId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateLeadNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateLeadNote>>
+>;
+export type UpdateLeadNoteMutationBody = BodyType<UpdateLeadNoteBody>;
+export type UpdateLeadNoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Toggle pin on a lead note
+ */
+export const useUpdateLeadNote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateLeadNote>>,
+    TError,
+    { leadId: number; noteId: number; data: BodyType<UpdateLeadNoteBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateLeadNote>>,
+  TError,
+  { leadId: number; noteId: number; data: BodyType<UpdateLeadNoteBody> },
+  TContext
+> => {
+  return useMutation(getUpdateLeadNoteMutationOptions(options));
+};
+
+/**
+ * @summary Delete a lead note
+ */
+export const getDeleteLeadNoteUrl = (leadId: number, noteId: number) => {
+  return `/api/leads/${leadId}/notes/${noteId}`;
+};
+
+export const deleteLeadNote = async (
+  leadId: number,
+  noteId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteLeadNoteUrl(leadId, noteId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteLeadNoteMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLeadNote>>,
+    TError,
+    { leadId: number; noteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteLeadNote>>,
+  TError,
+  { leadId: number; noteId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteLeadNote"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteLeadNote>>,
+    { leadId: number; noteId: number }
+  > = (props) => {
+    const { leadId, noteId } = props ?? {};
+
+    return deleteLeadNote(leadId, noteId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteLeadNoteMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteLeadNote>>
+>;
+
+export type DeleteLeadNoteMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a lead note
+ */
+export const useDeleteLeadNote = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteLeadNote>>,
+    TError,
+    { leadId: number; noteId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteLeadNote>>,
+  TError,
+  { leadId: number; noteId: number },
+  TContext
+> => {
+  return useMutation(getDeleteLeadNoteMutationOptions(options));
 };
 
 /**

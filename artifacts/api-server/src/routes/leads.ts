@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, inArray } from "drizzle-orm";
-import { db, leadsTable } from "@workspace/db";
+import { eq, and, gte, lte, inArray, desc, sql, count } from "drizzle-orm";
+import { db, leadsTable, leadNotesTable } from "@workspace/db";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, type LeadScoringWeights } from "../lib/lead-scoring.js";
 import { getDbSetting } from "../lib/ai-provider.js";
 import {
@@ -11,6 +11,12 @@ import {
   UpdateLeadBody,
   UpdateLeadResponse,
   DeleteLeadParams,
+  ListLeadNotesParams,
+  CreateLeadNoteParams,
+  CreateLeadNoteBody,
+  UpdateLeadNoteParams,
+  UpdateLeadNoteBody,
+  DeleteLeadNoteParams,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -67,7 +73,7 @@ router.get("/leads/export.csv", async (req, res): Promise<void> => {
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
-  const HEADERS = ["Name", "Email", "Phone", "Company", "Source", "Status", "Score", "Value", "Notes", "Created Date", "Last Updated"];
+  const HEADERS = ["Name", "Email", "Phone", "Company", "Source", "Status", "Score", "Value", "Notes Count", "Created Date", "Last Updated"];
   res.write(HEADERS.join(",") + "\n");
 
   const BATCH = 500;
@@ -82,8 +88,18 @@ router.get("/leads/export.csv", async (req, res): Promise<void> => {
       .limit(BATCH)
       .offset(batchOffset);
 
+    const batchIds = batch.map(l => l.id);
+    const notesAgg = batchIds.length > 0
+      ? await db
+          .select({ leadId: leadNotesTable.leadId, cnt: count(leadNotesTable.id) })
+          .from(leadNotesTable)
+          .where(inArray(leadNotesTable.leadId, batchIds))
+          .groupBy(leadNotesTable.leadId)
+      : [];
+    const noteCountMap = new Map(notesAgg.map(r => [r.leadId, r.cnt]));
+
     for (const l of batch) {
-      const notesCount = l.notes && l.notes.trim() ? "1 note" : "";
+      const n = noteCountMap.get(l.id) ?? 0;
       const row = [
         escapeCsv(l.name),
         escapeCsv(l.email),
@@ -93,7 +109,7 @@ router.get("/leads/export.csv", async (req, res): Promise<void> => {
         escapeCsv(l.status),
         l.score ?? "",
         l.value != null ? parseFloat(String(l.value)).toFixed(2) : "",
-        notesCount,
+        n > 0 ? `${n} note${n !== 1 ? "s" : ""}` : "",
         new Date(l.createdAt).toISOString().split("T")[0],
         new Date(l.updatedAt).toISOString().split("T")[0],
       ];
@@ -135,7 +151,8 @@ router.post("/leads", async (req, res): Promise<void> => {
     { source: parsed.data.source ?? "organic", status: parsed.data.status ?? "new", value: parsed.data.value, createdAt: new Date() },
     weights
   );
-  const [lead] = await db.insert(leadsTable).values({ ...parsed.data, score, scoreBreakdown: breakdown }).returning();
+  const { notes: _notes, ...leadData } = parsed.data;
+  const [lead] = await db.insert(leadsTable).values({ ...leadData, score, scoreBreakdown: breakdown }).returning();
   res.status(201).json(mapLead(lead));
 });
 
@@ -161,8 +178,9 @@ router.patch("/leads/:id", async (req, res): Promise<void> => {
     { source: merged.source, status: merged.status, value: merged.value, createdAt: merged.createdAt },
     weights
   );
+  const { notes: _notes2, ...updateData } = parsed.data;
   const [lead] = await db.update(leadsTable)
-    .set({ ...parsed.data, score, scoreBreakdown: breakdown })
+    .set({ ...updateData, score, scoreBreakdown: breakdown })
     .where(eq(leadsTable.id, params.data.id))
     .returning();
   if (!lead) {
@@ -183,6 +201,107 @@ router.delete("/leads/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Lead not found" });
     return;
   }
+  res.sendStatus(204);
+});
+
+// ─── Lead Notes ───────────────────────────────────────────────────────────────
+
+router.get("/leads/:leadId/notes", async (req, res): Promise<void> => {
+  const params = ListLeadNotesParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [lead] = await db.select().from(leadsTable).where(eq(leadsTable.id, params.data.leadId));
+  if (!lead) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  const notes = await db
+    .select()
+    .from(leadNotesTable)
+    .where(eq(leadNotesTable.leadId, params.data.leadId))
+    .orderBy(desc(leadNotesTable.pinned), desc(leadNotesTable.createdAt));
+  res.json(notes);
+});
+
+router.post("/leads/:leadId/notes", async (req, res): Promise<void> => {
+  const params = CreateLeadNoteParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = CreateLeadNoteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [lead] = await db.select().from(leadsTable).where(eq(leadsTable.id, params.data.leadId));
+  if (!lead) {
+    res.status(404).json({ error: "Lead not found" });
+    return;
+  }
+  const authorName = req.user?.username ?? "Admin";
+  const staffUserId = req.user?.id ?? null;
+  const [note] = await db.insert(leadNotesTable).values({
+    leadId: params.data.leadId,
+    body: parsed.data.body,
+    authorName,
+    staffUserId,
+  }).returning();
+  res.status(201).json(note);
+});
+
+router.patch("/leads/:leadId/notes/:noteId", async (req, res): Promise<void> => {
+  const params = UpdateLeadNoteParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = UpdateLeadNoteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [existing] = await db
+    .select()
+    .from(leadNotesTable)
+    .where(and(eq(leadNotesTable.id, params.data.noteId), eq(leadNotesTable.leadId, params.data.leadId)));
+  if (!existing) {
+    res.status(404).json({ error: "Note not found" });
+    return;
+  }
+  const [note] = await db
+    .update(leadNotesTable)
+    .set({ pinned: parsed.data.pinned })
+    .where(eq(leadNotesTable.id, params.data.noteId))
+    .returning();
+  res.json(note);
+});
+
+router.delete("/leads/:leadId/notes/:noteId", async (req, res): Promise<void> => {
+  const params = DeleteLeadNoteParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [existing] = await db
+    .select()
+    .from(leadNotesTable)
+    .where(and(eq(leadNotesTable.id, params.data.noteId), eq(leadNotesTable.leadId, params.data.leadId)));
+  if (!existing) {
+    res.status(404).json({ error: "Note not found" });
+    return;
+  }
+  const isAuthor = req.user?.id != null && existing.staffUserId === req.user.id;
+  const isAdmin = req.user?.role === "admin";
+  if (!isAuthor && !isAdmin) {
+    res.status(403).json({ error: "Only the note author or an admin can delete this note" });
+    return;
+  }
+  await db
+    .delete(leadNotesTable)
+    .where(eq(leadNotesTable.id, params.data.noteId));
   res.sendStatus(204);
 });
 

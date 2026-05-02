@@ -1,7 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { db, staffUsersTable, leadsTable } from "@workspace/db";
-import { eq, isNull } from "drizzle-orm";
+import { db, staffUsersTable, leadsTable, leadNotesTable } from "@workspace/db";
+import { and, eq, isNull, isNotNull, ne, notExists, sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import cron from "node-cron";
@@ -63,8 +63,52 @@ async function backfillLeadScores(): Promise<void> {
   logger.info({ count: unscoredLeads.length }, "Backfilled lead scores for unscored leads");
 }
 
+/**
+ * Idempotent migration: for every lead with a legacy non-empty `notes` value that
+ * has no existing entry in `lead_notes`, create one initial note attributed to the
+ * admin user. Safe to run on every startup — skips leads that already have notes.
+ */
+async function backfillLeadNotes(): Promise<void> {
+  const [adminUser] = await db
+    .select({ id: staffUsersTable.id, username: staffUsersTable.username })
+    .from(staffUsersTable)
+    .where(eq(staffUsersTable.role, "admin"));
+
+  const leadsWithLegacyNotes = await db
+    .select({ id: leadsTable.id, notes: leadsTable.notes, createdAt: leadsTable.createdAt })
+    .from(leadsTable)
+    .where(
+      and(
+        isNotNull(leadsTable.notes),
+        ne(leadsTable.notes, ""),
+        notExists(
+          db
+            .select({ x: sql`1` })
+            .from(leadNotesTable)
+            .where(eq(leadNotesTable.leadId, leadsTable.id))
+        )
+      )
+    );
+
+  if (leadsWithLegacyNotes.length === 0) return;
+
+  await db.insert(leadNotesTable).values(
+    leadsWithLegacyNotes.map(l => ({
+      leadId: l.id,
+      staffUserId: adminUser?.id ?? null,
+      authorName: adminUser?.username ?? "admin",
+      body: l.notes!,
+      pinned: false,
+      createdAt: l.createdAt,
+    }))
+  );
+
+  logger.info({ count: leadsWithLegacyNotes.length }, "Backfilled legacy lead notes into lead_notes table");
+}
+
 seedAdminUser()
   .then(() => backfillLeadScores())
+  .then(() => backfillLeadNotes())
   .then(() => {
     app.listen(port, (err) => {
       if (err) {

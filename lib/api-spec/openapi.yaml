@@ -1501,6 +1501,99 @@ paths:
         "204":
           description: Deleted
 
+  # ─── Lead Notes ───────────────────────────────────────────────────────────────
+  /leads/{leadId}/notes:
+    get:
+      operationId: listLeadNotes
+      tags: [leads]
+      summary: List notes for a lead
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeadNote"
+    post:
+      operationId: createLeadNote
+      tags: [leads]
+      summary: Add a note to a lead
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLeadNoteBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadNote"
+
+  /leads/{leadId}/notes/{noteId}:
+    patch:
+      operationId: updateLeadNote
+      tags: [leads]
+      summary: Toggle pin on a lead note
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLeadNoteBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadNote"
+    delete:
+      operationId: deleteLeadNote
+      tags: [leads]
+      summary: Delete a lead note
+      parameters:
+        - name: leadId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ─── Lead Forms ───────────────────────────────────────────────────────────────
   /lead-forms:
     get:
@@ -3218,6 +3311,49 @@ components:
         - status
         - createdAt
         - updatedAt
+
+    LeadNote:
+      type: object
+      properties:
+        id:
+          type: integer
+        leadId:
+          type: integer
+        staffUserId:
+          type: ["integer", "null"]
+        authorName:
+          type: string
+        body:
+          type: string
+        pinned:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - leadId
+        - authorName
+        - body
+        - pinned
+        - createdAt
+
+    CreateLeadNoteBody:
+      type: object
+      properties:
+        body:
+          type: string
+          minLength: 1
+        authorName:
+          type: string
+      required:
+        - body
+
+    UpdateLeadNoteBody:
+      type: object
+      properties:
+        pinned:
+          type: boolean
 
     LeadScoringConfig:
       type: object

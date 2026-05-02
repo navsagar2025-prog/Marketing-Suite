@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Plus, Users, Trash2, Search, TrendingUp, ArrowUpDown, MessageSquare, Code2, Copy, Check, FileText, Eye, Pencil, Download, Settings2, RefreshCw } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Plus, Users, Trash2, Search, TrendingUp, ArrowUpDown, MessageSquare, Code2, Copy, Check, FileText, Eye, Pencil, Download, Settings2, RefreshCw, StickyNote, Pin, PinOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,13 +37,18 @@ import {
   useGetLeadScoringConfig,
   useUpdateLeadScoringConfig,
   useRecalculateLeadScores,
+  useListLeadNotes,
+  useCreateLeadNote,
+  useUpdateLeadNote,
+  useDeleteLeadNote,
   getListLeadsQueryKey,
   getGetLeadsFunnelQueryKey,
   getListConversationsQueryKey,
   getListLeadFormsQueryKey,
   getGetLeadScoringConfigQueryKey,
+  getListLeadNotesQueryKey,
 } from "@workspace/api-client-react";
-import type { Conversation, LeadForm, LeadFormField, Lead, LeadScoringConfig } from "@workspace/api-client-react";
+import type { Conversation, LeadForm, LeadFormField, Lead, LeadScoringConfig, LeadNote } from "@workspace/api-client-react";
 import ConversationDrawer from "@/components/ConversationDrawer";
 
 function highlightHtmlSnippet(code: string): string {
@@ -69,7 +74,6 @@ const createSchema = z.object({
   phone: z.string().optional().nullable(),
   source: z.enum(["organic", "paid", "social", "direct", "referral"]).default("organic"),
   status: z.enum(["new", "contacted", "qualified", "converted", "lost"]).default("new"),
-  notes: z.string().optional().nullable(),
   value: z.coerce.number().optional().nullable(),
   campaignId: z.coerce.number().optional().nullable(),
 });
@@ -168,7 +172,6 @@ function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
   const [phone, setPhone] = useState(lead.phone ?? "");
   const [status, setStatus] = useState(lead.status);
   const [source, setSource] = useState(lead.source);
-  const [notes, setNotes] = useState(lead.notes ?? "");
   const [value, setValue] = useState(lead.value != null ? String(lead.value) : "");
 
   const handleSave = () => {
@@ -182,7 +185,6 @@ function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
           phone: phone.trim() || null,
           status,
           source,
-          notes: notes.trim() || null,
           value: value !== "" ? parseFloat(value) : null,
         },
       },
@@ -237,13 +239,182 @@ function EditLeadDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) 
             <Label className="text-sm">Lead Value ($)</Label>
             <Input data-testid="input-edit-lead-value" className="mt-1" type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="e.g. 500" />
           </div>
-          <div>
-            <Label className="text-sm">Notes</Label>
-            <Textarea data-testid="input-edit-lead-notes" className="mt-1" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes..." />
-          </div>
           <Button data-testid="button-save-lead-edit" className="w-full" onClick={handleSave} disabled={updateMutation.isPending}>
             {updateMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LeadNotesDialog({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: notes, isLoading } = useListLeadNotes(lead.id);
+  const createMutation = useCreateLeadNote();
+  const updateMutation = useUpdateLeadNote();
+  const deleteMutation = useDeleteLeadNote();
+  const [body, setBody] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const sortedNotes = (notes ?? []).slice().sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListLeadNotesQueryKey(lead.id) });
+
+  const handleAdd = () => {
+    if (!body.trim()) return;
+    const optimisticNote: LeadNote = {
+      id: -Date.now(),
+      leadId: lead.id,
+      staffUserId: null,
+      authorName: "Admin",
+      body: body.trim(),
+      pinned: false,
+      createdAt: new Date(),
+    };
+    queryClient.setQueryData<LeadNote[]>(
+      getListLeadNotesQueryKey(lead.id),
+      (old) => [optimisticNote, ...(old ?? [])]
+    );
+    setBody("");
+    createMutation.mutate(
+      { leadId: lead.id, data: { body: optimisticNote.body } },
+      {
+        onSuccess: () => invalidate(),
+        onError: () => {
+          queryClient.setQueryData<LeadNote[]>(
+            getListLeadNotesQueryKey(lead.id),
+            (old) => (old ?? []).filter(n => n.id !== optimisticNote.id)
+          );
+          setBody(optimisticNote.body);
+          toast({ title: "Failed to add note", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handlePin = (note: LeadNote) => {
+    updateMutation.mutate(
+      { leadId: lead.id, noteId: note.id, data: { pinned: !note.pinned } },
+      {
+        onSuccess: () => invalidate(),
+        onError: () => toast({ title: "Failed to update note", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = (noteId: number) => {
+    deleteMutation.mutate(
+      { leadId: lead.id, noteId },
+      {
+        onSuccess: () => invalidate(),
+        onError: () => toast({ title: "Failed to delete note", variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleAdd();
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <StickyNote className="h-4 w-4" />
+            Notes — {lead.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Textarea
+              ref={textareaRef}
+              data-testid="input-lead-note-body"
+              placeholder="Add a note... (Ctrl+Enter to submit)"
+              rows={3}
+              value={body}
+              onChange={e => setBody(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <Button
+              data-testid="button-add-lead-note"
+              size="sm"
+              onClick={handleAdd}
+              disabled={createMutation.isPending || !body.trim()}
+              className="gap-1.5"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {createMutation.isPending ? "Adding..." : "Add Note"}
+            </Button>
+          </div>
+
+          <div className="border-t pt-3 space-y-2 max-h-80 overflow-y-auto">
+            {isLoading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+              </div>
+            ) : sortedNotes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <StickyNote className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No notes yet</p>
+              </div>
+            ) : (
+              sortedNotes.map(note => (
+                <div
+                  key={note.id}
+                  data-testid={`note-card-${note.id}`}
+                  className={`rounded-lg border p-3 text-sm space-y-1.5 ${note.pinned ? "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800/40" : "bg-muted/30"}`}
+                >
+                  <p className="whitespace-pre-wrap leading-relaxed">{note.body}</p>
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {note.pinned && <Pin className="h-3 w-3 text-amber-500 fill-amber-500" />}
+                      <span className="font-medium">{note.authorName}</span>
+                      <span>·</span>
+                      <span>{new Date(note.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        title={note.pinned ? "Unpin note" : "Pin note"}
+                        data-testid={`button-pin-note-${note.id}`}
+                        onClick={() => handlePin(note)}
+                        disabled={updateMutation.isPending}
+                      >
+                        {note.pinned
+                          ? <PinOff className="h-3.5 w-3.5 text-amber-500" />
+                          : <Pin className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                        }
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        title="Delete note"
+                        data-testid={`button-delete-note-${note.id}`}
+                        onClick={() => handleDelete(note.id)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -389,6 +560,7 @@ export default function Leads() {
   const [sortKey, setSortKey] = useState<SortKey>("createdAt");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [qualifyingLead, setQualifyingLead] = useState<{ id: number; name: string } | null>(null);
+  const [notesLead, setNotesLead] = useState<Lead | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: websites } = useListWebsites();
@@ -405,7 +577,7 @@ export default function Leads() {
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
-    defaultValues: { name: "", source: "organic", status: "new", notes: "" },
+    defaultValues: { name: "", source: "organic", status: "new" },
   });
 
   const onSubmit = (data: CreateForm) => {
@@ -684,13 +856,6 @@ export default function Leads() {
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="notes" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl><Textarea {...field} data-testid="input-lead-notes" placeholder="Optional notes..." value={field.value ?? ""} rows={2} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
                 <Button type="submit" data-testid="button-submit-lead" className="w-full" disabled={createMutation.isPending}>
                   {createMutation.isPending ? "Adding..." : "Add Lead"}
                 </Button>
@@ -852,6 +1017,16 @@ export default function Leads() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                            data-testid={`button-notes-lead-${l.id}`}
+                            title="View notes"
+                            onClick={() => setNotesLead(l)}
+                          >
+                            <StickyNote className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover:opacity-100"
                             data-testid={`button-qualify-lead-${l.id}`}
                             title="Qualify with AI"
                             onClick={() => setQualifyingLead({ id: l.id, name: l.name })}
@@ -886,6 +1061,9 @@ export default function Leads() {
       )}
       {editingLead && (
         <EditLeadDialog lead={editingLead} onClose={() => setEditingLead(null)} />
+      )}
+      {notesLead && (
+        <LeadNotesDialog lead={notesLead} onClose={() => setNotesLead(null)} />
       )}
       </>}
     </div>

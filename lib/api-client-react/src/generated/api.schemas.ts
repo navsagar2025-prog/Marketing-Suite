@@ -437,6 +437,27 @@ export interface Lead {
   updatedAt: string;
 }
 
+export interface LeadNote {
+  id: number;
+  leadId: number;
+  /** @nullable */
+  staffUserId?: number | null;
+  authorName: string;
+  body: string;
+  pinned: boolean;
+  createdAt: string;
+}
+
+export interface CreateLeadNoteBody {
+  /** @minLength 1 */
+  body: string;
+  authorName?: string;
+}
+
+export interface UpdateLeadNoteBody {
+  pinned?: boolean;
+}
+
 export type LeadScoringConfigSource = {
   paid: number;
   referral: number;
@@ -1845,9 +1866,17 @@ export type SetGa4Property200 = {
 
 export type GetGa4ReportParams = {
   /**
-   * Date range (default 30d)
+   * Convenience date range shorthand (default 30d). Ignored when startDate is provided.
    */
   dateRange?: GetGa4ReportDateRange;
+  /**
+   * Explicit start date in YYYY-MM-DD format. Takes precedence over dateRange.
+   */
+  startDate?: string;
+  /**
+   * Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.
+   */
+  endDate?: string;
 };
 
 export type GetGa4ReportDateRange =

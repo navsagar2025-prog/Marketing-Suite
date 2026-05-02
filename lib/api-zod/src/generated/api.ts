@@ -719,7 +719,21 @@ export const GetGa4ReportQueryParams = zod.object({
   dateRange: zod
     .enum(["7d", "30d", "90d"])
     .optional()
-    .describe("Date range (default 30d)"),
+    .describe(
+      "Convenience date range shorthand (default 30d). Ignored when startDate is provided.",
+    ),
+  startDate: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Explicit start date in YYYY-MM-DD format. Takes precedence over dateRange.",
+    ),
+  endDate: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.",
+    ),
 });
 
 export const GetGa4ReportResponse = zod.object({
@@ -1685,6 +1699,66 @@ export const UpdateLeadResponse = zod.object({
  */
 export const DeleteLeadParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary List notes for a lead
+ */
+export const ListLeadNotesParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const ListLeadNotesResponseItem = zod.object({
+  id: zod.number(),
+  leadId: zod.number(),
+  staffUserId: zod.number().nullish(),
+  authorName: zod.string(),
+  body: zod.string(),
+  pinned: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListLeadNotesResponse = zod.array(ListLeadNotesResponseItem);
+
+/**
+ * @summary Add a note to a lead
+ */
+export const CreateLeadNoteParams = zod.object({
+  leadId: zod.coerce.number(),
+});
+
+export const CreateLeadNoteBody = zod.object({
+  body: zod.string().min(1),
+  authorName: zod.string().optional(),
+});
+
+/**
+ * @summary Toggle pin on a lead note
+ */
+export const UpdateLeadNoteParams = zod.object({
+  leadId: zod.coerce.number(),
+  noteId: zod.coerce.number(),
+});
+
+export const UpdateLeadNoteBody = zod.object({
+  pinned: zod.boolean().optional(),
+});
+
+export const UpdateLeadNoteResponse = zod.object({
+  id: zod.number(),
+  leadId: zod.number(),
+  staffUserId: zod.number().nullish(),
+  authorName: zod.string(),
+  body: zod.string(),
+  pinned: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Delete a lead note
+ */
+export const DeleteLeadNoteParams = zod.object({
+  leadId: zod.coerce.number(),
+  noteId: zod.coerce.number(),
 });
 
 /**

@@ -9,7 +9,15 @@ import type { GetGa4ReportDateRange } from "./getGa4ReportDateRange";
 
 export type GetGa4ReportParams = {
   /**
-   * Date range (default 30d)
+   * Convenience date range shorthand (default 30d). Ignored when startDate is provided.
    */
   dateRange?: GetGa4ReportDateRange;
+  /**
+   * Explicit start date in YYYY-MM-DD format. Takes precedence over dateRange.
+   */
+  startDate?: string;
+  /**
+   * Explicit end date in YYYY-MM-DD format (default today). Only used when startDate is also provided.
+   */
+  endDate?: string;
 };

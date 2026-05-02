@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { db, leadsTable } from "@workspace/db";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, type LeadScoringWeights } from "../lib/lead-scoring.js";
 import { getDbSetting } from "../lib/ai-provider.js";
@@ -48,6 +48,72 @@ router.get("/leads", async (req, res): Promise<void> => {
     leads = await db.select().from(leadsTable).orderBy(leadsTable.createdAt);
   }
   res.json(ListLeadsResponse.parse(leads.map(mapLead)));
+});
+
+router.get("/leads/export.csv", async (req, res): Promise<void> => {
+  const { status, from, to } = req.query as { status?: string; from?: string; to?: string };
+
+  const conditions = [];
+
+  if (status) {
+    const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+    if (statuses.length === 1) {
+      conditions.push(eq(leadsTable.status, statuses[0]));
+    } else if (statuses.length > 1) {
+      conditions.push(inArray(leadsTable.status, statuses));
+    }
+  }
+
+  if (from) {
+    const fromDate = new Date(from);
+    if (!isNaN(fromDate.getTime())) {
+      fromDate.setHours(0, 0, 0, 0);
+      conditions.push(gte(leadsTable.createdAt, fromDate));
+    }
+  }
+
+  if (to) {
+    const toDate = new Date(to);
+    if (!isNaN(toDate.getTime())) {
+      toDate.setHours(23, 59, 59, 999);
+      conditions.push(lte(leadsTable.createdAt, toDate));
+    }
+  }
+
+  const leads = conditions.length > 0
+    ? await db.select().from(leadsTable).where(and(...conditions)).orderBy(leadsTable.createdAt)
+    : await db.select().from(leadsTable).orderBy(leadsTable.createdAt);
+
+  function escapeCsv(val: string | null | undefined): string {
+    if (val == null) return "";
+    const str = String(val);
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  const headers = ["ID", "Name", "Email", "Phone", "Source", "Status", "Score", "Value", "Notes", "Created Date", "Last Updated"];
+  const rows = leads.map(l => [
+    l.id,
+    escapeCsv(l.name),
+    escapeCsv(l.email),
+    escapeCsv(l.phone),
+    l.source,
+    l.status,
+    l.score ?? "",
+    l.value != null ? parseFloat(String(l.value)).toFixed(2) : "",
+    escapeCsv(l.notes),
+    new Date(l.createdAt).toISOString().split("T")[0],
+    new Date(l.updatedAt).toISOString().split("T")[0],
+  ]);
+
+  const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+  const filename = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(csv);
 });
 
 router.post("/leads", async (req, res): Promise<void> => {

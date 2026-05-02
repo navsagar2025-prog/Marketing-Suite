@@ -373,29 +373,7 @@ function ScoringTab() {
   );
 }
 
-function exportLeadsCSV(leads: Lead[]) {
-  const headers = ["ID", "Name", "Email", "Phone", "Source", "Status", "Value", "Score", "Notes", "Created"];
-  const rows = leads.map(l => [
-    l.id,
-    `"${(l.name ?? "").replace(/"/g, '""')}"`,
-    `"${(l.email ?? "").replace(/"/g, '""')}"`,
-    `"${(l.phone ?? "").replace(/"/g, '""')}"`,
-    l.source,
-    l.status,
-    l.value != null ? l.value : "",
-    l.score != null ? l.score : "",
-    `"${(l.notes ?? "").replace(/"/g, '""')}"`,
-    new Date(l.createdAt).toISOString().split("T")[0],
-  ]);
-  const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `leads-${new Date().toISOString().split("T")[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+const EXPORT_STATUSES = ["new", "contacted", "qualified", "converted", "lost"] as const;
 
 export default function Leads() {
   const [open, setOpen] = useState(false);
@@ -482,6 +460,44 @@ export default function Leads() {
   const [activeTab, setActiveTab] = useState<"leads" | "forms" | "scoring">("leads");
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
+  // Export state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
+  const [exportStatuses, setExportStatuses] = useState<string[]>([]);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const toggleExportStatus = (s: string) => {
+    setExportStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+  };
+
+  const handleExportCSV = async () => {
+    setExportLoading(true);
+    try {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const params = new URLSearchParams();
+      if (exportStatuses.length > 0) params.set("status", exportStatuses.join(","));
+      if (exportFrom) params.set("from", exportFrom);
+      if (exportTo) params.set("to", exportTo);
+      const url = `${base}/api/leads/export.csv${params.toString() ? `?${params}` : ""}`;
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) { toast({ title: "Export failed", variant: "destructive" }); return; }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+      setExportOpen(false);
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -513,16 +529,84 @@ export default function Leads() {
               <span className="flex items-center gap-1.5"><Settings2 className="h-3.5 w-3.5" />Scoring</span>
             </button>
           </div>
-          {activeTab === "leads" && (leads ?? []).length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              data-testid="button-export-leads"
-              className="gap-1.5"
-              onClick={() => exportLeadsCSV(leads ?? [])}
-            >
-              <Download className="h-3.5 w-3.5" /> Export CSV
-            </Button>
+          {activeTab === "leads" && (
+            <Popover open={exportOpen} onOpenChange={setExportOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-export-leads"
+                  className="gap-1.5"
+                >
+                  <Download className="h-3.5 w-3.5" /> Export CSV
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 space-y-4" align="end">
+                <div>
+                  <p className="text-sm font-semibold mb-0.5">Export Leads to CSV</p>
+                  <p className="text-xs text-muted-foreground">Filter by date range and status. Leave filters empty to export all leads.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Date Range (Created)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">From</Label>
+                      <Input
+                        data-testid="input-export-from"
+                        type="date"
+                        className="h-8 text-xs"
+                        value={exportFrom}
+                        onChange={e => setExportFrom(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">To</Label>
+                      <Input
+                        data-testid="input-export-to"
+                        type="date"
+                        className="h-8 text-xs"
+                        value={exportTo}
+                        onChange={e => setExportTo(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">Status</Label>
+                  <div className="space-y-1.5">
+                    {EXPORT_STATUSES.map(s => (
+                      <label key={s} className="flex items-center gap-2 cursor-pointer" data-testid={`checkbox-export-status-${s}`}>
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={exportStatuses.includes(s)}
+                          onChange={() => toggleExportStatus(s)}
+                        />
+                        <span className="text-sm capitalize">{s}</span>
+                      </label>
+                    ))}
+                    {exportStatuses.length > 0 && (
+                      <button
+                        className="text-xs text-muted-foreground hover:text-foreground underline mt-1"
+                        onClick={() => setExportStatuses([])}
+                      >
+                        Clear selection (export all statuses)
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  data-testid="button-confirm-export-csv"
+                  className="w-full gap-1.5"
+                  size="sm"
+                  onClick={handleExportCSV}
+                  disabled={exportLoading}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {exportLoading ? "Exporting..." : "Download CSV"}
+                </Button>
+              </PopoverContent>
+            </Popover>
           )}
           {activeTab === "leads" && (
             <Dialog open={open} onOpenChange={setOpen}>

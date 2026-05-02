@@ -285,4 +285,59 @@ router.patch("/settings/notifications", requireAdmin, async (req, res): Promise<
   });
 });
 
+router.get("/settings/byok", async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const { db } = await import("@workspace/db");
+  const { staffUsersTable } = await import("@workspace/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const [user] = await db
+    .select({ byokProvider: staffUsersTable.byokProvider, byokEnabled: staffUsersTable.byokEnabled, byokApiKey: staffUsersTable.byokApiKey })
+    .from(staffUsersTable)
+    .where(eq(staffUsersTable.id, userId));
+  res.json({
+    byokEnabled: user?.byokEnabled ?? false,
+    byokProvider: user?.byokProvider ?? null,
+    hasKey: !!(user?.byokApiKey),
+  });
+});
+
+router.put("/settings/byok", async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const { provider, apiKey } = req.body as { provider?: string; apiKey?: string };
+  const { db } = await import("@workspace/db");
+  const { staffUsersTable } = await import("@workspace/db/schema");
+  const { eq } = await import("drizzle-orm");
+  const { PROVIDER_MODELS } = await import("../lib/ai-provider.js");
+
+  if (!provider || !Object.keys(PROVIDER_MODELS).includes(provider)) {
+    res.status(400).json({ error: "Invalid provider. Supported: openai, anthropic, gemini, perplexity" });
+    return;
+  }
+  if (!apiKey || apiKey.trim().length < 10) {
+    res.status(400).json({ error: "A valid API key is required" });
+    return;
+  }
+
+  await db
+    .update(staffUsersTable)
+    .set({ byokProvider: provider, byokApiKey: apiKey.trim(), byokEnabled: true })
+    .where(eq(staffUsersTable.id, userId));
+
+  res.json({ success: true, byokEnabled: true, byokProvider: provider, hasKey: true });
+});
+
+router.delete("/settings/byok", async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const { db } = await import("@workspace/db");
+  const { staffUsersTable } = await import("@workspace/db/schema");
+  const { eq } = await import("drizzle-orm");
+
+  await db
+    .update(staffUsersTable)
+    .set({ byokProvider: null, byokApiKey: null, byokEnabled: false })
+    .where(eq(staffUsersTable.id, userId));
+
+  res.json({ success: true, byokEnabled: false, byokProvider: null, hasKey: false });
+});
+
 export default router;

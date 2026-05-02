@@ -35,6 +35,7 @@ import googleCallbackRouter from "./integrations-google-callback";
 import emailTemplatesRouter from "./email-templates";
 import localSeoRouter from "./local-seo";
 import contentBriefRouter from "./content-brief";
+import publicBillingRouter from "./public-billing";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -46,6 +47,7 @@ router.use(authRouter);
 router.use(publicAuditRouter);
 router.use(publicContactRouter);
 router.use(publicFormsRouter);
+router.use(publicBillingRouter);
 router.use(emailWebhooksRouter);
 router.use(paymentWebhooksRouter);
 router.use(googleCallbackRouter);

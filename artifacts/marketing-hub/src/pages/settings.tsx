@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag } from "lucide-react";
+import { ByokCard } from "@/components/ByokCard";
+import { CouponManagementCard } from "@/components/CouponManagementCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -835,6 +837,9 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Bring Your Own AI Key */}
+      <ByokCard />
 
       {/* AI Provider Configuration */}
       <Card>
@@ -1908,6 +1913,11 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Coupon Management (admin only) */}
+      {isAdmin && (
+        <CouponManagementCard />
       )}
 
       {/* Webhook Events Log (admin only) */}

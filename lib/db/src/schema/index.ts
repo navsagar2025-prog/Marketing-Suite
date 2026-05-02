@@ -34,3 +34,4 @@ export * from "./ga4-cache";
 export * from "./email-templates";
 export * from "./password-reset-tokens";
 export * from "./login-attempts";
+export * from "./coupons";

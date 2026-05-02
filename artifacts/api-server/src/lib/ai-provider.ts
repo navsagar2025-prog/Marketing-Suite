@@ -1,7 +1,7 @@
 import { openai as replitOpenai } from "@workspace/integrations-openai-ai-server";
 import OpenAI from "openai";
 import { db } from "@workspace/db";
-import { appSettingsTable } from "@workspace/db/schema";
+import { appSettingsTable, staffUsersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 
 export type AiProvider = "replit" | "openai" | "anthropic" | "perplexity" | "gemini";
@@ -27,6 +27,11 @@ export interface AiConfig {
   model: string;
   enabled: boolean;
   apiKeyConfigured: boolean;
+}
+
+export interface ByokConfig {
+  provider: AiProvider;
+  apiKey: string;
 }
 
 export const PROVIDER_MODELS: Record<AiProvider, { models: string[]; defaultModel: string; label: string }> = {
@@ -88,30 +93,72 @@ export async function getAiConfig(): Promise<AiConfig> {
   return { provider, model, enabled, apiKeyConfigured };
 }
 
+export async function getUserByokConfig(userId: number): Promise<ByokConfig | null> {
+  try {
+    const [user] = await db
+      .select({ byokProvider: staffUsersTable.byokProvider, byokApiKey: staffUsersTable.byokApiKey, byokEnabled: staffUsersTable.byokEnabled })
+      .from(staffUsersTable)
+      .where(eq(staffUsersTable.id, userId));
+    if (user?.byokEnabled && user.byokProvider && user.byokApiKey) {
+      return { provider: user.byokProvider as AiProvider, apiKey: user.byokApiKey };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export interface CallAIOptions {
   systemPrompt?: string;
   maxTokens?: number;
   jsonMode?: boolean;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  byok?: ByokConfig;
 }
 
 export async function callAI(userPrompt: string, options: CallAIOptions = {}): Promise<string> {
-  const config = await getAiConfig();
-  const { systemPrompt, maxTokens = 2048, jsonMode = false, history = [] } = options;
-
-  if (!config.enabled) {
-    throw new Error("AI features are disabled. Enable them in Settings.");
-  }
+  const { systemPrompt, maxTokens = 2048, jsonMode = false, history = [], byok } = options;
 
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [];
   if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
   for (const h of history) messages.push({ role: h.role, content: h.content });
   messages.push({ role: "user", content: userPrompt });
 
-  switch (config.provider) {
+  if (byok) {
+    return callAIWithKey(byok.provider, byok.apiKey, messages, { maxTokens, jsonMode, systemPrompt });
+  }
+
+  const config = await getAiConfig();
+  if (!config.enabled) {
+    throw new Error("AI features are disabled. Enable them in Settings.");
+  }
+
+  return callAIWithKey(config.provider, process.env.AI_API_KEY ?? null, messages, { maxTokens, jsonMode, systemPrompt, model: config.model });
+}
+
+export async function callAIForUser(userId: number, userPrompt: string, options: Omit<CallAIOptions, "byok"> = {}): Promise<{ result: string; usedByok: boolean }> {
+  const byok = await getUserByokConfig(userId);
+  if (byok) {
+    const result = await callAI(userPrompt, { ...options, byok });
+    return { result, usedByok: true };
+  }
+  const result = await callAI(userPrompt, options);
+  return { result, usedByok: false };
+}
+
+async function callAIWithKey(
+  provider: AiProvider,
+  apiKey: string | null,
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+  opts: { maxTokens: number; jsonMode: boolean; systemPrompt?: string; model?: string }
+): Promise<string> {
+  const { maxTokens, jsonMode, systemPrompt, model: modelOverride } = opts;
+  const defaultModel = modelOverride ?? PROVIDER_MODELS[provider]?.defaultModel ?? "gpt-4.1";
+
+  switch (provider) {
     case "replit": {
       const response = await replitOpenai.chat.completions.create({
-        model: config.model,
+        model: defaultModel,
         max_completion_tokens: maxTokens,
         messages,
         ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
@@ -120,11 +167,10 @@ export async function callAI(userPrompt: string, options: CallAIOptions = {}): P
     }
 
     case "openai": {
-      const apiKey = process.env.AI_API_KEY;
       if (!apiKey) throw new Error("OpenAI API key not configured. Add it in Settings.");
       const client = new OpenAI({ apiKey });
       const response = await client.chat.completions.create({
-        model: config.model,
+        model: defaultModel,
         max_completion_tokens: maxTokens,
         messages,
         ...(jsonMode ? { response_format: { type: "json_object" as const } } : {}),
@@ -133,11 +179,10 @@ export async function callAI(userPrompt: string, options: CallAIOptions = {}): P
     }
 
     case "perplexity": {
-      const apiKey = process.env.AI_API_KEY;
       if (!apiKey) throw new Error("Perplexity API key not configured. Add it in Settings.");
       const client = new OpenAI({ apiKey, baseURL: "https://api.perplexity.ai" });
       const response = await client.chat.completions.create({
-        model: config.model,
+        model: defaultModel,
         max_tokens: maxTokens,
         messages,
       });
@@ -145,10 +190,9 @@ export async function callAI(userPrompt: string, options: CallAIOptions = {}): P
     }
 
     case "anthropic": {
-      const apiKey = process.env.AI_API_KEY;
       if (!apiKey) throw new Error("Anthropic API key not configured. Add it in Settings.");
       const body: Record<string, unknown> = {
-        model: config.model,
+        model: defaultModel,
         max_tokens: maxTokens,
         messages: messages.filter(m => m.role !== "system").map(m => ({ role: m.role, content: m.content })),
       };
@@ -171,11 +215,10 @@ export async function callAI(userPrompt: string, options: CallAIOptions = {}): P
     }
 
     case "gemini": {
-      const apiKey = process.env.AI_API_KEY;
       if (!apiKey) throw new Error("Google Gemini API key not configured. Add it in Settings.");
       const allText = messages.map(m => m.content).join("\n\n");
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${defaultModel}:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -196,6 +239,6 @@ export async function callAI(userPrompt: string, options: CallAIOptions = {}): P
     }
 
     default:
-      throw new Error(`Unknown AI provider: ${config.provider}`);
+      throw new Error(`Unknown AI provider: ${provider}`);
   }
 }

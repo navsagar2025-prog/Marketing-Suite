@@ -26,11 +26,16 @@ The frontend, `marketing-hub`, is built with React, Vite, Tailwind CSS, and shad
 - **Validation:** Zod (`zod/v4`) is used for robust data validation, including `drizzle-zod` for ORM integration.
 - **API Codegen:** Orval generates API hooks and Zod schemas from an OpenAPI specification, ensuring strong typing between frontend and backend.
 - **Build System:** esbuild is used for efficient CJS bundling of backend artifacts.
-- **AI Integration:** A central `callAI()` service supports multiple AI providers (Replit Default, OpenAI, Anthropic, Perplexity, Google Gemini), configurable via the UI.
+- **AI Integration:** A central `callAI()` service supports multiple AI providers (Replit Default, OpenAI, Anthropic, Perplexity, Google Gemini), configurable via the UI. Supports per-user BYOK (Bring Your Own Key) — users can store their own API key to bypass platform AI limits (Growth/Agency plans). BYOK is stored in `staffUsersTable.byokApiKey/byokProvider/byokEnabled` and checked before falling back to admin config.
 - **Authentication & Authorization:** Staff user roles with granular, module-level permissions are implemented, safeguarding access to specific features.
 - **Website Auditing:** A background BFS crawler (up to 100 pages, concurrency 3, 10s timeout) performs full-site audits, respecting `robots.txt` and identifying various SEO issues (e.g., missing titles, slow pages, broken links). It calculates a health score based on weighted issue deductions.
 - **Lead Scoring:** An automated lead scoring engine assigns scores (0-100) to leads based on configurable criteria (source, status, value, recency), with weights stored in `app_settings`.
 - **Google Search Console Integration:** Secure OAuth flow using AES-256-GCM encrypted tokens for connecting to Google Search Console, fetching GSC data (cached with 1-hour TTL), and managing properties.
+
+**Billing & Pricing:**
+- **Plans (updated):** Starter ₹5,999/mo (5 keywords, 1 website), Growth ₹8,999/mo (10 keywords, 1 website), Agency ₹15,999/mo (20 keywords, 1 website). Annual 25% off.
+- **Coupon system:** `couponsTable` in DB stores promo codes (percent/fixed discount, plan-specific, max uses, expiry). Public endpoint `POST /api/billing/validate-coupon` validates codes without auth. Admin CRUD via `GET/POST/PATCH/DELETE /api/billing/coupons`. Pricing page has live coupon input with strikethrough pricing. Coupon management card in admin settings.
+- **BYOK:** Users on Growth/Agency can connect their own AI key at `/settings` → "Bring Your Own AI Key" card. `PUT /api/settings/byok`, `DELETE /api/settings/byok`.
 
 **Core Features:**
 - **Website Management:** CRUD operations for websites.

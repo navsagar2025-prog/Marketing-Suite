@@ -6,6 +6,7 @@ import { db, staffUsersTable, passwordResetTokensTable, loginAttemptsTable } fro
 import { signToken, requireAuth } from "../lib/auth.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
 import { logger } from "../lib/logger.js";
+import { loginRateLimit } from "../middleware/login-rate-limit.js";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
@@ -15,7 +16,7 @@ type Plan = (typeof VALID_PLANS)[number];
 
 const router: IRouter = Router();
 
-router.post("/auth/login", async (req, res): Promise<void> => {
+router.post("/auth/login", loginRateLimit, async (req, res): Promise<void> => {
   const { username, password, plan } = req.body as { username?: string; password?: string; plan?: string };
   if (!username || !password) {
     res.status(400).json({ error: "Username and password are required" });
@@ -24,17 +25,6 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
   const now = new Date();
-
-  const [attempt] = await db.select().from(loginAttemptsTable).where(eq(loginAttemptsTable.ip, ip));
-  if (attempt?.lockedUntil && attempt.lockedUntil > now) {
-    const retryAfterSeconds = Math.ceil((attempt.lockedUntil.getTime() - now.getTime()) / 1000);
-    res.status(429).json({
-      error: `Too many login attempts. Try again in ${Math.ceil(retryAfterSeconds / 60)} minute(s).`,
-      retryAfterSeconds,
-      lockedUntil: attempt.lockedUntil.toISOString(),
-    });
-    return;
-  }
 
   const [user] = await db.select().from(staffUsersTable).where(eq(staffUsersTable.username, username.trim().toLowerCase()));
   const valid = user ? await bcrypt.compare(password, user.passwordHash) : false;
@@ -53,6 +43,12 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       const lockedUntil = new Date(now.getTime() + LOCKOUT_MS);
       await db.update(loginAttemptsTable).set({ lockedUntil }).where(eq(loginAttemptsTable.ip, ip));
       logger.warn({ ip, attempts: updated.attempts }, "Login brute-force lockout triggered");
+      res.status(429).json({
+        error: `Too many login attempts. Try again in ${LOCKOUT_MS / 60000} minute(s).`,
+        retryAfterSeconds: LOCKOUT_MS / 1000,
+        lockedUntil: lockedUntil.toISOString(),
+      });
+      return;
     }
 
     res.status(401).json({ error: "Invalid credentials" });

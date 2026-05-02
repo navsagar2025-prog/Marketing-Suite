@@ -461,9 +461,13 @@ export default function ReportDetailPage({ id }: { id: string }) {
     <div className="p-6 max-w-4xl mx-auto">
       {/* Toolbar — hidden on print */}
       <div className="flex items-center gap-2 mb-6 print:hidden">
-        <Button variant="ghost" size="sm" onClick={() => setLocation("/reports")}>
-          <ArrowLeft className="h-4 w-4 mr-1.5" /> Reports
-        </Button>
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mr-2">
+          <button onClick={() => setLocation("/reports")} className="hover:text-foreground transition-colors flex items-center gap-1">
+            <ArrowLeft className="h-3 w-3" /> Reports
+          </button>
+          <FileBarChart className="h-3 w-3 shrink-0" />
+          <span className="text-foreground font-medium truncate max-w-[200px]">{report.title}</span>
+        </nav>
         <div className="flex-1" />
         <Button
           size="sm"

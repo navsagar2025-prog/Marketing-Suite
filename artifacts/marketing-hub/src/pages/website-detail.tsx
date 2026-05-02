@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, Crosshair, Activity, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, Crosshair, Activity, ExternalLink, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1188,9 +1188,13 @@ export default function WebsiteDetail() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <Link href="/websites" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3" data-testid="link-back-websites">
-          <ArrowLeft className="h-4 w-4" /> Back to Websites
-        </Link>
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+          <Link href="/websites" className="hover:text-foreground transition-colors" data-testid="link-back-websites">
+            Websites
+          </Link>
+          <ChevronRight className="h-3 w-3 shrink-0" />
+          <span className="text-foreground font-medium truncate max-w-[200px]">{website.name}</span>
+        </nav>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold font-display" data-testid="text-website-name">{website.name}</h1>

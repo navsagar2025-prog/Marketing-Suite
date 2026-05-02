@@ -1603,8 +1603,8 @@ export default function Keywords() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/30">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b bg-muted/80 backdrop-blur">
                       <th className="text-left px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Keyword</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Rank</th>
                       <th className="text-right px-4 py-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">Volume</th>

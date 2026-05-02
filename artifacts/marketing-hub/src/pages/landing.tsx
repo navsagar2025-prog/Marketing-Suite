@@ -258,6 +258,50 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="py-14 sm:py-20 border-b bg-muted/20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold font-display mb-2">Trusted by marketers across India</h2>
+            <p className="text-muted-foreground text-sm">Real teams. Real results.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {[
+              {
+                body: "Replaced SEMrush and 3 other tools. Everything I need is in one place — and it actually costs less.",
+                name: "Priya Mehta",
+                title: "Founder, GrowthCraft",
+                initials: "PM",
+              },
+              {
+                body: "The AI content brief alone saves us 4–5 hours a week. The keyword tracker keeps our clients happy and informed.",
+                name: "Arjun Sinha",
+                title: "SEO Lead, DigitalEdge",
+                initials: "AS",
+              },
+              {
+                body: "White-label reports are a game changer. Our clients think we built a custom analytics tool just for them.",
+                name: "Sneha Kapoor",
+                title: "Agency Owner, Rank Factory",
+                initials: "SK",
+              },
+            ].map((t) => (
+              <div key={t.name} className="rounded-xl border bg-card p-6 flex flex-col gap-4">
+                <p className="text-sm leading-relaxed text-foreground/80 flex-1">"{t.body}"</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                    {t.initials}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold leading-tight">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.title}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="py-16 sm:py-20 bg-sidebar text-sidebar-foreground">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold font-display mb-4">

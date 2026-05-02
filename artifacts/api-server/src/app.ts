@@ -2,7 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { and, eq, sql } from "drizzle-orm";
-import { db, utmLinksTable, abVariantsTable, clientReportsTable, websitesTable } from "@workspace/db";
+import { db, utmLinksTable, abVariantsTable, clientReportsTable, websitesTable, blogPostsTable } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -147,6 +147,81 @@ app.get("/public/report/:token", async (req, res): Promise<void> => {
     return;
   }
   res.json(report);
+});
+
+// ── SEO: robots.txt ─────────────────────────────────────────────────────────
+app.get("/robots.txt", (req, res): void => {
+  const siteUrl = (process.env.APP_URL ?? `https://${req.get("host")}`).replace(/\/$/, "");
+  const body = [
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /api/",
+    "Disallow: /dashboard",
+    "Disallow: /websites",
+    "Disallow: /keywords",
+    "Disallow: /competitors",
+    "Disallow: /social",
+    "Disallow: /calendar",
+    "Disallow: /campaigns",
+    "Disallow: /backlinks",
+    "Disallow: /leads",
+    "Disallow: /conversations",
+    "Disallow: /analytics",
+    "Disallow: /ai",
+    "Disallow: /media",
+    "Disallow: /utm-builder",
+    "Disallow: /ab-tests",
+    "Disallow: /outreach",
+    "Disallow: /reports",
+    "Disallow: /settings",
+    "Disallow: /admin",
+    "",
+    `Sitemap: ${siteUrl}/sitemap.xml`,
+  ].join("\n");
+  res.setHeader("Content-Type", "text/plain; charset=utf-8");
+  res.send(body);
+});
+
+// ── SEO: sitemap.xml ─────────────────────────────────────────────────────────
+app.get("/sitemap.xml", async (req, res): Promise<void> => {
+  const siteUrl = (process.env.APP_URL ?? `https://${req.get("host")}`).replace(/\/$/, "");
+  const today = new Date().toISOString().split("T")[0]!;
+
+  const staticEntries = [
+    { loc: "/", changefreq: "daily", priority: "1.0", lastmod: today },
+    { loc: "/pricing", changefreq: "weekly", priority: "0.8", lastmod: today },
+    { loc: "/blog", changefreq: "daily", priority: "0.8", lastmod: today },
+  ];
+
+  let blogEntries: { loc: string; changefreq: string; priority: string; lastmod: string }[] = [];
+  try {
+    const posts = await db
+      .select({ slug: blogPostsTable.slug, updatedAt: blogPostsTable.updatedAt })
+      .from(blogPostsTable)
+      .where(eq(blogPostsTable.status, "published"));
+    blogEntries = posts.map((p) => ({
+      loc: `/blog/${p.slug}`,
+      lastmod: p.updatedAt.toISOString().split("T")[0]!,
+      changefreq: "weekly",
+      priority: "0.7",
+    }));
+  } catch {
+    // DB unavailable — serve static routes only
+  }
+
+  const allEntries = [...staticEntries, ...blogEntries];
+
+  const urlsXml = allEntries
+    .map(
+      (e) =>
+        `  <url>\n    <loc>${siteUrl}${e.loc}</loc>\n    <lastmod>${e.lastmod}</lastmod>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`,
+    )
+    .join("\n");
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlsXml}\n</urlset>`;
+
+  res.setHeader("Content-Type", "text/xml; charset=utf-8");
+  res.send(xml);
 });
 
 app.use("/api", router);

@@ -574,6 +574,16 @@ export default function Leads() {
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">Status</Label>
                   <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 cursor-pointer" data-testid="checkbox-export-status-all">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={exportStatuses.length === 0}
+                        onChange={() => setExportStatuses([])}
+                      />
+                      <span className="text-sm font-medium">All statuses</span>
+                    </label>
+                    <div className="border-t my-1" />
                     {EXPORT_STATUSES.map(s => (
                       <label key={s} className="flex items-center gap-2 cursor-pointer" data-testid={`checkbox-export-status-${s}`}>
                         <input
@@ -585,14 +595,6 @@ export default function Leads() {
                         <span className="text-sm capitalize">{s}</span>
                       </label>
                     ))}
-                    {exportStatuses.length > 0 && (
-                      <button
-                        className="text-xs text-muted-foreground hover:text-foreground underline mt-1"
-                        onClick={() => setExportStatuses([])}
-                      >
-                        Clear selection (export all statuses)
-                      </button>
-                    )}
                   </div>
                 </div>
                 <Button

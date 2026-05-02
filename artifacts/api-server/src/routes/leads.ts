@@ -87,33 +87,45 @@ router.get("/leads/export.csv", async (req, res): Promise<void> => {
   function escapeCsv(val: string | null | undefined): string {
     if (val == null) return "";
     const str = String(val);
-    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
   }
 
-  const headers = ["ID", "Name", "Email", "Phone", "Source", "Status", "Score", "Value", "Notes", "Created Date", "Last Updated"];
-  const rows = leads.map(l => [
-    l.id,
-    escapeCsv(l.name),
-    escapeCsv(l.email),
-    escapeCsv(l.phone),
-    l.source,
-    l.status,
-    l.score ?? "",
-    l.value != null ? parseFloat(String(l.value)).toFixed(2) : "",
-    escapeCsv(l.notes),
-    new Date(l.createdAt).toISOString().split("T")[0],
-    new Date(l.updatedAt).toISOString().split("T")[0],
-  ]);
+  function notesSummary(notes: string | null | undefined): string {
+    if (!notes) return "";
+    const trimmed = notes.trim();
+    if (trimmed.length <= 120) return escapeCsv(trimmed);
+    return escapeCsv(`${trimmed.slice(0, 117)}...`);
+  }
 
-  const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
   const filename = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-  res.send(csv);
+  res.setHeader("Transfer-Encoding", "chunked");
+
+  const headers = ["Name", "Email", "Phone", "Source", "Status", "Score", "Value", "Notes", "Created Date", "Last Updated"];
+  res.write(headers.join(",") + "\n");
+
+  for (const l of leads) {
+    const row = [
+      escapeCsv(l.name),
+      escapeCsv(l.email),
+      escapeCsv(l.phone),
+      l.source,
+      l.status,
+      l.score ?? "",
+      l.value != null ? parseFloat(String(l.value)).toFixed(2) : "",
+      notesSummary(l.notes),
+      new Date(l.createdAt).toISOString().split("T")[0],
+      new Date(l.updatedAt).toISOString().split("T")[0],
+    ];
+    res.write(row.join(",") + "\n");
+  }
+
+  res.end();
 });
 
 router.post("/leads", async (req, res): Promise<void> => {

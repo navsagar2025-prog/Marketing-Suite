@@ -190,6 +190,7 @@ app.get("/sitemap.xml", async (req, res): Promise<void> => {
   const staticEntries = [
     { loc: "/", changefreq: "daily", priority: "1.0", lastmod: today },
     { loc: "/pricing", changefreq: "weekly", priority: "0.8", lastmod: today },
+    { loc: "/report", changefreq: "weekly", priority: "0.9", lastmod: today },
     { loc: "/blog", changefreq: "daily", priority: "0.8", lastmod: today },
   ];
 

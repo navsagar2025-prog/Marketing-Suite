@@ -42,6 +42,7 @@ import {
 } from "@workspace/api-client-react";
 import type { SeoAudit, SeoAuditIssue, LinkSuggestion, CompetitorAnalysis, SiteAuditIssueResult, SiteAuditPageResult } from "@workspace/api-client-react";
 import SearchPerformanceTab from "@/components/SearchPerformanceTab";
+import { Ga4TrafficPanel } from "@/components/Ga4TrafficPanel";
 
 function severityIcon(severity: string) {
   if (severity === "critical") return <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />;
@@ -1247,6 +1248,7 @@ export default function WebsiteDetail() {
           <TabsTrigger value="internal-links" data-testid="tab-internal-links">Internal Links</TabsTrigger>
           <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
           <TabsTrigger value="search-performance" data-testid="tab-search-performance">Search Performance</TabsTrigger>
+          <TabsTrigger value="traffic-ga4" data-testid="tab-traffic-ga4">Traffic (GA4)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
@@ -1376,6 +1378,10 @@ export default function WebsiteDetail() {
 
         <TabsContent value="search-performance" className="mt-4">
           <SearchPerformanceTab websiteId={id} />
+        </TabsContent>
+
+        <TabsContent value="traffic-ga4" className="mt-4">
+          <Ga4TrafficPanel websiteId={id} />
         </TabsContent>
       </Tabs>
     </div>

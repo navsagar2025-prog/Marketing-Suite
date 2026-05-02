@@ -193,22 +193,6 @@ export default function Analytics() {
                 <option key={w.id} value={w.id}>{w.name || w.url}</option>
               ))}
             </select>
-            <div className="flex rounded-md border border-input overflow-hidden">
-              {(["7d", "30d", "90d"] as DateRange[]).map(range => (
-                <button
-                  key={range}
-                  onClick={() => setDateRange(range)}
-                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                    dateRange === range
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background text-muted-foreground hover:bg-muted"
-                  }`}
-                  data-testid={`button-ga4-range-${range}`}
-                >
-                  {range}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 

@@ -373,7 +373,13 @@ function ScoringTab() {
   );
 }
 
-const EXPORT_STATUSES = ["new", "contacted", "qualified", "converted", "lost"] as const;
+const EXPORT_STATUSES: { value: string; label: string }[] = [
+  { value: "new", label: "New" },
+  { value: "contacted", label: "Contacted" },
+  { value: "qualified", label: "Quoted" },
+  { value: "converted", label: "Converted" },
+  { value: "lost", label: "Lost" },
+];
 
 export default function Leads() {
   const [open, setOpen] = useState(false);
@@ -469,21 +475,31 @@ export default function Leads() {
     setExportStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
   };
 
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     const params = new URLSearchParams();
     if (exportStatuses.length > 0) params.set("status", exportStatuses.join(","));
     if (exportFrom) params.set("from", exportFrom);
     if (exportTo) params.set("to", exportTo);
     const token = localStorage.getItem("auth_token");
-    if (token) params.set("token", token);
-    const a = document.createElement("a");
-    a.href = `${base}/api/leads/export.csv?${params}`;
-    a.download = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setExportOpen(false);
+    try {
+      const res = await fetch(`${base}/api/leads/export.csv?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) { toast({ title: "Export failed", variant: "destructive" }); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setExportOpen(false);
+    } catch {
+      toast({ title: "Export failed", variant: "destructive" });
+    }
   };
 
   return (
@@ -572,15 +588,15 @@ export default function Leads() {
                       <span className="text-sm font-medium">All statuses</span>
                     </label>
                     <div className="border-t my-1" />
-                    {EXPORT_STATUSES.map(s => (
-                      <label key={s} className="flex items-center gap-2 cursor-pointer" data-testid={`checkbox-export-status-${s}`}>
+                    {EXPORT_STATUSES.map(({ value, label }) => (
+                      <label key={value} className="flex items-center gap-2 cursor-pointer" data-testid={`checkbox-export-status-${value}`}>
                         <input
                           type="checkbox"
                           className="rounded"
-                          checked={exportStatuses.includes(s)}
-                          onChange={() => toggleExportStatus(s)}
+                          checked={exportStatuses.includes(value)}
+                          onChange={() => toggleExportStatus(value)}
                         />
-                        <span className="text-sm capitalize">{s}</span>
+                        <span className="text-sm">{label}</span>
                       </label>
                     ))}
                   </div>

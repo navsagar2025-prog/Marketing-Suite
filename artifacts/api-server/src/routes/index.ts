@@ -6,7 +6,6 @@ import socialPostsRouter from "./social-posts";
 import campaignsRouter from "./campaigns";
 import backlinksRouter from "./backlinks";
 import leadsRouter from "./leads";
-import leadsExportRouter from "./leads-export";
 import analyticsRouter from "./analytics";
 import aiRouter from "./ai";
 import mediaAssetsRouter from "./media-assets";
@@ -48,7 +47,6 @@ router.use(publicFormsRouter);
 router.use(emailWebhooksRouter);
 router.use(paymentWebhooksRouter);
 router.use(googleCallbackRouter);
-router.use(leadsExportRouter);
 
 router.use(requireAuth);
 

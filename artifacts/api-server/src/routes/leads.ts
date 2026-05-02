@@ -80,10 +80,6 @@ router.get("/leads/export.csv", async (req, res): Promise<void> => {
     }
   }
 
-  const leads = conditions.length > 0
-    ? await db.select().from(leadsTable).where(and(...conditions)).orderBy(leadsTable.createdAt)
-    : await db.select().from(leadsTable).orderBy(leadsTable.createdAt);
-
   function escapeCsv(val: string | null | undefined): string {
     if (val == null) return "";
     const str = String(val);
@@ -93,11 +89,11 @@ router.get("/leads/export.csv", async (req, res): Promise<void> => {
     return str;
   }
 
+  // Notes summary: single text field in the schema — emit "1 note" if set, "" if empty.
+  // (Schema does not support a multi-entry notes log; company field also absent from schema.)
   function notesSummary(notes: string | null | undefined): string {
-    if (!notes) return "";
-    const trimmed = notes.trim();
-    if (trimmed.length <= 120) return escapeCsv(trimmed);
-    return escapeCsv(`${trimmed.slice(0, 117)}...`);
+    if (!notes || !notes.trim()) return "";
+    return "1 note";
   }
 
   const filename = `leads-export-${new Date().toISOString().split("T")[0]}.csv`;
@@ -106,23 +102,44 @@ router.get("/leads/export.csv", async (req, res): Promise<void> => {
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.setHeader("Transfer-Encoding", "chunked");
 
-  const headers = ["Name", "Email", "Phone", "Source", "Status", "Score", "Value", "Notes", "Created Date", "Last Updated"];
+  // Company column required by spec — field not in the data model so emitted empty.
+  const headers = ["Name", "Email", "Phone", "Company", "Source", "Status", "Score", "Value", "Notes", "Created Date", "Last Updated"];
   res.write(headers.join(",") + "\n");
 
-  for (const l of leads) {
-    const row = [
-      escapeCsv(l.name),
-      escapeCsv(l.email),
-      escapeCsv(l.phone),
-      l.source,
-      l.status,
-      l.score ?? "",
-      l.value != null ? parseFloat(String(l.value)).toFixed(2) : "",
-      notesSummary(l.notes),
-      new Date(l.createdAt).toISOString().split("T")[0],
-      new Date(l.updatedAt).toISOString().split("T")[0],
-    ];
-    res.write(row.join(",") + "\n");
+  // Batch-fetch in pages of 500 so we never hold the full table in memory,
+  // satisfying the "large exports without timing out (streamed response)" requirement.
+  const BATCH = 500;
+  let batchOffset = 0;
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  while (true) {
+    const batch = await db
+      .select()
+      .from(leadsTable)
+      .where(where)
+      .orderBy(leadsTable.id)
+      .limit(BATCH)
+      .offset(batchOffset);
+
+    for (const l of batch) {
+      const row = [
+        escapeCsv(l.name),
+        escapeCsv(l.email),
+        escapeCsv(l.phone),
+        "",                       // company — not in schema
+        l.source,
+        l.status,
+        l.score ?? "",
+        l.value != null ? parseFloat(String(l.value)).toFixed(2) : "",
+        notesSummary(l.notes),
+        new Date(l.createdAt).toISOString().split("T")[0],
+        new Date(l.updatedAt).toISOString().split("T")[0],
+      ];
+      res.write(row.join(",") + "\n");
+    }
+
+    if (batch.length < BATCH) break;
+    batchOffset += BATCH;
   }
 
   res.end();

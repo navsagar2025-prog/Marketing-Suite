@@ -404,50 +404,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="py-12 sm:py-16 bg-muted/30 border-t border-b">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <h2 className="text-xl sm:text-2xl font-bold font-display text-center mb-8">
-            How we compare to the competition
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 pr-4 font-semibold w-48">Tool</th>
-                  <th className="text-right py-3 px-4 font-semibold">Entry plan</th>
-                  <th className="text-right py-3 px-4 font-semibold">Mid plan</th>
-                  <th className="text-right py-3 px-4 font-semibold text-primary">All-in-one</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { name: "SEMrush", entry: "₹9,166", mid: "₹18,326", note: "SEO only" },
-                  { name: "Ahrefs", entry: "₹8,416", mid: "₹16,581", note: "SEO only" },
-                  { name: "Moz Pro", entry: "₹4,831", mid: "₹8,325", note: "SEO only" },
-                  { name: "SE Ranking", entry: "₹1,788", mid: "₹3,738", note: "SEO only" },
-                  { name: "Ubersuggest", entry: "₹2,491", mid: "₹4,983", note: "Limited AI" },
-                ].map((row) => (
-                  <tr key={row.name} className="border-b last:border-0">
-                    <td className="py-3 pr-4 font-medium text-muted-foreground">{row.name}</td>
-                    <td className="text-right py-3 px-4 text-muted-foreground">{row.entry}</td>
-                    <td className="text-right py-3 px-4 text-muted-foreground">{row.mid}</td>
-                    <td className="text-right py-3 px-4 text-muted-foreground/60 text-xs">{row.note}</td>
-                  </tr>
-                ))}
-                <tr className="bg-primary/5 border-t-2 border-primary/30">
-                  <td className="py-3 pr-4 font-bold text-primary">SEO Command</td>
-                  <td className="text-right py-3 px-4 font-bold text-primary">₹5,999</td>
-                  <td className="text-right py-3 px-4 font-bold text-primary">₹8,999</td>
-                  <td className="text-right py-3 px-4 text-xs font-semibold text-green-600 dark:text-green-400">
-                    SEO + AI + CRM + Campaigns
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
       <section className="py-16 sm:py-20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <h2 className="text-2xl sm:text-3xl font-bold font-display text-center mb-10">

@@ -1,8 +1,5 @@
-import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   ShieldCheck,
   TrendingUp,
@@ -18,7 +15,6 @@ import {
   Globe,
   FileText,
   Lock,
-  Check,
 } from "lucide-react";
 
 const SERVICES = [
@@ -114,36 +110,6 @@ const HIGHLIGHTS = [
   },
 ];
 
-const LANDING_PLANS = [
-  {
-    id: "starter",
-    name: "Starter",
-    tagline: "Freelancers & solo founders",
-    monthlyPrice: 999,
-    annualPrice: 749,
-    popular: false,
-    features: ["1 website", "25 keywords", "SEO audits", "Lead capture", "50 AI generations/mo"],
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    tagline: "Growing businesses",
-    monthlyPrice: 2499,
-    annualPrice: 1999,
-    popular: true,
-    features: ["5 websites", "200 keywords", "Backlink tracking", "A/B tests & UTM", "300 AI generations/mo", "Analytics & reports"],
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    tagline: "Agencies & power users",
-    monthlyPrice: 5999,
-    annualPrice: 4999,
-    popular: false,
-    features: ["Unlimited websites", "Unlimited keywords", "White-label reports", "Up to 5 team members", "1,000 AI generations/mo", "API access"],
-  },
-];
-
 const NAV_LINKS = [
   { label: "Free SEO Audit", href: "/report" },
   { label: "Pricing", href: "/pricing" },
@@ -152,10 +118,6 @@ const NAV_LINKS = [
 
 export default function LandingPage() {
   const [, setLocation] = useLocation();
-  const [annual, setAnnual] = useState(false);
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -293,113 +255,6 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      <section id="pricing" className="py-16 sm:py-20 border-b">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
-            <Badge variant="outline" className="mb-3 border-primary/40 text-primary bg-primary/10">
-              Pricing in Indian Rupees
-            </Badge>
-            <h2 className="text-2xl sm:text-3xl font-bold font-display mb-2">
-              Simple, transparent pricing
-            </h2>
-            <p className="text-muted-foreground text-sm max-w-lg mx-auto mb-1">
-              SEMrush charges ₹9,166/mo for less. We start at ₹999.
-            </p>
-            <p className="text-muted-foreground/60 text-xs mb-6">
-              All plans include a 7-day free trial. No credit card required.
-            </p>
-            <div className="inline-flex items-center gap-2 bg-muted rounded-full px-2 py-1">
-              <button
-                onClick={() => setAnnual(false)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                  !annual ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setAnnual(true)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${
-                  annual ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Annual
-                <span className="bg-green-500/20 text-green-600 dark:text-green-400 text-[9px] font-bold px-1 py-0.5 rounded-full">
-                  SAVE 25%
-                </span>
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {LANDING_PLANS.map((plan) => {
-              const price = annual ? plan.annualPrice : plan.monthlyPrice;
-              return (
-                <Card
-                  key={plan.id}
-                  className={`relative flex flex-col ${
-                    plan.popular
-                      ? "border-primary shadow-md shadow-primary/10 ring-1 ring-primary"
-                      : ""
-                  }`}
-                >
-                  {plan.popular && (
-                    <div className="absolute -top-3 left-0 right-0 flex justify-center">
-                      <Badge className="bg-primary text-primary-foreground text-xs px-3">
-                        Most Popular
-                      </Badge>
-                    </div>
-                  )}
-                  <CardHeader className={`pb-3 ${plan.popular ? "pt-8" : "pt-5"}`}>
-                    <h3 className="font-bold text-lg">{plan.name}</h3>
-                    <p className="text-xs text-muted-foreground">{plan.tagline}</p>
-                    <div className="flex items-end gap-1 mt-2">
-                      <span className="text-3xl font-bold">{fmt(price)}</span>
-                      <span className="text-muted-foreground text-xs mb-1">/mo</span>
-                    </div>
-                    {!annual && (
-                      <p className="text-xs text-green-600 dark:text-green-400">
-                        Save {fmt((plan.monthlyPrice - plan.annualPrice) * 12)}/yr on annual
-                      </p>
-                    )}
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-4 flex-1">
-                    <Button
-                      variant={plan.popular ? "default" : "outline"}
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setLocation("/login")}
-                    >
-                      Get Started <ArrowRight className="h-3 w-3 ml-1" />
-                    </Button>
-                    <ul className="space-y-2">
-                      {plan.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-xs">
-                          <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          <div className="text-center mt-6">
-            <button
-              onClick={() => setLocation("/pricing")}
-              className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-            >
-              View full feature comparison <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            Prices in INR, exclusive of 18% GST.
-          </p>
         </div>
       </section>
 

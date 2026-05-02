@@ -10,5 +10,6 @@ export interface GscStatus {
   connected: boolean;
   email: string | null;
   propertyUrl: string | null;
+  ga4PropertyId: string | null;
   configured: boolean;
 }

@@ -571,6 +571,7 @@ export const GetGoogleIntegrationStatusResponse = zod.object({
   connected: zod.boolean(),
   email: zod.string().nullable(),
   propertyUrl: zod.string().nullable(),
+  ga4PropertyId: zod.string().nullable(),
   configured: zod.boolean(),
 });
 
@@ -688,6 +689,68 @@ export const GetGscSearchPerformanceResponse = zod.object({
   ),
   dateRange: zod.string(),
   cachedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Save the GA4 Property ID for a website
+ */
+export const SetGa4PropertyParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const SetGa4PropertyBody = zod.object({
+  ga4PropertyId: zod.string().nullish(),
+});
+
+export const SetGa4PropertyResponse = zod.object({
+  success: zod.boolean().optional(),
+  ga4PropertyId: zod.string().nullish(),
+});
+
+/**
+ * Returns sessions, users, bounce rate, session duration, top pages, traffic sources, and device breakdown.
+ * @summary Fetch GA4 analytics report for a website
+ */
+export const GetGa4ReportParams = zod.object({
+  websiteId: zod.coerce.number(),
+});
+
+export const GetGa4ReportQueryParams = zod.object({
+  dateRange: zod
+    .enum(["7d", "30d", "90d"])
+    .optional()
+    .describe("Date range (default 30d)"),
+});
+
+export const GetGa4ReportResponse = zod.object({
+  summary: zod.object({
+    sessions: zod.number(),
+    users: zod.number(),
+    bounceRate: zod.number(),
+    avgSessionDuration: zod.number(),
+  }),
+  topPages: zod.array(
+    zod.object({
+      page: zod.string(),
+      sessions: zod.number(),
+    }),
+  ),
+  trafficSources: zod.array(
+    zod.object({
+      channel: zod.string(),
+      sessions: zod.number(),
+      percentage: zod.number(),
+    }),
+  ),
+  devices: zod.array(
+    zod.object({
+      category: zod.string(),
+      sessions: zod.number(),
+      percentage: zod.number(),
+    }),
+  ),
+  dateRange: zod.string(),
+  ga4PropertyId: zod.string(),
 });
 
 /**

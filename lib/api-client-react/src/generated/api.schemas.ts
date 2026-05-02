@@ -1581,6 +1581,7 @@ export interface GscStatus {
   connected: boolean;
   email: string | null;
   propertyUrl: string | null;
+  ga4PropertyId: string | null;
   configured: boolean;
 }
 
@@ -1633,6 +1634,43 @@ export interface GscSearchPerformance {
   positionDistribution: GscPositionBucket[];
   dateRange: string;
   cachedAt: string;
+}
+
+export interface Ga4SetPropertyBody {
+  ga4PropertyId?: string | null;
+}
+
+export interface Ga4Summary {
+  sessions: number;
+  users: number;
+  bounceRate: number;
+  avgSessionDuration: number;
+}
+
+export interface Ga4TopPage {
+  page: string;
+  sessions: number;
+}
+
+export interface Ga4TrafficSource {
+  channel: string;
+  sessions: number;
+  percentage: number;
+}
+
+export interface Ga4Device {
+  category: string;
+  sessions: number;
+  percentage: number;
+}
+
+export interface Ga4ReportData {
+  summary: Ga4Summary;
+  topPages: Ga4TopPage[];
+  trafficSources: Ga4TrafficSource[];
+  devices: Ga4Device[];
+  dateRange: string;
+  ga4PropertyId: string;
 }
 
 export type SiteAuditStatusStatus =
@@ -1798,6 +1836,27 @@ export const GetGscSearchPerformanceDateRange = {
   "7days": "7days",
   "28days": "28days",
   "90days": "90days",
+} as const;
+
+export type SetGa4Property200 = {
+  success?: boolean;
+  ga4PropertyId?: string | null;
+};
+
+export type GetGa4ReportParams = {
+  /**
+   * Date range (default 30d)
+   */
+  dateRange?: GetGa4ReportDateRange;
+};
+
+export type GetGa4ReportDateRange =
+  (typeof GetGa4ReportDateRange)[keyof typeof GetGa4ReportDateRange];
+
+export const GetGa4ReportDateRange = {
+  "7d": "7d",
+  "30d": "30d",
+  "90d": "90d",
 } as const;
 
 export type UpdateStaffUserPlanBodyPlan =

@@ -20,6 +20,7 @@ const SCOPES = [
   "openid",
   "email",
   "https://www.googleapis.com/auth/webmasters.readonly",
+  "https://www.googleapis.com/auth/analytics.readonly",
 ];
 
 function getRedirectUri(): string {
@@ -130,6 +131,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     connected: !!token,
     email: token?.googleEmail ?? null,
     propertyUrl: token?.gscPropertyUrl ?? null,
+    ga4PropertyId: token?.ga4PropertyId ?? null,
     configured: !!GOOGLE_CLIENT_ID,
   });
 });
@@ -344,6 +346,167 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
   } catch (err) {
     logger.error({ err }, "GSC data fetch error");
     res.status(502).json({ error: "Failed to fetch data from Google Search Console. Your connection may have expired — try reconnecting." });
+  }
+});
+
+// ─── GA4 Analytics ───────────────────────────────────────────────────────────
+
+const GA4_DATE_RANGES: Record<string, string> = { "7d": "7daysAgo", "30d": "30daysAgo", "90d": "90daysAgo" };
+
+function normalizeGa4PropertyId(id: string): string {
+  const stripped = id.trim().replace(/^properties\//i, "");
+  return `properties/${stripped}`;
+}
+
+async function runGa4Report(
+  accessToken: string,
+  propertyId: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const res = await fetch(
+    `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`GA4 API error (${res.status}): ${text}`);
+  }
+  return res.json() as Promise<Record<string, unknown>>;
+}
+
+/** POST /integrations/google/ga4/:websiteId/property — save GA4 Property ID */
+router.post("/integrations/google/ga4/:websiteId/property", async (req, res): Promise<void> => {
+  const websiteId = parseInt(req.params.websiteId);
+  if (isNaN(websiteId)) { res.status(400).json({ error: "Invalid websiteId" }); return; }
+
+  const { ga4PropertyId } = req.body as { ga4PropertyId?: string };
+
+  const [token] = await db
+    .select()
+    .from(oauthTokensTable)
+    .where(and(
+      eq(oauthTokensTable.staffUserId, req.user!.id),
+      eq(oauthTokensTable.websiteId, websiteId),
+      eq(oauthTokensTable.provider, "google"),
+    ))
+    .limit(1);
+
+  if (!token) { res.status(404).json({ error: "Google not connected for this website" }); return; }
+
+  const normalized = ga4PropertyId?.trim() ? normalizeGa4PropertyId(ga4PropertyId) : null;
+  await db.update(oauthTokensTable).set({ ga4PropertyId: normalized }).where(eq(oauthTokensTable.id, token.id));
+  res.json({ success: true, ga4PropertyId: normalized });
+});
+
+/** GET /integrations/google/ga4/:websiteId — fetch GA4 report data */
+router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void> => {
+  const websiteId = parseInt(req.params.websiteId);
+  if (isNaN(websiteId)) { res.status(400).json({ error: "Invalid websiteId" }); return; }
+
+  const dateRange = (req.query.dateRange as string) ?? "30d";
+  const startDate = GA4_DATE_RANGES[dateRange];
+  if (!startDate) { res.status(400).json({ error: "dateRange must be 7d, 30d, or 90d" }); return; }
+
+  const [token] = await db
+    .select()
+    .from(oauthTokensTable)
+    .where(and(
+      eq(oauthTokensTable.staffUserId, req.user!.id),
+      eq(oauthTokensTable.websiteId, websiteId),
+      eq(oauthTokensTable.provider, "google"),
+    ))
+    .limit(1);
+
+  if (!token) { res.status(404).json({ error: "Google not connected for this website" }); return; }
+  if (!token.ga4PropertyId) { res.status(400).json({ error: "GA4_PROPERTY_NOT_SET", message: "No GA4 property configured. Enter your GA4 Property ID in Settings." }); return; }
+
+  const propertyId = token.ga4PropertyId;
+  const dateRangeParam = [{ startDate, endDate: "today" }];
+
+  try {
+    const accessToken = await getValidAccessToken(token);
+
+    const [summaryData, topPagesData, sourcesData, devicesData] = await Promise.all([
+      runGa4Report(accessToken, propertyId, {
+        dateRanges: dateRangeParam,
+        metrics: [
+          { name: "sessions" },
+          { name: "activeUsers" },
+          { name: "bounceRate" },
+          { name: "averageSessionDuration" },
+        ],
+      }),
+      runGa4Report(accessToken, propertyId, {
+        dateRanges: dateRangeParam,
+        dimensions: [{ name: "pagePath" }],
+        metrics: [{ name: "sessions" }],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        limit: 10,
+      }),
+      runGa4Report(accessToken, propertyId, {
+        dateRanges: dateRangeParam,
+        dimensions: [{ name: "sessionDefaultChannelGroup" }],
+        metrics: [{ name: "sessions" }],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      }),
+      runGa4Report(accessToken, propertyId, {
+        dateRanges: dateRangeParam,
+        dimensions: [{ name: "deviceCategory" }],
+        metrics: [{ name: "sessions" }],
+      }),
+    ]);
+
+    type Ga4Row = { dimensionValues?: Array<{ value: string }>; metricValues: Array<{ value: string }> };
+    const summaryRows = (summaryData.rows as Ga4Row[] | undefined) ?? [];
+    const summaryRow = summaryRows[0];
+    const sessions = summaryRow ? parseInt(summaryRow.metricValues[0]?.value ?? "0", 10) : 0;
+    const users = summaryRow ? parseInt(summaryRow.metricValues[1]?.value ?? "0", 10) : 0;
+    const bounceRate = summaryRow ? parseFloat(summaryRow.metricValues[2]?.value ?? "0") : 0;
+    const avgSessionDuration = summaryRow ? parseFloat(summaryRow.metricValues[3]?.value ?? "0") : 0;
+
+    const topPagesRows = (topPagesData.rows as Ga4Row[] | undefined) ?? [];
+    const topPages = topPagesRows.map(r => ({
+      page: r.dimensionValues?.[0]?.value ?? "",
+      sessions: parseInt(r.metricValues[0]?.value ?? "0", 10),
+    }));
+
+    const sourcesRows = (sourcesData.rows as Ga4Row[] | undefined) ?? [];
+    const totalSourceSessions = sourcesRows.reduce((s, r) => s + parseInt(r.metricValues[0]?.value ?? "0", 10), 0);
+    const trafficSources = sourcesRows.map(r => {
+      const sess = parseInt(r.metricValues[0]?.value ?? "0", 10);
+      return {
+        channel: r.dimensionValues?.[0]?.value ?? "Unknown",
+        sessions: sess,
+        percentage: totalSourceSessions > 0 ? Math.round((sess / totalSourceSessions) * 1000) / 10 : 0,
+      };
+    });
+
+    const devicesRows = (devicesData.rows as Ga4Row[] | undefined) ?? [];
+    const totalDeviceSessions = devicesRows.reduce((s, r) => s + parseInt(r.metricValues[0]?.value ?? "0", 10), 0);
+    const devices = devicesRows.map(r => {
+      const sess = parseInt(r.metricValues[0]?.value ?? "0", 10);
+      return {
+        category: r.dimensionValues?.[0]?.value ?? "Unknown",
+        sessions: sess,
+        percentage: totalDeviceSessions > 0 ? Math.round((sess / totalDeviceSessions) * 1000) / 10 : 0,
+      };
+    });
+
+    res.json({
+      summary: { sessions, users, bounceRate: Math.round(bounceRate * 1000) / 10, avgSessionDuration: Math.round(avgSessionDuration) },
+      topPages,
+      trafficSources,
+      devices,
+      dateRange,
+      ga4PropertyId: propertyId,
+    });
+  } catch (err) {
+    logger.error({ err }, "GA4 data fetch error");
+    res.status(502).json({ error: "Failed to fetch data from Google Analytics 4. Your connection may have expired or the property ID is incorrect — try reconnecting." });
   }
 });
 

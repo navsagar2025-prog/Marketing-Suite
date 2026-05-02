@@ -12,6 +12,7 @@ export const oauthTokensTable = pgTable("oauth_tokens", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   scopes: text("scopes"),
   gscPropertyUrl: text("gsc_property_url"),
+  ga4PropertyId: text("ga4_property_id"),
   googleEmail: text("google_email"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

@@ -584,6 +584,75 @@ paths:
         "502":
           description: GSC API error
 
+  /integrations/google/ga4/{websiteId}/property:
+    post:
+      operationId: setGa4Property
+      tags: [integrations]
+      summary: Save the GA4 Property ID for a website
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Ga4SetPropertyBody"
+      responses:
+        "200":
+          description: Property ID saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  ga4PropertyId:
+                    type: string
+                    nullable: true
+        "404":
+          description: Google not connected
+
+  /integrations/google/ga4/{websiteId}:
+    get:
+      operationId: getGa4Report
+      tags: [integrations]
+      summary: Fetch GA4 analytics report for a website
+      description: Returns sessions, users, bounce rate, session duration, top pages, traffic sources, and device breakdown.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: websiteId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: dateRange
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+          description: Date range (default 30d)
+      responses:
+        "200":
+          description: GA4 report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ga4ReportData"
+        "400":
+          description: No GA4 property configured or invalid dateRange
+        "404":
+          description: Google not connected
+        "502":
+          description: GA4 API error
+
   # ─── Site Audit ───────────────────────────────────────────────────────────────
   /audit/site/{websiteId}:
     post:
@@ -4958,9 +5027,12 @@ components:
         propertyUrl:
           type: string
           nullable: true
+        ga4PropertyId:
+          type: string
+          nullable: true
         configured:
           type: boolean
-      required: [connected, email, propertyUrl, configured]
+      required: [connected, email, propertyUrl, ga4PropertyId, configured]
 
     GscProperty:
       type: object
@@ -5067,6 +5139,82 @@ components:
           type: string
           format: date-time
       required: [summary, queries, pages, positionDistribution, dateRange, cachedAt]
+
+    # ─── GA4 Schemas ─────────────────────────────────────────────────────────────
+    Ga4SetPropertyBody:
+      type: object
+      properties:
+        ga4PropertyId:
+          type: string
+          nullable: true
+      required: []
+
+    Ga4Summary:
+      type: object
+      properties:
+        sessions:
+          type: number
+        users:
+          type: number
+        bounceRate:
+          type: number
+        avgSessionDuration:
+          type: number
+      required: [sessions, users, bounceRate, avgSessionDuration]
+
+    Ga4TopPage:
+      type: object
+      properties:
+        page:
+          type: string
+        sessions:
+          type: number
+      required: [page, sessions]
+
+    Ga4TrafficSource:
+      type: object
+      properties:
+        channel:
+          type: string
+        sessions:
+          type: number
+        percentage:
+          type: number
+      required: [channel, sessions, percentage]
+
+    Ga4Device:
+      type: object
+      properties:
+        category:
+          type: string
+        sessions:
+          type: number
+        percentage:
+          type: number
+      required: [category, sessions, percentage]
+
+    Ga4ReportData:
+      type: object
+      properties:
+        summary:
+          $ref: "#/components/schemas/Ga4Summary"
+        topPages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ga4TopPage"
+        trafficSources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ga4TrafficSource"
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ga4Device"
+        dateRange:
+          type: string
+        ga4PropertyId:
+          type: string
+      required: [summary, topPages, trafficSources, devices, dateRange, ga4PropertyId]
 
     # ─── Site Audit Schemas ──────────────────────────────────────────────────────
     SiteAuditStatus:

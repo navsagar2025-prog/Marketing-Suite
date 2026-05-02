@@ -53,6 +53,8 @@ import type {
   EmailTemplate,
   FixSeoIssueBody,
   FixSeoIssueResponse,
+  Ga4ReportData,
+  Ga4SetPropertyBody,
   GenerateBlogDraftBody,
   GenerateBlogDraftResponse,
   GenerateCampaignCopyBody,
@@ -70,6 +72,7 @@ import type {
   GeneratedContent,
   GeneratedMeta,
   GetCampaignRecipientsParams,
+  GetGa4ReportParams,
   GetGscSearchPerformanceParams,
   GetKeywordRankAlertsParams,
   GetKeywordRankHistoryParams,
@@ -120,6 +123,7 @@ import type {
   SeoAudit,
   Sequence,
   SequenceEnrollment,
+  SetGa4Property200,
   SiteAuditResults,
   SiteAuditStatus,
   SnapshotKeywordsResponse,
@@ -2304,6 +2308,206 @@ export function useGetGscSearchPerformance<
     params,
     options,
   );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save the GA4 Property ID for a website
+ */
+export const getSetGa4PropertyUrl = (websiteId: number) => {
+  return `/api/integrations/google/ga4/${websiteId}/property`;
+};
+
+export const setGa4Property = async (
+  websiteId: number,
+  ga4SetPropertyBody: Ga4SetPropertyBody,
+  options?: RequestInit,
+): Promise<SetGa4Property200> => {
+  return customFetch<SetGa4Property200>(getSetGa4PropertyUrl(websiteId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ga4SetPropertyBody),
+  });
+};
+
+export const getSetGa4PropertyMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setGa4Property>>,
+    TError,
+    { websiteId: number; data: BodyType<Ga4SetPropertyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof setGa4Property>>,
+  TError,
+  { websiteId: number; data: BodyType<Ga4SetPropertyBody> },
+  TContext
+> => {
+  const mutationKey = ["setGa4Property"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof setGa4Property>>,
+    { websiteId: number; data: BodyType<Ga4SetPropertyBody> }
+  > = (props) => {
+    const { websiteId, data } = props ?? {};
+
+    return setGa4Property(websiteId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SetGa4PropertyMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setGa4Property>>
+>;
+export type SetGa4PropertyMutationBody = BodyType<Ga4SetPropertyBody>;
+export type SetGa4PropertyMutationError = ErrorType<void>;
+
+/**
+ * @summary Save the GA4 Property ID for a website
+ */
+export const useSetGa4Property = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof setGa4Property>>,
+    TError,
+    { websiteId: number; data: BodyType<Ga4SetPropertyBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof setGa4Property>>,
+  TError,
+  { websiteId: number; data: BodyType<Ga4SetPropertyBody> },
+  TContext
+> => {
+  return useMutation(getSetGa4PropertyMutationOptions(options));
+};
+
+/**
+ * Returns sessions, users, bounce rate, session duration, top pages, traffic sources, and device breakdown.
+ * @summary Fetch GA4 analytics report for a website
+ */
+export const getGetGa4ReportUrl = (
+  websiteId: number,
+  params?: GetGa4ReportParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/integrations/google/ga4/${websiteId}?${stringifiedParams}`
+    : `/api/integrations/google/ga4/${websiteId}`;
+};
+
+export const getGa4Report = async (
+  websiteId: number,
+  params?: GetGa4ReportParams,
+  options?: RequestInit,
+): Promise<Ga4ReportData> => {
+  return customFetch<Ga4ReportData>(getGetGa4ReportUrl(websiteId, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGa4ReportQueryKey = (
+  websiteId: number,
+  params?: GetGa4ReportParams,
+) => {
+  return [
+    `/api/integrations/google/ga4/${websiteId}`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetGa4ReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGa4Report>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  params?: GetGa4ReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGa4Report>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetGa4ReportQueryKey(websiteId, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getGa4Report>>> = ({
+    signal,
+  }) => getGa4Report(websiteId, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!websiteId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGa4Report>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGa4ReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGa4Report>>
+>;
+export type GetGa4ReportQueryError = ErrorType<void>;
+
+/**
+ * @summary Fetch GA4 analytics report for a website
+ */
+
+export function useGetGa4Report<
+  TData = Awaited<ReturnType<typeof getGa4Report>>,
+  TError = ErrorType<void>,
+>(
+  websiteId: number,
+  params?: GetGa4ReportParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGa4Report>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGa4ReportQueryOptions(websiteId, params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

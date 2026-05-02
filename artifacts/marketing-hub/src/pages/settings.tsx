@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search } from "lucide-react";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey, useGetBillingMe, getGetBillingMeQueryKey, useListWebsites, useGetGoogleIntegrationStatus, useDisconnectGoogleIntegration, getGetGoogleIntegrationStatusQueryKey } from "@workspace/api-client-react";
+import { useGetSettings, useUpdateSettings, useTestAiConnection, useGetAdminUsage, getGetAdminUsageQueryKey, useUpdateUsageLimits, useResetUserUsage, useGetEmailProviderSettings, useUpdateEmailProviderSettings, useTestEmailConnection, useGetLeadScoringConfig, useUpdateLeadScoringConfig, useRecalculateLeadScores, getGetLeadScoringConfigQueryKey, useGetPaymentSettings, useUpdatePaymentSettings, useTestPaymentConnection, getGetPaymentSettingsQueryKey, useGetWebhookEvents, getGetWebhookEventsQueryKey, useGetBillingMe, getGetBillingMeQueryKey, useListWebsites, useGetGoogleIntegrationStatus, useDisconnectGoogleIntegration, getGetGoogleIntegrationStatusQueryKey, useSetGa4Property } from "@workspace/api-client-react";
 import type { Website } from "@workspace/api-client-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { ALL_MODULES, MODULE_LABELS } from "@workspace/api-zod";
@@ -110,6 +110,12 @@ function GscWebsiteRow({ website }: { website: Website }) {
     query: { queryKey: getGetGoogleIntegrationStatusQueryKey(website.id) },
   });
   const disconnectMutation = useDisconnectGoogleIntegration();
+  const setPropertyMutation = useSetGa4Property();
+  const [ga4Input, setGa4Input] = useState("");
+
+  useEffect(() => {
+    setGa4Input(status?.ga4PropertyId ?? "");
+  }, [status?.ga4PropertyId]);
 
   const handleConnect = async () => {
     if (!status?.configured) {
@@ -137,48 +143,87 @@ function GscWebsiteRow({ website }: { website: Website }) {
     );
   };
 
+  const handleSaveGa4 = () => {
+    setPropertyMutation.mutate(
+      { websiteId: website.id, data: { ga4PropertyId: ga4Input.trim() || null } },
+      {
+        onSuccess: () => {
+          toast({ title: "GA4 property ID saved" });
+          qc.invalidateQueries({ queryKey: getGetGoogleIntegrationStatusQueryKey(website.id) });
+        },
+        onError: () => toast({ title: "Failed to save GA4 property ID", variant: "destructive" }),
+      }
+    );
+  };
+
   return (
-    <div className="flex items-center justify-between gap-3 border rounded-md px-3 py-2.5">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{website.url}</p>
-        {isLoading ? (
-          <p className="text-xs text-muted-foreground">Checking status…</p>
-        ) : status?.connected ? (
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
-            <span className="text-xs text-green-600 font-medium">Connected</span>
-            {status.email && <span className="text-xs text-muted-foreground">· {status.email}</span>}
-            {status.propertyUrl && <span className="text-xs text-muted-foreground truncate">· {status.propertyUrl}</span>}
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <XCircle className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground">Not connected</span>
-          </div>
-        )}
+    <div className="border rounded-md px-3 py-2.5 space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium truncate">{website.url}</p>
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground">Checking status…</p>
+          ) : status?.connected ? (
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+              <span className="text-xs text-green-600 font-medium">Connected</span>
+              {status.email && <span className="text-xs text-muted-foreground">· {status.email}</span>}
+              {status.propertyUrl && <span className="text-xs text-muted-foreground truncate">· {status.propertyUrl}</span>}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <XCircle className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground">Not connected</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {status?.connected ? (
+            <>
+              <Link href={`/websites/${website.id}?tab=search-performance`}>
+                <Button size="sm" variant="outline" className="text-xs h-7 px-2">View data</Button>
+              </Link>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive"
+                onClick={handleDisconnect}
+                disabled={disconnectMutation.isPending}
+              >
+                Disconnect
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" className="text-xs h-7 px-2" onClick={handleConnect} disabled={isLoading}>
+              Connect
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {status?.connected ? (
-          <>
-            <Link href={`/websites/${website.id}?tab=search-performance`}>
-              <Button size="sm" variant="outline" className="text-xs h-7 px-2">View data</Button>
-            </Link>
+      {status?.connected && (
+        <div className="pt-1.5 border-t">
+          <p className="text-xs font-medium text-muted-foreground mb-1.5">GA4 Property ID</p>
+          <div className="flex gap-2 items-center">
+            <Input
+              value={ga4Input}
+              onChange={e => setGa4Input(e.target.value)}
+              placeholder="e.g. 123456789"
+              className="h-7 text-xs flex-1"
+            />
             <Button
               size="sm"
-              variant="ghost"
-              className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive"
-              onClick={handleDisconnect}
-              disabled={disconnectMutation.isPending}
+              className="h-7 px-2 text-xs shrink-0"
+              onClick={handleSaveGa4}
+              disabled={setPropertyMutation.isPending}
             >
-              Disconnect
+              Save
             </Button>
-          </>
-        ) : (
-          <Button size="sm" className="text-xs h-7 px-2" onClick={handleConnect} disabled={isLoading}>
-            Connect
-          </Button>
-        )}
-      </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Find it in GA4 → Admin → Property settings. Used in the Analytics dashboard.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -170,10 +170,11 @@ async function buildContextSummary(user: { role?: string; permissions?: string[]
     limit 5
   `);
   if (Array.isArray(recentMovers.rows) && recentMovers.rows.length > 0) {
+    const rows = recentMovers.rows as Array<{ keyword: string; new_rank: number }>;
     sections.push(
       `RECENT RANKING DATA (latest):\n` +
-        recentMovers.rows
-          .map((r: any) => `- "${r.keyword}" current rank=${r.new_rank}`)
+        rows
+          .map((r) => `- "${r.keyword}" current rank=${r.new_rank}`)
           .join("\n")
     );
   }

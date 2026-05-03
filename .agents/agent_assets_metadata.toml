@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "GlWve6q0usek8Q9TWDJxP"
+uri = "file://.local/exports/marketing-hub-production.zip"
+type = "unspecified"
+title = "SEO & Marketing Hub - Full Production (code + database.sql)"

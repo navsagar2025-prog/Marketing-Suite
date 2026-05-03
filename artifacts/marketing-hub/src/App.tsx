@@ -38,6 +38,7 @@ import LocalSeoPage from "@/pages/local-seo";
 import ContentBriefPage from "@/pages/content-brief";
 import ReportDetailPage from "@/pages/report-detail";
 import SharedReportPage from "@/pages/shared-report";
+import PublicHealthPage from "@/pages/public-health";
 import WelcomePage from "@/pages/welcome";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Loader2, ShieldOff } from "lucide-react";
@@ -111,6 +112,9 @@ function ProtectedRouter() {
         <Route path="/shared-report/:token">
           {(params) => <SharedReportPage token={params.token ?? ""} />}
         </Route>
+        <Route path="/health/:token">
+          {(params) => <PublicHealthPage token={params.token ?? ""} />}
+        </Route>
         <Route path="/" component={LandingPage} />
         <Route>
           <Redirect to="/" />
@@ -132,6 +136,9 @@ function ProtectedRouter() {
       <Route path="/report" component={ReportPage} />
       <Route path="/shared-report/:token">
         {(params) => <SharedReportPage token={params.token ?? ""} />}
+      </Route>
+      <Route path="/health/:token">
+        {(params) => <PublicHealthPage token={params.token ?? ""} />}
       </Route>
       <Route>
         <Layout>

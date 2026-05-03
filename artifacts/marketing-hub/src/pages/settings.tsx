@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send } from "lucide-react";
 import { ByokCard } from "@/components/ByokCard";
 import { CouponManagementCard } from "@/components/CouponManagementCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -192,6 +192,125 @@ function NotificationSettingsCard() {
 
             {dirty && (
               <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
+                Save
+              </Button>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function WebhooksCard() {
+  const { toast } = useToast();
+  const [slackUrl, setSlackUrl] = useState("");
+  const [discordUrl, setDiscordUrl] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [testing, setTesting] = useState<"slack" | "discord" | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["webhook-settings"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/api/settings/webhooks`, { headers: authHeader() });
+      if (!res.ok) throw new Error("Failed to load");
+      return res.json() as Promise<{ slackWebhookUrl: string; discordWebhookUrl: string }>;
+    },
+  });
+
+  useEffect(() => {
+    if (data) { setSlackUrl(data.slackWebhookUrl); setDiscordUrl(data.discordWebhookUrl); }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${BASE_URL}/api/settings/webhooks`, {
+        method: "PATCH",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ slackWebhookUrl: slackUrl, discordWebhookUrl: discordUrl }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => { toast({ title: "Webhook settings saved" }); setDirty(false); },
+    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+  });
+
+  const sendTest = async (kind: "slack" | "discord", url: string) => {
+    if (!url) {
+      toast({ title: "Enter a URL first", variant: "destructive" });
+      return;
+    }
+    setTesting(kind);
+    try {
+      const res = await fetch(`${BASE_URL}/api/settings/webhooks/test`, {
+        method: "POST",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ kind, url }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Webhook test failed");
+      }
+      toast({ title: `${kind === "slack" ? "Slack" : "Discord"} test sent — check your channel!` });
+    } catch (err) {
+      toast({ title: "Test failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded bg-muted"><Webhook className="h-4 w-4" /></div>
+          <div>
+            <CardTitle className="text-base">Slack & Discord Webhooks</CardTitle>
+            <CardDescription className="mt-0.5">Push rank changes and audit results to your team chat. Both channels get notified together.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="h-10 rounded-md bg-muted animate-pulse" />
+        ) : (
+          <>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Slack Incoming Webhook URL</label>
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  placeholder="https://hooks.slack.com/services/..."
+                  value={slackUrl}
+                  onChange={e => { setSlackUrl(e.target.value); setDirty(true); }}
+                  data-testid="input-slack-webhook"
+                />
+                <Button size="sm" variant="outline" onClick={() => sendTest("slack", slackUrl)} disabled={testing === "slack"} data-testid="button-test-slack">
+                  {testing === "slack" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Create one in your Slack workspace under Apps → Incoming Webhooks.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Discord Webhook URL</label>
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  placeholder="https://discord.com/api/webhooks/..."
+                  value={discordUrl}
+                  onChange={e => { setDiscordUrl(e.target.value); setDirty(true); }}
+                  data-testid="input-discord-webhook"
+                />
+                <Button size="sm" variant="outline" onClick={() => sendTest("discord", discordUrl)} disabled={testing === "discord"} data-testid="button-test-discord">
+                  {testing === "discord" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Create one in your Discord channel under Edit Channel → Integrations → Webhooks.</p>
+            </div>
+            {dirty && (
+              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} data-testid="button-save-webhooks">
                 {saveMutation.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
                 Save
               </Button>
@@ -2007,7 +2126,10 @@ export default function SettingsPage() {
 
       {/* Rank Change Notifications (admin only) */}
       {isAdmin && (
-        <NotificationSettingsCard />
+        <>
+          <NotificationSettingsCard />
+          <WebhooksCard />
+        </>
       )}
 
       {/* Google Search Console Integration (admin only) */}

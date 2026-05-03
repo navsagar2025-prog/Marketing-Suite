@@ -8,6 +8,7 @@ import cron from "node-cron";
 import { runRankSnapshot } from "./routes/keywords";
 import { runSequenceEngine } from "./routes/sequences";
 import { sendRankAlertDigest } from "./lib/rank-alert-email.js";
+import { runDailyPagespeedScan } from "./lib/pagespeed.js";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
 import { getDbSetting } from "./lib/ai-provider";
 
@@ -142,6 +143,14 @@ seedAdminUser()
         .catch((err) => logger.error({ err }, "Daily sequence engine failed"));
     }, { timezone: "UTC" });
     logger.info("Daily sequence engine cron scheduled (01:00 UTC)");
+
+    cron.schedule("0 3 * * *", () => {
+      logger.info("Running daily PageSpeed scan");
+      runDailyPagespeedScan()
+        .then((result) => logger.info(result, "Daily PageSpeed scan complete"))
+        .catch((err) => logger.error({ err }, "Daily PageSpeed scan failed"));
+    }, { timezone: "UTC" });
+    logger.info("Daily PageSpeed scan cron scheduled (03:00 UTC)");
   })
   .catch((err) => {
     logger.error({ err }, "Failed to seed admin user");

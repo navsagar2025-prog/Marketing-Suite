@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { OnboardingFloatWidget } from "@/components/OnboardingChecklist";
 import { CommandPalette } from "@/components/CommandPalette";
+import { ChatWidget } from "@/components/ChatWidget";
 import {
   LayoutDashboard,
   Globe,
@@ -464,6 +465,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Floating onboarding checklist — visible on all pages except the dashboard */}
       {location !== "/" && <OnboardingFloatWidget />}
+
+      {/* Floating AI chat assistant */}
+      <ChatWidget />
     </div>
   );
 }

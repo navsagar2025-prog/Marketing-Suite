@@ -35,3 +35,4 @@ export * from "./email-templates";
 export * from "./password-reset-tokens";
 export * from "./login-attempts";
 export * from "./coupons";
+export * from "./pagespeed-results";

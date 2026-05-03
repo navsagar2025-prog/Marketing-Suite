@@ -8,6 +8,7 @@ import { eq, and, gte, inArray } from "drizzle-orm";
 import { getEmailProviderConfig, sendEmails } from "./email-sender.js";
 import { logger } from "./logger.js";
 import { appSettingsTable } from "@workspace/db/schema";
+import { sendWebhookNotification } from "./notification-webhooks.js";
 
 async function getSetting(key: string): Promise<string | null> {
   try {
@@ -125,5 +126,11 @@ You're receiving this because rank alert emails are enabled in Settings → Noti
   });
 
   logger.info({ sent: result.sent, rising: rising.length, dropped: dropped.length }, "Rank alert digest sent");
+
+  const summary = `*SEO Command — Daily Rank Changes*\n:arrow_up: ${rising.length} improved · :arrow_down: ${dropped.length} dropped\n\n` +
+    [...rising.slice(0, 5).map(a => `▲ *${a.keyword}* (${a.websiteName}) ${a.previousRank}→${a.currentRank}`),
+     ...dropped.slice(0, 5).map(a => `▼ *${a.keyword}* (${a.websiteName}) ${a.previousRank}→${a.currentRank}`)].join("\n");
+  await sendWebhookNotification(summary);
+
   return { sent: result.sent, skipped: "" };
 }

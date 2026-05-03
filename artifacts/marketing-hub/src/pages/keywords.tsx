@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import PlanLimitWarning from "@/components/PlanLimitWarning";
+import { BulkKeywordImportDialog } from "@/components/BulkKeywordImport";
 import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight, RefreshCw, AlertTriangle, LineChart as LineChartIcon } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1319,6 +1320,7 @@ export default function Keywords() {
               </div>
             </DialogContent>
           </Dialog>
+          <BulkKeywordImportDialog />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-keyword">

@@ -43,6 +43,7 @@ import {
 import type { SeoAudit, SeoAuditIssue, LinkSuggestion, CompetitorAnalysis, SiteAuditIssueResult, SiteAuditPageResult } from "@workspace/api-client-react";
 import SearchPerformanceTab from "@/components/SearchPerformanceTab";
 import { Ga4TrafficPanel } from "@/components/Ga4TrafficPanel";
+import { PageSpeedTab } from "@/components/PageSpeedTab";
 
 function severityIcon(severity: string) {
   if (severity === "critical") return <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />;
@@ -1149,6 +1150,49 @@ function CompetitorsTab({ websiteId }: { websiteId: number }) {
   );
 }
 
+function ShareHealthButton({ websiteId }: { websiteId: number }) {
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const generateAndCopy = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}/api/websites/${websiteId}/share`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token ?? ""}` },
+      });
+      if (!res.ok) throw new Error("Failed to generate link");
+      const { token: shareToken } = (await res.json()) as { token: string };
+      const url = `${window.location.origin}/health/${shareToken}`;
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Public link copied!", description: url });
+    } catch (err) {
+      toast({
+        title: "Could not generate link",
+        description: err instanceof Error ? err.message : "Try again",
+        variant: "destructive",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={generateAndCopy}
+      disabled={busy}
+      data-testid="button-share-health"
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5 mr-1.5" />}
+      Share Health
+    </Button>
+  );
+}
+
 export default function WebsiteDetail() {
   const [, params] = useRoute("/websites/:id");
   const id = params?.id ? parseInt(params.id) : 0;
@@ -1200,7 +1244,10 @@ export default function WebsiteDetail() {
             <h1 className="text-2xl font-bold font-display" data-testid="text-website-name">{website.name}</h1>
             <a href={website.url} target="_blank" rel="noreferrer" data-testid="link-website-url" className="text-sm text-primary hover:underline">{website.url}</a>
           </div>
-          <Badge variant={website.status === "active" ? "default" : "secondary"} className="mt-1">{website.status}</Badge>
+          <div className="flex items-center gap-2">
+            <ShareHealthButton websiteId={id} />
+            <Badge variant={website.status === "active" ? "default" : "secondary"} className="mt-1">{website.status}</Badge>
+          </div>
         </div>
         {website.niche && <p className="text-sm text-muted-foreground mt-1">Niche: {website.niche}</p>}
         {website.notes && <p className="text-sm text-muted-foreground mt-1">{website.notes}</p>}
@@ -1253,6 +1300,7 @@ export default function WebsiteDetail() {
           <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
           <TabsTrigger value="search-performance" data-testid="tab-search-performance">Search Performance</TabsTrigger>
           <TabsTrigger value="traffic-ga4" data-testid="tab-traffic-ga4">Traffic (GA4)</TabsTrigger>
+          <TabsTrigger value="pagespeed" data-testid="tab-pagespeed">PageSpeed</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 mt-4">
@@ -1386,6 +1434,10 @@ export default function WebsiteDetail() {
 
         <TabsContent value="traffic-ga4" className="mt-4">
           <Ga4TrafficPanel websiteId={id} />
+        </TabsContent>
+
+        <TabsContent value="pagespeed" className="mt-4">
+          <PageSpeedTab websiteId={id} />
         </TabsContent>
       </Tabs>
     </div>

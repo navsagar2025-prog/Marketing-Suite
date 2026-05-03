@@ -4,6 +4,7 @@ import { db, siteAuditsTable, siteAuditPagesTable, siteAuditIssuesTable, website
 import * as cheerio from "cheerio";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { logger } from "../lib/logger.js";
+import { sendWebhookNotification } from "../lib/notification-webhooks.js";
 
 const router: IRouter = Router();
 
@@ -621,6 +622,13 @@ async function runCrawl(auditId: number, startUrl: string, pageLimit: number): P
     await db.update(siteAuditsTable)
       .set({ status: "complete", healthScore: finalHealthScore, pagesCrawled: visited.size, pagesFound: found.size, completedAt: new Date() })
       .where(eq(siteAuditsTable.id, auditId));
+
+    const [auditWebsite] = await db.select({ name: websitesTable.name }).from(websitesTable)
+      .innerJoin(siteAuditsTable, eq(siteAuditsTable.websiteId, websitesTable.id))
+      .where(eq(siteAuditsTable.id, auditId)).limit(1);
+    await sendWebhookNotification(
+      `*Site audit complete*: ${auditWebsite?.name ?? "Site"} — health score ${finalHealthScore}/100, ${visited.size} pages crawled, ${totalIssueCount} issues found.`
+    );
 
   } catch (err) {
     logger.error({ err, auditId }, "Site crawl failed");

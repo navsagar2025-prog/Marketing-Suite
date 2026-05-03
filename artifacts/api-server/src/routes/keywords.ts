@@ -43,6 +43,66 @@ router.post("/keywords", async (req, res): Promise<void> => {
   res.status(201).json(keyword);
 });
 
+router.post("/keywords/bulk", async (req, res): Promise<void> => {
+  const { websiteId, rows } = req.body as {
+    websiteId?: number;
+    rows?: Array<{ keyword: string; currentRank?: number | null; searchVolume?: number | null; difficulty?: number | null; notes?: string | null }>;
+  };
+  if (typeof websiteId !== "number" || !Array.isArray(rows) || rows.length === 0) {
+    res.status(400).json({ error: "websiteId (number) and rows (non-empty array) are required" });
+    return;
+  }
+  const [website] = await db.select({ id: websitesTable.id }).from(websitesTable).where(eq(websitesTable.id, websiteId));
+  if (!website) {
+    res.status(404).json({ error: "Website not found" });
+    return;
+  }
+
+  const cleaned = rows
+    .filter(r => r && typeof r.keyword === "string" && r.keyword.trim().length > 0)
+    .map(r => ({
+      websiteId,
+      keyword: r.keyword.trim().slice(0, 200),
+      currentRank: typeof r.currentRank === "number" && Number.isFinite(r.currentRank) ? Math.max(1, Math.min(200, Math.round(r.currentRank))) : null,
+      searchVolume: typeof r.searchVolume === "number" && Number.isFinite(r.searchVolume) ? Math.max(0, Math.round(r.searchVolume)) : null,
+      difficulty: typeof r.difficulty === "number" && Number.isFinite(r.difficulty) ? Math.max(0, Math.min(100, Math.round(r.difficulty))) : null,
+      notes: typeof r.notes === "string" ? r.notes.slice(0, 500) : null,
+      status: "tracking" as const,
+    }));
+
+  if (cleaned.length === 0) {
+    res.status(400).json({ error: "No valid rows (keyword text is required)" });
+    return;
+  }
+
+  const seen = new Set<string>();
+  const unique = cleaned.filter(r => {
+    const key = r.keyword.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const existing = await db
+    .select({ keyword: keywordsTable.keyword })
+    .from(keywordsTable)
+    .where(eq(keywordsTable.websiteId, websiteId));
+  const existingSet = new Set(existing.map(e => e.keyword.toLowerCase()));
+  const toInsert = unique.filter(r => !existingSet.has(r.keyword.toLowerCase()));
+
+  if (toInsert.length === 0) {
+    res.json({ inserted: 0, skipped: cleaned.length, message: "All keywords already exist" });
+    return;
+  }
+
+  const inserted = await db.insert(keywordsTable).values(toInsert).returning();
+  res.json({
+    inserted: inserted.length,
+    skipped: cleaned.length - inserted.length,
+    duplicatesInFile: cleaned.length - unique.length,
+  });
+});
+
 
 router.get("/keywords/research/history", async (req, res): Promise<void> => {
   const userId = req.user!.id;

@@ -120,6 +120,9 @@ const GA4_MAX_BODY = 16 * 1024;
 
 const ga4RateLimited = (key: string): boolean => {
   const now = Date.now();
+  if (ga4Buckets.size > 5000) {
+    for (const [k, v] of ga4Buckets) if (v.reset < now) ga4Buckets.delete(k);
+  }
   const b = ga4Buckets.get(key);
   if (!b || b.reset < now) {
     ga4Buckets.set(key, { count: 1, reset: now + 60_000 });

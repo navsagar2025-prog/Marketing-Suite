@@ -48,6 +48,8 @@ import adminCatalogRouter, { publicCatalogRouter } from "./catalog";
 import adminGalleryRouter, { publicGalleryRouter } from "./gallery";
 import adminPromotionsRouter, { publicPromotionsRouter } from "./promotions";
 import siteCustomizationRouter, { adminSiteCustomizationRouter } from "./site-customization";
+import trackRouter, { adminTrackRouter } from "./track";
+import { adminHealth } from "./health";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -68,6 +70,7 @@ router.use(publicCatalogRouter);
 router.use(publicGalleryRouter);
 router.use(publicPromotionsRouter);
 router.use(siteCustomizationRouter);
+router.use(trackRouter);
 
 router.use(requireAuth);
 
@@ -134,5 +137,7 @@ router.use(adminGalleryRouter);
 router.use(adminPromotionsRouter);
 router.use(adminRouter);
 router.use(adminSiteCustomizationRouter);
+router.use(adminTrackRouter);
+router.use(adminHealth);
 
 export default router;

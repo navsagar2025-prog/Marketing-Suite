@@ -10,6 +10,7 @@ import { runSequenceEngine } from "./routes/sequences";
 import { sendRankAlertDigest } from "./lib/rank-alert-email.js";
 import { runDailyPagespeedScan } from "./lib/pagespeed.js";
 import { publishScheduledPosts } from "./routes/admin-blog";
+import { runDailyHealthMaintenance } from "./lib/system-health.js";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
 import { getDbSetting } from "./lib/ai-provider";
 
@@ -159,6 +160,14 @@ seedAdminUser()
         .catch((err) => logger.error({ err }, "Scheduled blog post publishing failed"));
     });
     logger.info("Scheduled blog post publisher cron scheduled (every 5 minutes)");
+
+    cron.schedule("0 4 * * *", () => {
+      logger.info("Running daily health snapshot + cleanup");
+      runDailyHealthMaintenance()
+        .then(() => logger.info("Daily health maintenance complete"))
+        .catch((err) => logger.error({ err }, "Daily health maintenance failed"));
+    }, { timezone: "UTC" });
+    logger.info("Daily health snapshot cron scheduled (04:00 UTC)");
   })
   .catch((err) => {
     logger.error({ err }, "Failed to seed admin user");

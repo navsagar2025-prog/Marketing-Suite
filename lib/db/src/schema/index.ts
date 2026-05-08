@@ -43,3 +43,6 @@ export * from "./products";
 export * from "./gallery-images";
 export * from "./promotions";
 export * from "./chatbot-conversations";
+export * from "./page-views";
+export * from "./visitor-sessions";
+export * from "./health-snapshots";

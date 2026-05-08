@@ -32,6 +32,8 @@ import AdminPromotionsPage from "@/pages/admin-promotions";
 import AdminSiteCodePage from "@/pages/admin-site-code";
 import AdminChatbotPage from "@/pages/admin-chatbot";
 import AdminSeoFillPage from "@/pages/admin-seo-fill";
+import AdminSystemHealthPage from "@/pages/admin-system-health";
+import { PageViewTracker } from "@/components/PageViewTracker";
 import { PublicChatWidget } from "@/components/PublicChatWidget";
 import { CustomCodeInjector } from "@/components/CustomCodeInjector";
 import ProductsPage from "@/pages/products";
@@ -121,6 +123,7 @@ function ProtectedRouter() {
     return (
       <>
       <CustomCodeInjector />
+      <PageViewTracker />
       <PublicChatWidget />
       <PromoBanner audience="all" />
       <PromoPopup audience="all" />
@@ -252,6 +255,7 @@ function ProtectedRouter() {
             <Route path="/admin/site-code"><PermissionGuard module="site_code"><AdminSiteCodePage /></PermissionGuard></Route>
             <Route path="/admin/chatbot"><AdminGuard><AdminChatbotPage /></AdminGuard></Route>
             <Route path="/admin/seo-fill"><AdminGuard><AdminSeoFillPage /></AdminGuard></Route>
+            <Route path="/admin/system-health"><AdminGuard><AdminSystemHealthPage /></AdminGuard></Route>
             <Route path="/products/:slug" component={ProductDetailPage} />
             <Route path="/products" component={ProductsPage} />
             <Route path="/gallery" component={GalleryPage} />

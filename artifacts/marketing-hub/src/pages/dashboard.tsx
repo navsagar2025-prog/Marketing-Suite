@@ -5,6 +5,7 @@ import {
   Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2
 } from "lucide-react";
 import { ProductTour, TourLaunchButton, useTour } from "@/components/ProductTour";
+import { ActiveVisitorsBadge } from "@/components/ActiveVisitorsBadge";
 import { OnboardingDashboardCard } from "@/components/OnboardingChecklist";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -207,7 +208,10 @@ export default function Dashboard() {
             <Zap className="h-5 w-5 opacity-80" />
             <span className="text-sm font-medium opacity-80 uppercase tracking-widest">SEO Command</span>
           </div>
-          <h1 className="text-3xl font-bold font-display mt-1 mb-2">Your Marketing Command Center</h1>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <h1 className="text-3xl font-bold font-display mt-1 mb-2">Your Marketing Command Center</h1>
+            <ActiveVisitorsBadge />
+          </div>
           <p className="text-sm opacity-75 max-w-xl mb-6">
             Everything you need to grow organic traffic, capture leads, and run high-converting campaigns — all in one place.
           </p>

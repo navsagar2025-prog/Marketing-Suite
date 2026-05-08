@@ -5,7 +5,7 @@ import { apiFetch, type GalleryImage } from "@/lib/catalog-api";
 export function HomeSlider() {
   const { data } = useQuery({
     queryKey: ["gallery", "slider"],
-    queryFn: () => apiFetch<GalleryImage[]>("/api/gallery?type=slider"),
+    queryFn: () => apiFetch<GalleryImage[]>("/gallery?type=slider"),
     staleTime: 60_000,
   });
   const images = data ?? [];

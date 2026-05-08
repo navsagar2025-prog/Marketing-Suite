@@ -111,13 +111,14 @@ adminRouter.patch("/admin/promotions/:id", async (req, res): Promise<void> => {
     updates.startsAt = d;
   }
   if (b.endsAt !== undefined) {
-    if (b.endsAt === null || b.endsAt === "") {
-      updates.endsAt = null;
-    } else {
-      const d = parseDate(b.endsAt);
-      if (!d) { res.status(400).json({ error: "Invalid endsAt" }); return; }
-      updates.endsAt = d;
-    }
+    const d = b.endsAt === null ? null : parseDate(b.endsAt);
+    if (b.endsAt !== null && !d) { res.status(400).json({ error: "Invalid endsAt" }); return; }
+    updates.endsAt = d;
+  }
+  const finalStarts = updates.startsAt ?? null;
+  const finalEnds = "endsAt" in updates ? updates.endsAt : undefined;
+  if (finalStarts && finalEnds && finalEnds <= finalStarts) {
+    res.status(400).json({ error: "endsAt must be after startsAt" }); return;
   }
   const [promo] = await db.update(promotionsTable).set(updates).where(eq(promotionsTable.id, id)).returning();
   if (!promo) { res.status(404).json({ error: "Promotion not found" }); return; }

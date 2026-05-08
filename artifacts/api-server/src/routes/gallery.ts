@@ -14,7 +14,8 @@ publicGalleryRouter.get("/gallery", async (req, res): Promise<void> => {
   if (category) conds.push(eq(galleryImagesTable.categoryTag, category));
   if (location) conds.push(eq(galleryImagesTable.locationTag, location));
   const where = conds.length ? and(...conds) : undefined;
-  const images = await db.select().from(galleryImagesTable).where(where).orderBy(asc(galleryImagesTable.sortOrder), desc(galleryImagesTable.createdAt)).limit(Number(limit));
+  const limitN = Math.max(1, Math.min(500, Number(limit) || 200));
+  const images = await db.select().from(galleryImagesTable).where(where).orderBy(asc(galleryImagesTable.sortOrder), desc(galleryImagesTable.createdAt)).limit(limitN);
   res.json(images);
 });
 

@@ -45,7 +45,9 @@ function buildJsonLd(product: Awaited<ReturnType<typeof loadProductWithImages>>,
 export const publicCatalogRouter: IRouter = Router();
 
 publicCatalogRouter.get("/products", async (req, res): Promise<void> => {
-  const { search, category, brand, limit = "50", offset = "0" } = req.query as Record<string, string>;
+  const { search, category, brand } = req.query as Record<string, string>;
+  const limit = Math.max(1, Math.min(100, Number(req.query.limit ?? 50) || 50));
+  const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
   const conds = [eq(productsTable.active, true)];
   if (search) conds.push(or(ilike(productsTable.name, `%${search}%`), ilike(productsTable.description, `%${search}%`))!);
   if (category) conds.push(eq(productsTable.category, category));
@@ -54,7 +56,7 @@ publicCatalogRouter.get("/products", async (req, res): Promise<void> => {
     if (b) conds.push(eq(productsTable.brandId, b.id));
   }
   const where = and(...conds);
-  const products = await db.select().from(productsTable).where(where).orderBy(desc(productsTable.createdAt)).limit(Number(limit)).offset(Number(offset));
+  const products = await db.select().from(productsTable).where(where).orderBy(desc(productsTable.createdAt)).limit(limit).offset(offset);
   const total = await db.$count(productsTable, where);
   res.json({ products, total });
 });
@@ -123,11 +125,13 @@ adminRouter.delete("/admin/brands/:id", async (req, res): Promise<void> => {
 });
 
 adminRouter.get("/admin/products", async (req, res): Promise<void> => {
-  const { search, limit = "100", offset = "0" } = req.query as Record<string, string>;
+  const { search } = req.query as Record<string, string>;
+  const limit = Math.max(1, Math.min(200, Number(req.query.limit ?? 100) || 100));
+  const offset = Math.max(0, Number(req.query.offset ?? 0) || 0);
   const conds = [];
   if (search) conds.push(or(ilike(productsTable.name, `%${search}%`), ilike(productsTable.slug, `%${search}%`))!);
   const where = conds.length ? and(...conds) : undefined;
-  const products = await db.select().from(productsTable).where(where).orderBy(desc(productsTable.createdAt)).limit(Number(limit)).offset(Number(offset));
+  const products = await db.select().from(productsTable).where(where).orderBy(desc(productsTable.createdAt)).limit(limit).offset(offset);
   const total = await db.$count(productsTable, where);
   res.json({ products, total });
 });

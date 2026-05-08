@@ -19,7 +19,13 @@ interface RunResult {
   newTitle: string; newDescription: string;
   status: "ok" | "error" | "skipped"; error?: string;
 }
-interface RunResponse { processed: number; remaining: number; results: RunResult[]; dryRun: boolean }
+interface RunResponse {
+  processed: number;
+  remaining: number;
+  results: RunResult[];
+  dryRun: boolean;
+  nextCursor: { blog?: number; product?: number; gallery?: number };
+}
 
 const TYPE_META: Record<"blog" | "product" | "gallery", { label: string; Icon: typeof FileText }> = {
   blog: { label: "Blog posts", Icon: FileText },
@@ -42,7 +48,7 @@ export default function AdminSeoFillPage() {
   });
 
   const runOnce = useMutation({
-    mutationFn: (params: { types: string[]; dryRun: boolean }) =>
+    mutationFn: (params: { types: string[]; dryRun: boolean; cursor: { blog?: number; product?: number; gallery?: number } }) =>
       apiFetch<RunResponse>("/admin/seo-fill/run", {
         method: "POST",
         body: JSON.stringify(params),
@@ -67,12 +73,14 @@ export default function AdminSeoFillPage() {
     setProgress({ done: 0, total: totalEligible });
     try {
       let done = 0;
+      let cursor: { blog?: number; product?: number; gallery?: number } = {};
       while (done < totalEligible) {
-        const res = await runOnce.mutateAsync({ types, dryRun: isDry });
+        const res = await runOnce.mutateAsync({ types, dryRun: isDry, cursor });
         setLogs(prev => [...prev, ...res.results]);
         done += res.processed;
+        cursor = res.nextCursor ?? cursor;
         setProgress({ done, total: totalEligible });
-        if (res.processed === 0 || res.remaining === 0) break;
+        if (res.processed === 0) break;
       }
       toast({ title: isDry ? "Dry-run complete" : "Bulk fill complete", description: `Processed ${done} items.` });
       qc.invalidateQueries({ queryKey: ["seo-fill-scan"] });

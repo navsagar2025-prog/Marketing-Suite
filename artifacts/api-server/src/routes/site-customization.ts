@@ -177,16 +177,29 @@ router.post("/public/chat", async (req, res): Promise<void> => {
 
   const ip = clientIp(req);
   const today = todayKey();
-  const [rateRecord] = await db
+  const visitorKey = `visitor:${visitorId}`;
+  const [visitorRate] = await db
+    .select()
+    .from(ipRateLimitsTable)
+    .where(and(
+      eq(ipRateLimitsTable.ip, visitorKey),
+      eq(ipRateLimitsTable.feature, "public_chatbot"),
+      eq(ipRateLimitsTable.date, today),
+    ));
+  if (visitorRate && visitorRate.count >= CHAT_DAILY_LIMIT) {
+    res.status(429).json({ error: "Daily chat limit reached. Please try again tomorrow." });
+    return;
+  }
+  const [ipRate] = await db
     .select()
     .from(ipRateLimitsTable)
     .where(and(
       eq(ipRateLimitsTable.ip, ip),
-      eq(ipRateLimitsTable.feature, "public_chatbot"),
+      eq(ipRateLimitsTable.feature, "public_chatbot_ip"),
       eq(ipRateLimitsTable.date, today),
     ));
-  if (rateRecord && rateRecord.count >= CHAT_DAILY_LIMIT) {
-    res.status(429).json({ error: "Daily chat limit reached. Please try again tomorrow." });
+  if (ipRate && ipRate.count >= CHAT_DAILY_LIMIT * 5) {
+    res.status(429).json({ error: "Too many requests from this network. Please try again tomorrow." });
     return;
   }
 
@@ -240,15 +253,30 @@ router.post("/public/chat", async (req, res): Promise<void> => {
     .set({ messages: nextMessages })
     .where(eq(chatbotConversationsTable.id, conversation.id));
 
-  if (rateRecord) {
+  if (visitorRate) {
     await db
       .update(ipRateLimitsTable)
-      .set({ count: rateRecord.count + 1, lastRequestAt: new Date() })
-      .where(eq(ipRateLimitsTable.id, rateRecord.id));
+      .set({ count: visitorRate.count + 1, lastRequestAt: new Date() })
+      .where(eq(ipRateLimitsTable.id, visitorRate.id));
+  } else {
+    await db.insert(ipRateLimitsTable).values({
+      ip: visitorKey,
+      feature: "public_chatbot",
+      date: today,
+      count: 1,
+      lastRequestAt: new Date(),
+    });
+  }
+
+  if (ipRate) {
+    await db
+      .update(ipRateLimitsTable)
+      .set({ count: ipRate.count + 1, lastRequestAt: new Date() })
+      .where(eq(ipRateLimitsTable.id, ipRate.id));
   } else {
     await db.insert(ipRateLimitsTable).values({
       ip,
-      feature: "public_chatbot",
+      feature: "public_chatbot_ip",
       date: today,
       count: 1,
       lastRequestAt: new Date(),
@@ -394,23 +422,38 @@ Return ONLY valid JSON: {"title":"...","description":"..."}`;
 }
 
 adminSiteCustomizationRouter.post("/admin/seo-fill/run", requireAdmin, async (req, res): Promise<void> => {
-  const body = (req.body ?? {}) as { types?: string[]; dryRun?: boolean; limit?: number };
+  const body = (req.body ?? {}) as {
+    types?: string[];
+    dryRun?: boolean;
+    limit?: number;
+    cursor?: { blog?: number; product?: number; gallery?: number };
+  };
   const types = Array.isArray(body.types) && body.types.length > 0 ? body.types : ["blog", "product", "gallery"];
   const dryRun = body.dryRun === true;
   const limit = Math.min(Math.max(parseInt(String(body.limit ?? META_BATCH_LIMIT)) || META_BATCH_LIMIT, 1), META_BATCH_LIMIT);
+  const cursor = body.cursor ?? {};
 
   const queue: Array<{ type: "blog" | "product" | "gallery"; id: number }> = [];
   if (types.includes("blog")) {
     const items = await findMissingBlog();
-    items.forEach(i => queue.push({ type: "blog", id: i.id }));
+    items
+      .filter(i => i.id > (cursor.blog ?? 0))
+      .sort((a, b) => a.id - b.id)
+      .forEach(i => queue.push({ type: "blog", id: i.id }));
   }
   if (types.includes("product")) {
     const items = await findMissingProduct();
-    items.forEach(i => queue.push({ type: "product", id: i.id }));
+    items
+      .filter(i => i.id > (cursor.product ?? 0))
+      .sort((a, b) => a.id - b.id)
+      .forEach(i => queue.push({ type: "product", id: i.id }));
   }
   if (types.includes("gallery")) {
     const items = await findMissingGallery();
-    items.forEach(i => queue.push({ type: "gallery", id: i.id }));
+    items
+      .filter(i => i.id > (cursor.gallery ?? 0))
+      .sort((a, b) => a.id - b.id)
+      .forEach(i => queue.push({ type: "gallery", id: i.id }));
   }
 
   const slice = queue.slice(0, limit);
@@ -457,11 +500,18 @@ adminSiteCustomizationRouter.post("/admin/seo-fill/run", requireAdmin, async (re
     }
   }
 
+  const nextCursor: { blog?: number; product?: number; gallery?: number } = { ...cursor };
+  for (const r of slice) {
+    const prev = nextCursor[r.type] ?? 0;
+    if (r.id > prev) nextCursor[r.type] = r.id;
+  }
+
   res.json({
     processed: results.length,
     remaining: Math.max(queue.length - slice.length, 0),
     results,
     dryRun,
+    nextCursor,
   });
 });
 

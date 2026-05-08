@@ -249,7 +249,7 @@ function ProtectedRouter() {
             <Route path="/admin/catalog"><AdminGuard><AdminCatalogPage /></AdminGuard></Route>
             <Route path="/admin/gallery"><AdminGuard><AdminGalleryPage /></AdminGuard></Route>
             <Route path="/admin/promotions"><AdminGuard><AdminPromotionsPage /></AdminGuard></Route>
-            <Route path="/admin/site-code"><AdminGuard><AdminSiteCodePage /></AdminGuard></Route>
+            <Route path="/admin/site-code"><PermissionGuard module="site_code"><AdminSiteCodePage /></PermissionGuard></Route>
             <Route path="/admin/chatbot"><AdminGuard><AdminChatbotPage /></AdminGuard></Route>
             <Route path="/admin/seo-fill"><AdminGuard><AdminSeoFillPage /></AdminGuard></Route>
             <Route path="/products/:slug" component={ProductDetailPage} />

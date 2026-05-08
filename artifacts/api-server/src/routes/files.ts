@@ -378,18 +378,31 @@ router.get("/files/usage", async (req, res): Promise<void> => {
   }
 });
 
+const IMAGE_MIME: Record<string, string> = {
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
+  webp: "image/webp", svg: "image/svg+xml", bmp: "image/bmp", ico: "image/x-icon", avif: "image/avif",
+};
+
 router.get("/files/preview", async (req, res): Promise<void> => {
   try {
     const home = await getUserHome(req);
     const rel = (req.query.path as string) ?? "";
     const abs = resolveJailed(home, rel);
+    const ext = rel.split(".").pop()?.toLowerCase() ?? "";
+    const mime = IMAGE_MIME[ext];
+    if (!mime) {
+      res.status(415).json({ error: "Preview is only available for image files" });
+      return;
+    }
     const stat = await fsp.stat(abs).catch(() => null);
     if (!stat || !stat.isFile()) {
       res.status(404).json({ error: "Not found" });
       return;
     }
+    res.setHeader("Content-Type", mime);
     res.setHeader("Content-Length", String(stat.size));
     res.setHeader("Cache-Control", "private, max-age=60");
+    res.setHeader("X-Content-Type-Options", "nosniff");
     createReadStream(abs).pipe(res);
   } catch (err) {
     if (handleJailError(res, err)) return;

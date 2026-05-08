@@ -4,6 +4,7 @@ import { OnboardingFloatWidget } from "@/components/OnboardingChecklist";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ChatWidget } from "@/components/ChatWidget";
 import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import { PromoBanner, PromoPopup } from "@/components/PromoSurfaces";
 import {
   LayoutDashboard,
   Globe,
@@ -38,6 +39,8 @@ import {
   FileText,
   FolderOpen,
   Command,
+  Package,
+  Tag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -66,7 +69,12 @@ const navItems = [
   { path: "/ab-tests", label: "A/B Tests", icon: FlaskConical, permission: "analytics" },
   { path: "/reports", label: "Reports", icon: FileBarChart, permission: "analytics" },
   { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
+  { path: "/products", label: "Products", icon: Package, permission: null },
+  { path: "/gallery", label: "Gallery", icon: ImageIcon, permission: null },
   { path: "/admin/blog", label: "Blog Editor", icon: BookOpen, permission: null, adminOnly: true },
+  { path: "/admin/catalog", label: "Catalog", icon: Package, permission: null, adminOnly: true },
+  { path: "/admin/gallery", label: "Galleries", icon: ImageIcon, permission: null, adminOnly: true },
+  { path: "/admin/promotions", label: "Promotions", icon: Tag, permission: null, adminOnly: true },
   { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
   { path: "/files", label: "Files", icon: FolderOpen, permission: null },
   { path: "/settings", label: "Settings", icon: Settings, permission: null },
@@ -76,6 +84,12 @@ const PAGE_TITLES: Array<[string, string]> = [
   ["/websites/", "Website Detail"],
   ["/reports/", "Report Detail"],
   ["/blog/", "Blog Post"],
+  ["/products/", "Product"],
+  ["/admin/catalog", "Catalog"],
+  ["/admin/gallery", "Galleries"],
+  ["/admin/promotions", "Promotions"],
+  ["/products", "Products"],
+  ["/gallery", "Gallery"],
   ["/kb/", "Knowledge Base"],
   ["/websites", "Websites"],
   ["/keywords", "Keywords"],
@@ -396,6 +410,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background flex-col">
       <ImpersonationBanner />
+      <PromoBanner audience="loggedIn" />
+      <PromoPopup audience="loggedIn" />
     <div className="flex flex-1 overflow-hidden">
       {/* Desktop sidebar */}
       <aside

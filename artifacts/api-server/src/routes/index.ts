@@ -44,6 +44,9 @@ import localSeoRouter from "./local-seo";
 import contentBriefRouter from "./content-brief";
 import publicBillingRouter from "./public-billing";
 import filesRouter from "./files";
+import adminCatalogRouter, { publicCatalogRouter } from "./catalog";
+import adminGalleryRouter, { publicGalleryRouter } from "./gallery";
+import adminPromotionsRouter, { publicPromotionsRouter } from "./promotions";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -60,6 +63,9 @@ router.use(publicBillingRouter);
 router.use(emailWebhooksRouter);
 router.use(paymentWebhooksRouter);
 router.use(googleCallbackRouter);
+router.use(publicCatalogRouter);
+router.use(publicGalleryRouter);
+router.use(publicPromotionsRouter);
 
 router.use(requireAuth);
 
@@ -121,6 +127,9 @@ router.use(emailTemplatesRouter);
 router.use(sessionsRouter);
 router.use(filesRouter);
 router.use(adminSecurityRouter);
+router.use(adminCatalogRouter);
+router.use(adminGalleryRouter);
+router.use(adminPromotionsRouter);
 router.use(adminRouter);
 
 export default router;

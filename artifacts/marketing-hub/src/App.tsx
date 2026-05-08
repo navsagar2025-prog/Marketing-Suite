@@ -25,6 +25,12 @@ import LandingPage from "@/pages/landing";
 import PricingPage from "@/pages/pricing";
 import AdminPage from "@/pages/admin";
 import AdminBlogPage from "@/pages/admin-blog";
+import AdminCatalogPage from "@/pages/admin-catalog";
+import AdminGalleryPage from "@/pages/admin-gallery";
+import AdminPromotionsPage from "@/pages/admin-promotions";
+import ProductsPage from "@/pages/products";
+import ProductDetailPage from "@/pages/product-detail";
+import GalleryPage from "@/pages/gallery";
 import ConversationsPage from "@/pages/conversations";
 import BlogPage from "@/pages/blog";
 import BlogPostPage from "@/pages/blog-post";
@@ -84,6 +90,12 @@ function PermissionGuard({ module, children }: { module: string; children: React
   return <>{children}</>;
 }
 
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <AccessDenied />;
+  return <>{children}</>;
+}
+
 function ProtectedRouter() {
   const { user, isLoading } = useAuth();
 
@@ -117,6 +129,9 @@ function ProtectedRouter() {
         <Route path="/health/:token">
           {(params) => <PublicHealthPage token={params.token ?? ""} />}
         </Route>
+        <Route path="/products/:slug" component={ProductDetailPage} />
+        <Route path="/products" component={ProductsPage} />
+        <Route path="/gallery" component={GalleryPage} />
         <Route path="/" component={LandingPage} />
         <Route>
           <Redirect to="/" />
@@ -219,6 +234,12 @@ function ProtectedRouter() {
             <Route path="/settings" component={SettingsPage} />
             <Route path="/files" component={FilesPage} />
             <Route path="/admin/blog" component={AdminBlogPage} />
+            <Route path="/admin/catalog"><AdminGuard><AdminCatalogPage /></AdminGuard></Route>
+            <Route path="/admin/gallery"><AdminGuard><AdminGalleryPage /></AdminGuard></Route>
+            <Route path="/admin/promotions"><AdminGuard><AdminPromotionsPage /></AdminGuard></Route>
+            <Route path="/products/:slug" component={ProductDetailPage} />
+            <Route path="/products" component={ProductsPage} />
+            <Route path="/gallery" component={GalleryPage} />
             <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />
           </Switch>

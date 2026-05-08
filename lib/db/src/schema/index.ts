@@ -38,3 +38,7 @@ export * from "./coupons";
 export * from "./pagespeed-results";
 export * from "./sessions";
 export * from "./security-events";
+export * from "./brands";
+export * from "./products";
+export * from "./gallery-images";
+export * from "./promotions";

@@ -72,7 +72,7 @@ router.post("/track/heartbeat", async (req, res): Promise<void> => {
       .values({ visitorId, ipHash, userAgent: String(ua).slice(0, 300) })
       .onConflictDoUpdate({
         target: visitorSessionsTable.visitorId,
-        set: { lastSeenAt: new Date(), ipHash, userAgent: String(ua).slice(0, 300) },
+        set: { lastSeenAt: new Date(), heartbeatAt: new Date(), ipHash, userAgent: String(ua).slice(0, 300) },
       });
     const cutoff = new Date(Date.now() - 10 * 60 * 1000);
     await db
@@ -153,7 +153,7 @@ adminTrackRouter.get("/admin/active-visitors", async (_req, res): Promise<void> 
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(visitorSessionsTable)
-    .where(gte(visitorSessionsTable.lastSeenAt, cutoff));
+    .where(gte(visitorSessionsTable.heartbeatAt, cutoff));
   res.json({ activeVisitors: row?.count ?? 0 });
 });
 

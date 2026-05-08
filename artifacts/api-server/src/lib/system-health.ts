@@ -250,6 +250,7 @@ export const purgeExpiredTokens = async (execute: boolean, includeShareTokens = 
 
 export const runDailyHealthMaintenance = async (): Promise<void> => {
   await recordHealthSnapshot();
+  await purgeExpiredTokens(true, true);
   const auto = await getDbSetting("auto_cleanup_enabled");
   if (auto === "true") {
     await purgeExpiredTokens(true);

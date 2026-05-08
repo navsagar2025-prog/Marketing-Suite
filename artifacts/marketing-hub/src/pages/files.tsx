@@ -72,16 +72,27 @@ function FileIconFor({ item }: { item: FileItem }) {
   return <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />;
 }
 
-function TreeView({ node, depth, currentPath, onSelect }: { node: TreeNode; depth: number; currentPath: string; onSelect: (path: string) => void }) {
+function TreeView({ node, depth, currentPath, onSelect, onDropMove }: { node: TreeNode; depth: number; currentPath: string; onSelect: (path: string) => void; onDropMove: (dest: string) => void }) {
   const [open, setOpen] = useState(depth < 1);
+  const [hover, setHover] = useState(false);
   const isActive = node.path === currentPath;
   const hasChildren = node.children.length > 0;
   return (
     <div>
       <div
-        className={`flex items-center gap-1 py-1 px-1.5 rounded text-sm cursor-pointer hover:bg-muted ${isActive ? "bg-muted font-medium" : ""}`}
+        className={`flex items-center gap-1 py-1 px-1.5 rounded text-sm cursor-pointer hover:bg-muted ${isActive ? "bg-muted font-medium" : ""} ${hover ? "ring-2 ring-primary bg-primary/10" : ""}`}
         style={{ paddingLeft: `${depth * 12 + 6}px` }}
         onClick={() => { onSelect(node.path); if (hasChildren) setOpen(o => !o); }}
+        onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setHover(true); }}
+        onDragLeave={() => setHover(false)}
+        onDrop={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          setHover(false);
+          if (e.dataTransfer.types.includes("application/x-file-paths")) {
+            onDropMove(node.path);
+          }
+        }}
         data-testid={`tree-node-${node.path || "root"}`}
       >
         {hasChildren ? (
@@ -93,10 +104,16 @@ function TreeView({ node, depth, currentPath, onSelect }: { node: TreeNode; dept
         <span className="truncate">{node.name === "/" ? "Home" : node.name}</span>
       </div>
       {open && node.children.map(c => (
-        <TreeView key={c.path} node={c} depth={depth + 1} currentPath={currentPath} onSelect={onSelect} />
+        <TreeView key={c.path} node={c} depth={depth + 1} currentPath={currentPath} onSelect={onSelect} onDropMove={onDropMove} />
       ))}
     </div>
   );
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  item: FileItem;
 }
 
 export default function FilesPage() {
@@ -113,7 +130,20 @@ export default function FilesPage() {
   const [moveDialog, setMoveDialog] = useState<{ paths: string[] } | null>(null);
   const [moveDest, setMoveDest] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [rowHover, setRowHover] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [contextMenu]);
 
   const { data: tree, refetch: refetchTree } = useQuery<TreeNode>({
     queryKey: ["files-tree"],
@@ -279,22 +309,68 @@ export default function FilesPage() {
     URL.revokeObjectURL(url);
   };
 
-  const moveItems = async () => {
-    if (!moveDialog) return;
+  const performMove = async (paths: string[], destination: string) => {
+    if (paths.length === 0) return;
+    if (paths.some(p => destination === p || destination.startsWith(`${p}/`))) {
+      toast({ title: "Cannot move a folder into itself", variant: "destructive" });
+      return;
+    }
     const res = await fetch(apiUrl("/api/files/move"), {
       method: "POST",
       headers: { ...authHeader(), "Content-Type": "application/json" },
-      body: JSON.stringify({ paths: moveDialog.paths, destination: moveDest }),
+      body: JSON.stringify({ paths, destination }),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       toast({ title: "Move failed", description: d.error, variant: "destructive" });
       return;
     }
-    toast({ title: "Moved" });
+    toast({ title: `Moved ${paths.length} item${paths.length !== 1 ? "s" : ""}` });
     setMoveDialog(null);
     setMoveDest("");
     setSelected(new Set());
+    refreshAll();
+  };
+
+  const moveItems = async () => {
+    if (!moveDialog) return;
+    await performMove(moveDialog.paths, moveDest);
+  };
+
+  const onRowDragStart = (item: FileItem, e: React.DragEvent) => {
+    const paths = selected.has(item.path) && selected.size > 0 ? Array.from(selected) : [item.path];
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/x-file-paths", JSON.stringify(paths));
+    e.dataTransfer.setData("text/plain", paths.join("\n"));
+  };
+
+  const onFolderRowDrop = (folder: FileItem, e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRowHover(null);
+    const raw = e.dataTransfer.getData("application/x-file-paths");
+    if (!raw) return;
+    try {
+      const paths: string[] = JSON.parse(raw);
+      if (paths.includes(folder.path)) return;
+      performMove(paths, folder.path);
+    } catch {}
+  };
+
+  const deleteOne = async (path: string) => {
+    if (!window.confirm(`Delete "${path.split("/").pop()}"? This cannot be undone.`)) return;
+    const res = await fetch(apiUrl("/api/files/delete"), {
+      method: "POST",
+      headers: { ...authHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify({ paths: [path] }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast({ title: "Delete failed", description: d.error, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Deleted" });
+    setSelected(prev => { const n = new Set(prev); n.delete(path); return n; });
     refreshAll();
   };
 
@@ -406,7 +482,10 @@ export default function FilesPage() {
         <Card className="overflow-auto">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1.5"><Home className="h-4 w-4" /> Folders</CardTitle></CardHeader>
           <CardContent className="pt-0 px-2">
-            {tree ? <TreeView node={tree} depth={0} currentPath={currentPath} onSelect={setCurrentPath} /> : <div className="text-xs text-muted-foreground p-2">Loading…</div>}
+            {tree ? <TreeView node={tree} depth={0} currentPath={currentPath} onSelect={setCurrentPath} onDropMove={(dest) => {
+              const raw = (window as any).__lastDragPaths as string[] | undefined;
+              if (raw && raw.length) performMove(raw, dest);
+            }} /> : <div className="text-xs text-muted-foreground p-2">Loading…</div>}
           </CardContent>
         </Card>
 
@@ -466,7 +545,22 @@ export default function FilesPage() {
                 </thead>
                 <tbody>
                   {items.map(item => (
-                    <tr key={item.path} className="border-t hover:bg-muted/30 group" data-testid={`file-row-${item.path}`}>
+                    <tr
+                      key={item.path}
+                      className={`border-t hover:bg-muted/30 group ${item.isDirectory && rowHover === item.path ? "ring-2 ring-inset ring-primary bg-primary/10" : ""}`}
+                      draggable={renaming?.path !== item.path}
+                      onDragStart={e => {
+                        const paths = selected.has(item.path) && selected.size > 0 ? Array.from(selected) : [item.path];
+                        (window as any).__lastDragPaths = paths;
+                        onRowDragStart(item, e);
+                      }}
+                      onDragEnd={() => { (window as any).__lastDragPaths = undefined; setRowHover(null); }}
+                      onDragOver={item.isDirectory ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setRowHover(item.path); }) : undefined}
+                      onDragLeave={item.isDirectory ? (() => setRowHover(prev => prev === item.path ? null : prev)) : undefined}
+                      onDrop={item.isDirectory ? (e => onFolderRowDrop(item, e)) : undefined}
+                      onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, item }); }}
+                      data-testid={`file-row-${item.path}`}
+                    >
                       <td className="p-2">
                         <input
                           type="checkbox"
@@ -580,6 +674,39 @@ export default function FilesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-popover border rounded-md shadow-lg py-1 min-w-[180px] text-sm"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}
+          data-testid="file-context-menu"
+        >
+          <button className="w-full text-left px-3 py-1.5 hover:bg-muted flex items-center gap-2" onClick={() => { openItem(contextMenu.item); setContextMenu(null); }}>
+            <FileText className="h-3.5 w-3.5" /> Open
+          </button>
+          {!contextMenu.item.isDirectory && (
+            <button className="w-full text-left px-3 py-1.5 hover:bg-muted flex items-center gap-2" onClick={() => { downloadFile(contextMenu.item); setContextMenu(null); }}>
+              <Download className="h-3.5 w-3.5" /> Download
+            </button>
+          )}
+          {isZip(contextMenu.item.name) && !contextMenu.item.isDirectory && (
+            <button className="w-full text-left px-3 py-1.5 hover:bg-muted flex items-center gap-2" onClick={() => { setZipConfirm(contextMenu.item.path); setContextMenu(null); }}>
+              <FileArchive className="h-3.5 w-3.5" /> Extract here
+            </button>
+          )}
+          <button className="w-full text-left px-3 py-1.5 hover:bg-muted flex items-center gap-2" onClick={() => { setRenaming({ path: contextMenu.item.path, value: contextMenu.item.name }); setContextMenu(null); }} data-testid="context-rename">
+            <Pencil className="h-3.5 w-3.5" /> Rename
+          </button>
+          <button className="w-full text-left px-3 py-1.5 hover:bg-muted flex items-center gap-2" onClick={() => { setMoveDialog({ paths: [contextMenu.item.path] }); setMoveDest(""); setContextMenu(null); }} data-testid="context-move">
+            <MoveRight className="h-3.5 w-3.5" /> Move to…
+          </button>
+          <div className="h-px bg-border my-1" />
+          <button className="w-full text-left px-3 py-1.5 hover:bg-muted text-destructive flex items-center gap-2" onClick={() => { deleteOne(contextMenu.item.path); setContextMenu(null); }} data-testid="context-delete">
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>
+      )}
 
       <Dialog open={!!moveDialog} onOpenChange={open => !open && setMoveDialog(null)}>
         <DialogContent>

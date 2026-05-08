@@ -296,7 +296,7 @@ export default function PublicReportPage() {
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto">
+          <form onSubmit={(e) => { import("@/lib/ga4").then(m => m.trackGa4Event("form_submit", { form_name: "audit_url" })); return handleSubmit(e); }} className="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto">
             <Input
               type="text"
               placeholder="https://yourwebsite.com"
@@ -346,7 +346,7 @@ export default function PublicReportPage() {
                   <p className="text-sm text-muted-foreground">We'll be in touch soon.</p>
                 </div>
               ) : (
-                <form onSubmit={handleContactSubmit} className="space-y-3 max-w-sm mx-auto" data-testid="contact-form">
+                <form onSubmit={(e) => { import("@/lib/ga4").then(m => m.trackGa4Event("form_submit", { form_name: "contact_lead" })); return handleContactSubmit(e); }} className="space-y-3 max-w-sm mx-auto" data-testid="contact-form">
                   <div>
                     <Input
                       placeholder="Your name"

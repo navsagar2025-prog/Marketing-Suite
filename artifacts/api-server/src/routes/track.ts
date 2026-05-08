@@ -74,6 +74,11 @@ router.post("/track/heartbeat", async (req, res): Promise<void> => {
         target: visitorSessionsTable.visitorId,
         set: { lastSeenAt: new Date(), ipHash, userAgent: String(ua).slice(0, 300) },
       });
+    const cutoff = new Date(Date.now() - 10 * 60 * 1000);
+    await db
+      .update(pageViewsTable)
+      .set({ confirmed: true })
+      .where(and(eq(pageViewsTable.visitorId, visitorId), gte(pageViewsTable.createdAt, cutoff)));
   } catch (err) {
     logger.warn({ err }, "Failed to record heartbeat");
   }
@@ -163,7 +168,7 @@ adminTrackRouter.get("/admin/top-pages", async (req, res): Promise<void> => {
       uniqueVisitors: sql<number>`count(distinct ${pageViewsTable.visitorId})::int`,
     })
     .from(pageViewsTable)
-    .where(gte(pageViewsTable.createdAt, cutoff))
+    .where(and(gte(pageViewsTable.createdAt, cutoff), eq(pageViewsTable.confirmed, true)))
     .groupBy(pageViewsTable.path)
     .orderBy(desc(sql`count(*)`))
     .limit(20);

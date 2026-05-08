@@ -91,7 +91,11 @@ export default function AdminSystemHealthPage(): JSX.Element {
   );
 
   const [filesPreview, setFilesPreview] = useState<{ count: number; sampleNames: string[]; freedBytes: number } | null>(null);
-  const [tokensPreview, setTokensPreview] = useState<{ passwordResetTokens: number; sessions: number; pageViews: number; visitorSessions: number } | null>(null);
+  const [tokensPreview, setTokensPreview] = useState<{ passwordResetTokens: number; sessions: number; pageViews: number; visitorSessions: number; shareTokens: number } | null>(null);
+  const [topPagesDays, setTopPagesDays] = useState<1 | 7 | 30>(7);
+  const { data: topPages, isLoading: topPagesLoading } = useAdminFetch<{ days: number; pages: { path: string; views: number; uniqueVisitors: number }[] }>(
+    ["admin-top-pages", String(topPagesDays)], `/api/admin/top-pages?days=${topPagesDays}`, 60_000,
+  );
   const [ga4MeasurementId, setGa4MeasurementId] = useState("");
   const [ga4ApiSecret, setGa4ApiSecret] = useState("");
 
@@ -132,11 +136,11 @@ export default function AdminSystemHealthPage(): JSX.Element {
       const r = await adminPost("/api/admin/system-health/purge-tokens", { execute });
       if (!r.ok) throw new Error("Failed");
       const j = await r.json();
-      return { passwordResetTokens: j.passwordResetTokens, sessions: j.sessions, pageViews: j.pageViews, visitorSessions: j.visitorSessions, executed: j.executed };
+      return { passwordResetTokens: j.passwordResetTokens, sessions: j.sessions, pageViews: j.pageViews, visitorSessions: j.visitorSessions, shareTokens: j.shareTokens ?? 0, executed: j.executed };
     },
     onSuccess: (r) => {
       setTokensPreview(r);
-      const total = r.passwordResetTokens + r.sessions + r.pageViews + r.visitorSessions;
+      const total = r.passwordResetTokens + r.sessions + r.pageViews + r.visitorSessions + r.shareTokens;
       if (r.executed) toast({ title: `Purged ${total} expired records` });
       else toast({ title: `${total} expired rows found`, description: total > 0 ? "Click \"Purge now\" to delete" : "Nothing expired" });
     },
@@ -248,6 +252,48 @@ export default function AdminSystemHealthPage(): JSX.Element {
         </CardContent>
       </Card>
 
+      {/* Top Pages */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base">Top Pages</CardTitle>
+          <div className="flex gap-1" role="tablist">
+            {([1, 7, 30] as const).map(d => (
+              <Button
+                key={d}
+                variant={topPagesDays === d ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTopPagesDays(d)}
+                data-testid={`button-top-pages-${d}d`}
+              >
+                {d === 1 ? "24h" : `${d}d`}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {topPagesLoading ? <Skeleton className="h-32 w-full" /> : (topPages?.pages.length ?? 0) === 0 ? (
+            <div className="h-24 flex items-center justify-center text-sm text-muted-foreground">No confirmed page views in this window yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs text-muted-foreground uppercase">
+                  <tr><th className="text-left py-2">Path</th><th className="text-right py-2">Views</th><th className="text-right py-2">Unique visitors</th></tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(topPages?.pages ?? []).map(p => (
+                    <tr key={p.path} data-testid={`row-top-page-${encodeURIComponent(p.path)}`}>
+                      <td className="py-1.5 font-mono text-xs truncate max-w-md">{p.path}</td>
+                      <td className="py-1.5 text-right font-medium">{p.views.toLocaleString()}</td>
+                      <td className="py-1.5 text-right text-muted-foreground">{p.uniqueVisitors.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* DB tables */}
       <Card>
         <CardHeader className="pb-2">
@@ -315,6 +361,7 @@ export default function AdminSystemHealthPage(): JSX.Element {
                 <div className="flex justify-between"><span>Sessions:</span><span>{tokensPreview.sessions}</span></div>
                 <div className="flex justify-between"><span>Old page views:</span><span>{tokensPreview.pageViews}</span></div>
                 <div className="flex justify-between"><span>Old visitor sessions:</span><span>{tokensPreview.visitorSessions}</span></div>
+                <div className="flex justify-between"><span>Old share tokens (&gt;365d):</span><span>{tokensPreview.shareTokens}</span></div>
               </div>
             )}
             <div className="flex gap-2">

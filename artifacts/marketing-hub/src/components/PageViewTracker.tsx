@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { isMarketingRoute } from "@/lib/marketing-routes";
+import { trackGa4Event } from "@/lib/ga4";
 
 const HEARTBEAT_MS = 30_000;
 const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -23,6 +24,7 @@ export function PageViewTracker(): null {
   useEffect(() => {
     if (!isMarketingRoute(location)) return;
     post("/api/track/pageview", { path: location, referrer: document.referrer || null });
+    trackGa4Event("page_view", { page_location: window.location.href, page_path: location, page_referrer: document.referrer || undefined });
   }, [location]);
 
   useEffect(() => {

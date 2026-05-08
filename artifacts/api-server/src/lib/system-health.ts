@@ -114,7 +114,7 @@ const ACTIVE_WINDOW_MS = 5 * 60 * 1000;
 export const collectVisitorMetrics = async (): Promise<{ pageViews24h: number; activeVisitors: number }> => {
   const cutoff24 = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const cutoffActive = new Date(Date.now() - ACTIVE_WINDOW_MS);
-  const [pv] = await db.select({ c: sql<number>`count(*)::int` }).from(pageViewsTable).where(sql`${pageViewsTable.createdAt} >= ${cutoff24}`);
+  const [pv] = await db.select({ c: sql<number>`count(*)::int` }).from(pageViewsTable).where(sql`${pageViewsTable.createdAt} >= ${cutoff24} and ${pageViewsTable.confirmed} = true`);
   const [av] = await db.select({ c: sql<number>`count(*)::int` }).from(visitorSessionsTable).where(sql`${visitorSessionsTable.lastSeenAt} >= ${cutoffActive}`);
   return { pageViews24h: pv?.c ?? 0, activeVisitors: av?.c ?? 0 };
 };
@@ -211,23 +211,26 @@ export const scanOrphanedFiles = async (execute: boolean): Promise<CleanupReport
   };
 };
 
-export type TokenSweep = { passwordResetTokens: number; sessions: number; pageViews: number; visitorSessions: number };
+export type TokenSweep = { passwordResetTokens: number; sessions: number; pageViews: number; visitorSessions: number; shareTokens: number };
 
 export const purgeExpiredTokens = async (execute: boolean): Promise<TokenSweep> => {
   const now = new Date();
   const pageViewCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const visitorCutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  const shareCutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 
   const [prtCount] = await db.select({ c: sql<number>`count(*)::int` }).from(passwordResetTokensTable).where(sql`${passwordResetTokensTable.expiresAt} < ${now} or ${passwordResetTokensTable.used} = true`);
   const [sessCount] = await db.select({ c: sql<number>`count(*)::int` }).from(sessionsTable).where(sql`${sessionsTable.expiresAt} < ${now} or ${sessionsTable.revokedAt} is not null`);
   const [pvCount] = await db.select({ c: sql<number>`count(*)::int` }).from(pageViewsTable).where(sql`${pageViewsTable.createdAt} < ${pageViewCutoff}`);
   const [vsCount] = await db.select({ c: sql<number>`count(*)::int` }).from(visitorSessionsTable).where(sql`${visitorSessionsTable.lastSeenAt} < ${visitorCutoff}`);
+  const [shareCount] = await db.select({ c: sql<number>`count(*)::int` }).from(clientReportsTable).where(sql`${clientReportsTable.createdAt} < ${shareCutoff}`);
 
   if (execute) {
     await db.delete(passwordResetTokensTable).where(sql`${passwordResetTokensTable.expiresAt} < ${now} or ${passwordResetTokensTable.used} = true`);
     await db.delete(sessionsTable).where(sql`${sessionsTable.expiresAt} < ${now} or ${sessionsTable.revokedAt} is not null`);
     await db.delete(pageViewsTable).where(sql`${pageViewsTable.createdAt} < ${pageViewCutoff}`);
     await db.delete(visitorSessionsTable).where(sql`${visitorSessionsTable.lastSeenAt} < ${visitorCutoff}`);
+    await db.delete(clientReportsTable).where(sql`${clientReportsTable.createdAt} < ${shareCutoff}`);
   }
 
   return {
@@ -235,6 +238,7 @@ export const purgeExpiredTokens = async (execute: boolean): Promise<TokenSweep> 
     sessions: sessCount?.c ?? 0,
     pageViews: pvCount?.c ?? 0,
     visitorSessions: vsCount?.c ?? 0,
+    shareTokens: shareCount?.c ?? 0,
   };
 };
 

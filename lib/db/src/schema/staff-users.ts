@@ -16,6 +16,7 @@ export const staffUsersTable = pgTable("staff_users", {
   byokProvider: text("byok_provider"),
   byokApiKey: text("byok_api_key"),
   byokEnabled: boolean("byok_enabled").notNull().default(false),
+  homeDir: text("home_dir"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

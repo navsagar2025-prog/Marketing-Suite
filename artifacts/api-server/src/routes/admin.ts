@@ -8,6 +8,7 @@ import { runRankSnapshot } from "./keywords.js";
 import { SnapshotKeywordRanksResponse } from "@workspace/api-zod";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights, type LeadScoringWeights } from "../lib/lead-scoring.js";
 import { getDbSetting, setDbSetting } from "../lib/ai-provider.js";
+import { userHomeDir, ensureHomeDir, dirSize } from "../lib/path-jail.js";
 
 const DAILY_LIMIT = 2;
 
@@ -163,11 +164,62 @@ router.get("/admin/staff", async (_req, res): Promise<void> => {
       role: staffUsersTable.role,
       permissions: staffUsersTable.permissions,
       plan: staffUsersTable.plan,
+      homeDir: staffUsersTable.homeDir,
       createdAt: staffUsersTable.createdAt,
     })
     .from(staffUsersTable)
     .orderBy(staffUsersTable.createdAt);
   res.json(staff);
+});
+
+router.patch("/admin/staff/:id/home-dir", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const { homeDir } = req.body as { homeDir?: string | null };
+  const cleaned = typeof homeDir === "string" ? homeDir.trim() : "";
+  if (cleaned && (cleaned.includes("..") || cleaned.startsWith("/") || cleaned.startsWith("\\"))) {
+    res.status(400).json({ error: "Home directory must be a relative path without '..'" });
+    return;
+  }
+  const value = cleaned ? cleaned : null;
+  const [updated] = await db
+    .update(staffUsersTable)
+    .set({ homeDir: value })
+    .where(eq(staffUsersTable.id, id))
+    .returning({
+      id: staffUsersTable.id,
+      username: staffUsersTable.username,
+      homeDir: staffUsersTable.homeDir,
+    });
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const home = userHomeDir(updated);
+  await ensureHomeDir(home);
+  res.json(updated);
+});
+
+router.get("/admin/staff/:id/disk-usage", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id ?? "");
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  const [u] = await db
+    .select({ id: staffUsersTable.id, username: staffUsersTable.username, homeDir: staffUsersTable.homeDir })
+    .from(staffUsersTable)
+    .where(eq(staffUsersTable.id, id));
+  if (!u) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  const home = userHomeDir(u);
+  const bytes = await dirSize(home);
+  res.json({ bytes });
 });
 
 router.post("/admin/staff", async (req, res): Promise<void> => {

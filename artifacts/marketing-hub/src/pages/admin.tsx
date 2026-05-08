@@ -77,6 +77,7 @@ interface StaffUser {
   role: "admin" | "staff";
   permissions: string[] | null;
   plan: "starter" | "growth" | "agency";
+  homeDir: string | null;
   createdAt: string;
 }
 
@@ -567,6 +568,48 @@ function StaffTab() {
   const [editFullAccess, setEditFullAccess] = useState(true);
   const [editEmailUserId, setEditEmailUserId] = useState<number | null>(null);
   const [editEmailValue, setEditEmailValue] = useState("");
+  const [editHomeDirUserId, setEditHomeDirUserId] = useState<number | null>(null);
+  const [editHomeDirValue, setEditHomeDirValue] = useState("");
+  const [diskUsage, setDiskUsage] = useState<Record<number, number>>({});
+
+  const updateHomeDirMutation = useMutation({
+    mutationFn: async ({ id, homeDir }: { id: number; homeDir: string }) => {
+      const res = await fetch(`${base}/api/admin/staff/${id}/home-dir`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ homeDir }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error ?? "Failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-staff"] });
+      setEditHomeDirUserId(null);
+      setEditHomeDirValue("");
+      toast({ title: "Home directory updated" });
+    },
+    onError: (err: Error) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  async function loadDiskUsage(id: number) {
+    try {
+      const res = await fetch(`${base}/api/admin/staff/${id}/disk-usage`, { headers });
+      if (!res.ok) return;
+      const d = await res.json();
+      setDiskUsage(prev => ({ ...prev, [id]: d.bytes }));
+    } catch {
+    }
+  }
+
+  function formatBytes(n: number): string {
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+    return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  }
 
   function openPermissionsPanel(staff: StaffUser) {
     if (expandedUserId === staff.id) {
@@ -876,7 +919,7 @@ function StaffTab() {
                   </div>
 
                   {expandedUserId === staff.id && (
-                    <div className="pb-3 px-1">
+                    <div className="pb-3 px-1 space-y-3">
                       <div className="border rounded-md p-3 bg-muted/30 space-y-3">
                         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
                           <Lock className="h-3 w-3" /> Edit module access for <strong>{staff.username}</strong>
@@ -908,6 +951,31 @@ function StaffTab() {
                             Cancel
                           </Button>
                         </div>
+                      </div>
+                      <div className="border rounded-md p-3 bg-muted/30 space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">Home directory (Files page jail)</p>
+                        {editHomeDirUserId === staff.id ? (
+                          <div className="flex gap-2 items-center">
+                            <Input
+                              placeholder={`Default: ${staff.username}`}
+                              value={editHomeDirValue}
+                              onChange={e => setEditHomeDirValue(e.target.value)}
+                              className="h-7 text-xs flex-1"
+                              data-testid={`input-home-dir-${staff.id}`}
+                            />
+                            <Button size="sm" className="h-7 px-2 text-xs" onClick={() => updateHomeDirMutation.mutate({ id: staff.id, homeDir: editHomeDirValue })} disabled={updateHomeDirMutation.isPending}>Save</Button>
+                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => { setEditHomeDirUserId(null); setEditHomeDirValue(""); }}>Cancel</Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-xs">
+                            <code className="bg-background px-1.5 py-0.5 rounded border font-mono">{staff.homeDir ?? staff.username}</code>
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => { setEditHomeDirUserId(staff.id); setEditHomeDirValue(staff.homeDir ?? ""); }} data-testid={`button-edit-home-dir-${staff.id}`}>Change</Button>
+                            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => loadDiskUsage(staff.id)}>
+                              {diskUsage[staff.id] !== undefined ? `Used: ${formatBytes(diskUsage[staff.id])}` : "Show disk usage"}
+                            </Button>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">Relative path under the file storage root. Path traversal blocked. Defaults to the username if empty.</p>
                       </div>
                     </div>
                   )}

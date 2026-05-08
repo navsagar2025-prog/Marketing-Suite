@@ -36,6 +36,7 @@ import {
   Send,
   MapPin,
   FileText,
+  FolderOpen,
   Command,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,7 @@ const navItems = [
   { path: "/reports", label: "Reports", icon: FileBarChart, permission: "analytics" },
   { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
   { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
+  { path: "/files", label: "Files", icon: FolderOpen, permission: null },
   { path: "/settings", label: "Settings", icon: Settings, permission: null },
 ];
 
@@ -94,6 +96,7 @@ const PAGE_TITLES: Array<[string, string]> = [
   ["/reports", "Reports"],
   ["/blog", "Blog"],
   ["/kb", "Knowledge Base"],
+  ["/files", "Files"],
   ["/settings", "Settings"],
   ["/admin", "Admin Panel"],
   ["/", "Dashboard"],

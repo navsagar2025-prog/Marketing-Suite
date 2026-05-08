@@ -40,6 +40,7 @@ import ReportDetailPage from "@/pages/report-detail";
 import SharedReportPage from "@/pages/shared-report";
 import PublicHealthPage from "@/pages/public-health";
 import WelcomePage from "@/pages/welcome";
+import FilesPage from "@/pages/files";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Loader2, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -215,6 +216,7 @@ function ProtectedRouter() {
             </Route>
             <Route path="/kb" component={KnowledgeBasePage} />
             <Route path="/settings" component={SettingsPage} />
+            <Route path="/files" component={FilesPage} />
             <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />
           </Switch>

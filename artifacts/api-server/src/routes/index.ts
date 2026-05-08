@@ -42,6 +42,7 @@ import adminSecurityRouter from "./admin-security";
 import localSeoRouter from "./local-seo";
 import contentBriefRouter from "./content-brief";
 import publicBillingRouter from "./public-billing";
+import filesRouter from "./files";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -116,6 +117,7 @@ router.use(googleIntegrationRouter);
 router.use("/email-templates", requirePermission("campaigns"));
 router.use(emailTemplatesRouter);
 router.use(sessionsRouter);
+router.use(filesRouter);
 router.use(adminSecurityRouter);
 router.use(adminRouter);
 

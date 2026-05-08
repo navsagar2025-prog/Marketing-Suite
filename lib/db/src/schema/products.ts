@@ -13,6 +13,8 @@ export const productsTable = pgTable("products", {
   features: jsonb("features").notNull().default([]),
   heroImage: text("hero_image"),
   active: boolean("active").notNull().default(true),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

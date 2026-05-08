@@ -8,6 +8,8 @@ export const galleryImagesTable = pgTable("gallery_images", {
   categoryTag: text("category_tag"),
   locationTag: text("location_tag"),
   sortOrder: integer("sort_order").notNull().default(0),
+  seoTitle: text("seo_title"),
+  seoDescription: text("seo_description"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

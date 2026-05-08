@@ -41,6 +41,9 @@ import {
   Command,
   Package,
   Tag,
+  Code2,
+  MessageCircle,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -75,6 +78,9 @@ const navItems = [
   { path: "/admin/catalog", label: "Catalog", icon: Package, permission: null, adminOnly: true },
   { path: "/admin/gallery", label: "Galleries", icon: ImageIcon, permission: null, adminOnly: true },
   { path: "/admin/promotions", label: "Promotions", icon: Tag, permission: null, adminOnly: true },
+  { path: "/admin/seo-fill", label: "Bulk SEO Fill", icon: Wand2, permission: null, adminOnly: true },
+  { path: "/admin/site-code", label: "Site Code", icon: Code2, permission: null, adminOnly: true },
+  { path: "/admin/chatbot", label: "Public Chatbot", icon: MessageCircle, permission: null, adminOnly: true },
   { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
   { path: "/files", label: "Files", icon: FolderOpen, permission: null },
   { path: "/settings", label: "Settings", icon: Settings, permission: null },

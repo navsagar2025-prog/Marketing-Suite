@@ -10,6 +10,7 @@ export const ALL_MODULES = [
   "media",
   "calendar",
   "conversations",
+  "site_code",
 ] as const;
 
 export type PermissionModule = (typeof ALL_MODULES)[number];
@@ -26,4 +27,5 @@ export const MODULE_LABELS: Record<PermissionModule, string> = {
   media: "Media Library",
   calendar: "Calendar",
   conversations: "Conversations",
+  site_code: "Custom Site Code",
 };

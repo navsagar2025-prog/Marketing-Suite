@@ -42,3 +42,4 @@ export * from "./brands";
 export * from "./products";
 export * from "./gallery-images";
 export * from "./promotions";
+export * from "./chatbot-conversations";

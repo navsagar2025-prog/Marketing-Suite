@@ -47,6 +47,7 @@ import filesRouter from "./files";
 import adminCatalogRouter, { publicCatalogRouter } from "./catalog";
 import adminGalleryRouter, { publicGalleryRouter } from "./gallery";
 import adminPromotionsRouter, { publicPromotionsRouter } from "./promotions";
+import siteCustomizationRouter, { adminSiteCustomizationRouter } from "./site-customization";
 import { requireAuth, requirePermission, requireAnyPermission } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -66,6 +67,7 @@ router.use(googleCallbackRouter);
 router.use(publicCatalogRouter);
 router.use(publicGalleryRouter);
 router.use(publicPromotionsRouter);
+router.use(siteCustomizationRouter);
 
 router.use(requireAuth);
 
@@ -131,5 +133,6 @@ router.use(adminCatalogRouter);
 router.use(adminGalleryRouter);
 router.use(adminPromotionsRouter);
 router.use(adminRouter);
+router.use(adminSiteCustomizationRouter);
 
 export default router;

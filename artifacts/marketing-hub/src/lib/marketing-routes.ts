@@ -17,11 +17,18 @@ const DENY_PATTERNS: RegExp[] = [
   /^\/admin/,
 ];
 
-const TRACK_DENY_PATTERNS: RegExp[] = [
-  /^\/login/,
-  /^\/forgot-password/,
-  /^\/reset-password/,
-  /^\/admin/,
+const TRACK_ALLOW_PATTERNS: RegExp[] = [
+  /^\/$/,
+  /^\/pricing\/?$/,
+  /^\/welcome\/?$/,
+  /^\/products(\/.*)?$/,
+  /^\/gallery(\/.*)?$/,
+  /^\/blog(\/.*)?$/,
+  /^\/kb(\/.*)?$/,
+  /^\/report\/?$/,
+  /^\/report\/[^/]+\/?$/,
+  /^\/shared-report\/[^/]+\/?$/,
+  /^\/health\/[^/]+\/?$/,
 ];
 
 export function isMarketingRoute(path: string): boolean {
@@ -32,5 +39,5 @@ export function isMarketingRoute(path: string): boolean {
 
 export function isTrackablePublicRoute(path: string): boolean {
   const clean = path.split("?")[0].split("#")[0] || "/";
-  return !TRACK_DENY_PATTERNS.some(re => re.test(clean));
+  return TRACK_ALLOW_PATTERNS.some(re => re.test(clean));
 }

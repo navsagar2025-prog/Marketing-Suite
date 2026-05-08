@@ -156,8 +156,6 @@ function ProtectedRouter() {
   }
 
   return (
-    <>
-    <PageViewTracker />
     <Switch>
       <Route path="/login">
         <Redirect to="/" />
@@ -267,7 +265,6 @@ function ProtectedRouter() {
         </Layout>
       </Route>
     </Switch>
-    </>
   );
 }
 

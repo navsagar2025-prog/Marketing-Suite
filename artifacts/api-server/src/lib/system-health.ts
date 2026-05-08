@@ -115,7 +115,7 @@ export const collectVisitorMetrics = async (): Promise<{ pageViews24h: number; a
   const cutoff24 = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const cutoffActive = new Date(Date.now() - ACTIVE_WINDOW_MS);
   const [pv] = await db.select({ c: sql<number>`count(*)::int` }).from(pageViewsTable).where(sql`${pageViewsTable.createdAt} >= ${cutoff24} and ${pageViewsTable.confirmed} = true`);
-  const [av] = await db.select({ c: sql<number>`count(*)::int` }).from(visitorSessionsTable).where(sql`${visitorSessionsTable.lastSeenAt} >= ${cutoffActive}`);
+  const [av] = await db.select({ c: sql<number>`count(*)::int` }).from(visitorSessionsTable).where(sql`${visitorSessionsTable.heartbeatAt} >= ${cutoffActive}`);
   return { pageViews24h: pv?.c ?? 0, activeVisitors: av?.c ?? 0 };
 };
 

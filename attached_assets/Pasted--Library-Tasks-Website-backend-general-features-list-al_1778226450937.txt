@@ -1,0 +1,97 @@
+
+Library
+Tasks
+Website backend general features
+list all the general features of this website which used in backend
+like user control, settings, blogs, SEO, visitors etc.
+
+7 days ago
+Write all backend features so that it can be used in another website
+
+3 minutes ago
+Let me write up a clean, comprehensive backend feature specification document you can use as a blueprint for any website.
+
+Here's the complete backend features specification, written as a clean reusable blueprint:
+
+1. Authentication & Session Management
+JWT login with secure httpOnly cookies, bcrypt password hashing
+Forgot password with time-limited email reset tokens
+Revoke all sessions instantly, persistent remember-me login
+Full login audit log (IP, timestamp, outcome)
+2. Role-Based Access Control (RBAC)
+Roles: admin, editor, viewer
+Granular per-user permissions: leads, blog, files, settings, users, analytics, ai
+Middleware enforces checks on every admin route
+Super-admin impersonation of any staff user
+3. User Management
+Create, edit, delete staff users with role and permission assignment
+File manager directory jailing per user
+Admin-triggered password reset for any user
+4. Security Hardening
+Brute-force IP lockout with admin unblock panel
+Database-backed rate limiting (survives restarts)
+Security event log (all login attempts and outcomes)
+Content Security Policy with nonce-protected scripts
+Path traversal and zip-slip protection on all file operations
+5. File Manager
+Jailed directory access per user
+Upload, rename, move, delete files and folders
+In-browser text editing, image preview, ZIP extraction
+Bulk ZIP download of selected files
+6. CRM — Leads & Contacts
+Lead capture with full pipeline: New → Contacted → Quoted → Converted → Lost
+Pinnable internal notes per lead
+Filters by status, date range, keyword
+CSV export with active filters, full export button
+Separate contact form request management
+7. Email Notifications
+Lead alert emails to multiple addresses
+Test email button to verify notification setup
+Email-based password reset
+8. Blog / Content Management
+Rich blog engine with tags, excerpts, featured image, publish/draft
+Per-post SEO fields: title, description, keyword, no-index
+AI content enhancement, AI SEO generation, AI hero image generation
+Scheduled auto-enhancement for new posts
+RSS feed with admin-managed featured posts
+9. Product / Catalog Management
+Full CRUD with categories, brands, features (JSON), images
+AI-generated hero images, SEO fields, JSON-LD structured data
+10. Gallery & Media
+Main gallery, secondary gallery, homepage slider
+Bulk photo upload, category and location tagging
+11. Offers / Promotions Engine
+Scheduled promotional popups and banners with start/end dates
+Customisable CTA colours and labels
+12. SEO & Marketing
+Sitemap.xml, robots.txt, RSS feed (all dynamic)
+JSON-LD for all content types
+Bulk SEO fill tool for missing metadata
+Custom Head and Body code injection (permission-gated, server-cached)
+13. Analytics & Tracking
+GA4 admin dashboard (sessions, top pages, traffic sources, devices)
+Server-side GA4 Measurement Protocol proxy
+Real-time active visitor count
+Internal page view tracker with bot filtering
+14. System Health & Monitoring
+Real-time CPU, memory, disk usage stats
+Database table size monitoring
+Orphaned file and expired token cleanup
+Daily health snapshots, admin-triggered cleanup actions
+15. AI Suite
+Blog content rewriting (Anthropic Claude)
+SEO metadata generation
+Hero image generation (DALL-E 3 / Fal.ai)
+Public-facing AI chatbot with admin-managed system prompt
+Background scheduled AI jobs
+16. Global Settings
+Key-value config store in the database (API keys, GA4 ID, emails, toggles)
+Server-side cached for performance
+Tech Stack
+Layer	Technology
+Framework	Next.js 14 (App Router)
+Database	MySQL / MariaDB + Drizzle ORM
+Auth	JWT + httpOnly cookies
+AI	Anthropic, OpenAI, Fal.ai
+Analytics	GA4 Data API + custom tracker
+Security	CSP nonces, rate limiting, RBAC, IP lockout

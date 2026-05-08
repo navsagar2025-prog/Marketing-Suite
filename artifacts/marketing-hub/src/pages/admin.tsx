@@ -576,7 +576,7 @@ function StaffTab() {
     mutationFn: async ({ id, homeDir }: { id: number; homeDir: string }) => {
       const res = await fetch(`${base}/api/admin/staff/${id}/home-dir`, {
         method: "PATCH",
-        headers,
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ homeDir }),
       });
       if (!res.ok) {

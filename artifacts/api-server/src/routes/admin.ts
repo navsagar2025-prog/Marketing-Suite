@@ -178,7 +178,12 @@ router.patch("/admin/staff/:id/home-dir", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid id" });
     return;
   }
-  const { homeDir } = req.body as { homeDir?: string | null };
+  const body = (req.body && typeof req.body === "object") ? req.body as { homeDir?: string | null } : null;
+  if (!body) {
+    res.status(400).json({ error: "JSON body required" });
+    return;
+  }
+  const homeDir = body.homeDir;
   const cleaned = typeof homeDir === "string" ? homeDir.trim() : "";
   if (cleaned && (cleaned.includes("..") || cleaned.startsWith("/") || cleaned.startsWith("\\"))) {
     res.status(400).json({ error: "Home directory must be a relative path without '..'" });

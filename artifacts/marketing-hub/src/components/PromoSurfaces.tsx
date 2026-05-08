@@ -14,9 +14,10 @@ function safeUrl(u: string | null): string | null {
   return null;
 }
 
-function useActivePromotions(_audience: "all" | "loggedIn") {
+function useActivePromotions(audience: "all" | "loggedIn") {
+  const tokenPresent = typeof window !== "undefined" && !!localStorage.getItem("auth_token");
   return useQuery({
-    queryKey: ["promotions-active"],
+    queryKey: ["promotions-active", audience, tokenPresent],
     queryFn: () => apiFetch<Promotion[]>(`/promotions/active`),
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,

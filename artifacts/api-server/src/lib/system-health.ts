@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { exec as execCb } from "node:child_process";
-import { sql, lt, eq, and, isNotNull } from "drizzle-orm";
+import { sql, lt } from "drizzle-orm";
 import {
   db,
   healthSnapshotsTable,
@@ -177,22 +177,26 @@ const collectDbFileRefs = async (): Promise<Set<string>> => {
 
 export type CleanupReport = { orphanedFiles: { count: number; sampleNames: string[]; freedBytes: number } };
 
+const SAFE_ORPHAN_SUBDIRS = ["media", "gallery"];
+
 export const scanOrphanedFiles = async (execute: boolean): Promise<CleanupReport> => {
-  let root = FILES_BASE_DIR;
-  try { await fs.access(root); } catch { return { orphanedFiles: { count: 0, sampleNames: [], freedBytes: 0 } }; }
-  const allFiles = await collectDiskFiles(root);
   const dbRefs = await collectDbFileRefs();
   const orphans: { full: string; bytes: number }[] = [];
-  for (const f of allFiles) {
-    const base = path.basename(f);
-    const rel = path.relative(root, f);
-    if (dbRefs.has(base) || dbRefs.has(rel) || dbRefs.has(f)) continue;
-    try {
-      const st = await fs.stat(f);
-      const ageMs = Date.now() - st.mtimeMs;
-      if (ageMs < 7 * 24 * 60 * 60 * 1000) continue;
-      orphans.push({ full: f, bytes: st.size });
-    } catch {}
+  for (const sub of SAFE_ORPHAN_SUBDIRS) {
+    const root = path.join(FILES_BASE_DIR, sub);
+    try { await fs.access(root); } catch { continue; }
+    const allFiles = await collectDiskFiles(root);
+    for (const f of allFiles) {
+      const base = path.basename(f);
+      const rel = path.relative(FILES_BASE_DIR, f);
+      if (dbRefs.has(base) || dbRefs.has(rel) || dbRefs.has(f)) continue;
+      try {
+        const st = await fs.stat(f);
+        const ageMs = Date.now() - st.mtimeMs;
+        if (ageMs < 7 * 24 * 60 * 60 * 1000) continue;
+        orphans.push({ full: f, bytes: st.size });
+      } catch {}
+    }
   }
   let freedBytes = 0;
   if (execute) {
@@ -251,4 +255,3 @@ export const runDailyHealthMaintenance = async (): Promise<void> => {
   }
 };
 
-void and; void eq; void isNotNull;

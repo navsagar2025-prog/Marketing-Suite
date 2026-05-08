@@ -59,8 +59,9 @@ adminHealth.post("/admin/system-health/cleanup-files", async (req, res): Promise
 
 adminHealth.post("/admin/system-health/purge-tokens", async (req, res): Promise<void> => {
   const execute = Boolean(req.body?.execute);
-  const result = await purgeExpiredTokens(execute);
-  res.json({ executed: execute, ...result });
+  const includeShareTokens = Boolean(req.body?.includeShareTokens);
+  const result = await purgeExpiredTokens(execute, includeShareTokens);
+  res.json({ executed: execute, includedShareTokens: includeShareTokens, ...result });
 });
 
 adminHealth.post("/admin/system-health/auto-cleanup", async (req, res): Promise<void> => {

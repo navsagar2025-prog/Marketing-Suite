@@ -131,9 +131,10 @@ export default function AdminSystemHealthPage(): JSX.Element {
     },
   });
 
+  const [includeShareTokens, setIncludeShareTokens] = useState(false);
   const purgeTokens = useMutation({
     mutationFn: async (execute: boolean) => {
-      const r = await adminPost("/api/admin/system-health/purge-tokens", { execute });
+      const r = await adminPost("/api/admin/system-health/purge-tokens", { execute, includeShareTokens });
       if (!r.ok) throw new Error("Failed");
       const j = await r.json();
       return { passwordResetTokens: j.passwordResetTokens, sessions: j.sessions, pageViews: j.pageViews, visitorSessions: j.visitorSessions, shareTokens: j.shareTokens ?? 0, executed: j.executed };
@@ -364,6 +365,10 @@ export default function AdminSystemHealthPage(): JSX.Element {
                 <div className="flex justify-between"><span>Old share tokens (&gt;365d):</span><span>{tokensPreview.shareTokens}</span></div>
               </div>
             )}
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={includeShareTokens} onChange={(e) => setIncludeShareTokens(e.target.checked)} data-testid="checkbox-include-share-tokens" />
+              <span>Also delete client report rows older than 365d (destructive)</span>
+            </label>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => purgeTokens.mutate(false)} disabled={purgeTokens.isPending} data-testid="button-scan-tokens">
                 Dry run

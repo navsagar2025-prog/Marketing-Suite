@@ -217,7 +217,7 @@ export const scanOrphanedFiles = async (execute: boolean): Promise<CleanupReport
 
 export type TokenSweep = { passwordResetTokens: number; sessions: number; pageViews: number; visitorSessions: number; shareTokens: number };
 
-export const purgeExpiredTokens = async (execute: boolean): Promise<TokenSweep> => {
+export const purgeExpiredTokens = async (execute: boolean, includeShareTokens = false): Promise<TokenSweep> => {
   const now = new Date();
   const pageViewCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const visitorCutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
@@ -234,7 +234,9 @@ export const purgeExpiredTokens = async (execute: boolean): Promise<TokenSweep> 
     await db.delete(sessionsTable).where(sql`${sessionsTable.expiresAt} < ${now} or ${sessionsTable.revokedAt} is not null`);
     await db.delete(pageViewsTable).where(sql`${pageViewsTable.createdAt} < ${pageViewCutoff}`);
     await db.delete(visitorSessionsTable).where(sql`${visitorSessionsTable.lastSeenAt} < ${visitorCutoff}`);
-    await db.delete(clientReportsTable).where(sql`${clientReportsTable.createdAt} < ${shareCutoff}`);
+    if (includeShareTokens) {
+      await db.delete(clientReportsTable).where(sql`${clientReportsTable.createdAt} < ${shareCutoff}`);
+    }
   }
 
   return {

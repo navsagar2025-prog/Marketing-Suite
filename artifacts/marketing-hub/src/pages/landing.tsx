@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { HomeSlider } from "@/components/HomeSlider";
 import {
   ShieldCheck,
   TrendingUp,
@@ -142,6 +143,8 @@ export default function LandingPage() {
           </nav>
         </div>
       </header>
+
+      <HomeSlider />
 
       <section className="bg-sidebar text-sidebar-foreground">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">

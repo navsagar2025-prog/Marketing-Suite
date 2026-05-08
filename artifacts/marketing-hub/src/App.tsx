@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Layout from "@/components/Layout";
+import { PromoBanner, PromoPopup } from "@/components/PromoSurfaces";
 import Dashboard from "@/pages/dashboard";
 import Websites from "@/pages/websites";
 import WebsiteDetail from "@/pages/website-detail";
@@ -113,6 +114,9 @@ function ProtectedRouter() {
 
   if (!user) {
     return (
+      <>
+      <PromoBanner audience="all" />
+      <PromoPopup audience="all" />
       <Switch>
         <Route path="/login" component={LoginPage} />
         <Route path="/forgot-password" component={ForgotPasswordPage} />
@@ -137,6 +141,7 @@ function ProtectedRouter() {
           <Redirect to="/" />
         </Route>
       </Switch>
+      </>
     );
   }
 

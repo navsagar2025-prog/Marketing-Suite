@@ -53,7 +53,12 @@ publicCatalogRouter.get("/products", async (req, res): Promise<void> => {
   if (category) conds.push(eq(productsTable.category, category));
   if (brand) {
     const [b] = await db.select().from(brandsTable).where(eq(brandsTable.slug, brand));
-    if (b) conds.push(eq(productsTable.brandId, b.id));
+    if (b) {
+      conds.push(eq(productsTable.brandId, b.id));
+    } else {
+      res.json({ products: [], total: 0 });
+      return;
+    }
   }
   const where = and(...conds);
   const products = await db.select().from(productsTable).where(where).orderBy(desc(productsTable.createdAt)).limit(limit).offset(offset);

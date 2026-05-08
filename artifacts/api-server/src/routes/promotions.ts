@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, lte, gte, or, isNull, desc } from "drizzle-orm";
 import { db, promotionsTable } from "@workspace/db";
-import { requireAdmin, verifyToken } from "../lib/auth.js";
+import { requireAdmin, isAuthedRequest } from "../lib/auth.js";
 
 function isSafeCtaUrl(u: unknown): boolean {
   if (u === null || u === undefined || u === "") return true;
@@ -18,9 +18,7 @@ export const publicPromotionsRouter: IRouter = Router();
 
 publicPromotionsRouter.get("/promotions/active", async (req, res): Promise<void> => {
   const now = new Date();
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-  const isAuthed = token ? !!verifyToken(token) : false;
+  const isAuthed = await isAuthedRequest(req);
   const audience: "all" | "loggedIn" = isAuthed && req.query.audience === "loggedIn" ? "loggedIn" : "all";
   const audienceFilter = audience === "loggedIn"
     ? or(eq(promotionsTable.audience, "all"), eq(promotionsTable.audience, "loggedIn"))!

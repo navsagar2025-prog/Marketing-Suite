@@ -91,6 +91,25 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   next();
 }
 
+export async function isAuthedRequest(req: Request): Promise<boolean> {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) return false;
+  const payload = verifyToken(token);
+  if (!payload || !payload.jti) return false;
+  try {
+    const [session] = await db
+      .select()
+      .from(sessionsTable)
+      .where(and(eq(sessionsTable.jti, payload.jti), isNull(sessionsTable.revokedAt)));
+    if (!session) return false;
+    if (session.expiresAt.getTime() < Date.now()) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   void requireAuth(req, res, () => {
     if (req.user?.role !== "admin") {

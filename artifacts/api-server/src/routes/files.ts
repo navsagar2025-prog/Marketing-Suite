@@ -96,7 +96,7 @@ router.get("/files/tree", async (req, res): Promise<void> => {
         children,
       };
     }
-    const tree = await walk(home, 5);
+    const tree = await walk(home, 20);
     res.json(tree);
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : "Failed to load tree" });

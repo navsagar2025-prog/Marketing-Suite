@@ -248,6 +248,18 @@ router.post("/files/download-zip", async (req, res): Promise<void> => {
       return;
     }
     const validated = paths.map(p => ({ rel: p, abs: resolveJailed(home, p) }));
+    const parents = validated.map(({ rel }) => {
+      const i = rel.lastIndexOf("/");
+      return i < 0 ? "" : rel.slice(0, i);
+    });
+    let commonParent = parents[0] ?? "";
+    for (const p of parents) {
+      while (commonParent && p !== commonParent && !p.startsWith(`${commonParent}/`)) {
+        const i = commonParent.lastIndexOf("/");
+        commonParent = i < 0 ? "" : commonParent.slice(0, i);
+      }
+    }
+    const stripPrefix = commonParent ? `${commonParent}/` : "";
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", `attachment; filename="files-${Date.now()}.zip"`);
     const archive = archiver("zip", { zlib: { level: 9 } });
@@ -256,14 +268,14 @@ router.post("/files/download-zip", async (req, res): Promise<void> => {
       else res.destroy(err);
     });
     archive.pipe(res);
-    for (const { abs } of validated) {
+    for (const { rel, abs } of validated) {
       const stat = await fsp.stat(abs).catch(() => null);
       if (!stat) continue;
-      const name = path.basename(abs);
+      const entryName = stripPrefix && rel.startsWith(stripPrefix) ? rel.slice(stripPrefix.length) : rel;
       if (stat.isDirectory()) {
-        archive.directory(abs, name);
+        archive.directory(abs, entryName);
       } else {
-        archive.file(abs, { name });
+        archive.file(abs, { name: entryName });
       }
     }
     await archive.finalize();

@@ -40,6 +40,27 @@ const ensureVisitor = (req: Request, res: Response): string => {
   return id;
 };
 
+const PIXEL_GIF = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
+
+router.get("/track/pixel", async (req, res): Promise<void> => {
+  res.setHeader("Content-Type", "image/gif");
+  res.setHeader("Cache-Control", "no-store");
+  const ua = req.headers["user-agent"] ?? "";
+  if (!isBotUa(ua)) {
+    const path = typeof req.query.p === "string" ? String(req.query.p).slice(0, 500) : "/";
+    const referrer = typeof req.query.r === "string" ? String(req.query.r).slice(0, 500) : null;
+    const visitorId = ensureVisitor(req, res);
+    const ipHash = hashIp(req.ip);
+    try {
+      await db.insert(pageViewsTable).values({ path, referrer, ipHash, userAgent: String(ua).slice(0, 300), visitorId });
+      await db.insert(visitorSessionsTable)
+        .values({ visitorId, ipHash, userAgent: String(ua).slice(0, 300) })
+        .onConflictDoUpdate({ target: visitorSessionsTable.visitorId, set: { lastSeenAt: new Date(), ipHash, userAgent: String(ua).slice(0, 300) } });
+    } catch (err) { logger.warn({ err }, "pixel track failed"); }
+  }
+  res.status(200).send(PIXEL_GIF);
+});
+
 router.post("/track/pageview", async (req, res): Promise<void> => {
   const ua = req.headers["user-agent"] ?? "";
   if (isBotUa(ua)) { res.status(204).end(); return; }

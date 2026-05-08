@@ -123,7 +123,6 @@ function ProtectedRouter() {
     return (
       <>
       <CustomCodeInjector />
-      <PageViewTracker />
       <PublicChatWidget />
       <PromoBanner audience="all" />
       <PromoPopup audience="all" />
@@ -274,6 +273,7 @@ function App() {
       <TooltipProvider>
         <AuthProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <PageViewTracker />
             <ProtectedRouter />
           </WouterRouter>
         </AuthProvider>

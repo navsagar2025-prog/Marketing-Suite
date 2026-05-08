@@ -19,7 +19,7 @@ export const publicPromotionsRouter: IRouter = Router();
 publicPromotionsRouter.get("/promotions/active", async (req, res): Promise<void> => {
   const now = new Date();
   const isAuthed = await isAuthedRequest(req);
-  const audience: "all" | "loggedIn" = isAuthed && req.query.audience === "loggedIn" ? "loggedIn" : "all";
+  const audience: "all" | "loggedIn" = isAuthed ? "loggedIn" : "all";
   const audienceFilter = audience === "loggedIn"
     ? or(eq(promotionsTable.audience, "all"), eq(promotionsTable.audience, "loggedIn"))!
     : eq(promotionsTable.audience, "all");

@@ -14,10 +14,10 @@ function safeUrl(u: string | null): string | null {
   return null;
 }
 
-function useActivePromotions(audience: "all" | "loggedIn") {
+function useActivePromotions(_audience: "all" | "loggedIn") {
   return useQuery({
-    queryKey: ["promotions-active", audience],
-    queryFn: () => apiFetch<Promotion[]>(`/promotions/active?audience=${audience}`),
+    queryKey: ["promotions-active"],
+    queryFn: () => apiFetch<Promotion[]>(`/promotions/active`),
     refetchInterval: 60_000,
     refetchOnWindowFocus: false,
   });

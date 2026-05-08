@@ -25,6 +25,7 @@ router.get("/", async (req, res) => {
     author: blogPostsTable.author,
     readingTime: blogPostsTable.readingTime,
     featured: blogPostsTable.featured,
+    featuredImage: blogPostsTable.featuredImage,
     publishedAt: blogPostsTable.publishedAt,
   }).from(blogPostsTable)
     .where(and(...conditions))

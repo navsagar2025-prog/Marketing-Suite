@@ -9,6 +9,7 @@ import { runRankSnapshot } from "./routes/keywords";
 import { runSequenceEngine } from "./routes/sequences";
 import { sendRankAlertDigest } from "./lib/rank-alert-email.js";
 import { runDailyPagespeedScan } from "./lib/pagespeed.js";
+import { publishScheduledPosts } from "./routes/admin-blog";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
 import { getDbSetting } from "./lib/ai-provider";
 
@@ -151,6 +152,13 @@ seedAdminUser()
         .catch((err) => logger.error({ err }, "Daily PageSpeed scan failed"));
     }, { timezone: "UTC" });
     logger.info("Daily PageSpeed scan cron scheduled (03:00 UTC)");
+
+    cron.schedule("*/5 * * * *", () => {
+      publishScheduledPosts()
+        .then((r) => { if (r.published > 0) logger.info(r, "Published scheduled blog posts"); })
+        .catch((err) => logger.error({ err }, "Scheduled blog post publishing failed"));
+    });
+    logger.info("Scheduled blog post publisher cron scheduled (every 5 minutes)");
   })
   .catch((err) => {
     logger.error({ err }, "Failed to seed admin user");

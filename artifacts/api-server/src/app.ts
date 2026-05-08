@@ -228,6 +228,70 @@ app.get("/sitemap.xml", async (req, res): Promise<void> => {
   res.send(xml);
 });
 
+// ── RSS feed ─────────────────────────────────────────────────────────────────
+let rssCache: { xml: string; expiresAt: number } | null = null;
+app.get("/rss.xml", async (req, res): Promise<void> => {
+  const now = Date.now();
+  if (rssCache && rssCache.expiresAt > now) {
+    res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.send(rssCache.xml);
+    return;
+  }
+  const siteUrl = (process.env.APP_URL ?? `https://${req.get("host")}`).replace(/\/$/, "");
+  const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  let posts: Array<{ title: string; slug: string; excerpt: string; author: string; publishedAt: Date; featuredImage: string | null; featuredInRss: boolean; featuredOrder: number }> = [];
+  try {
+    posts = await db.select({
+      title: blogPostsTable.title,
+      slug: blogPostsTable.slug,
+      excerpt: blogPostsTable.excerpt,
+      author: blogPostsTable.author,
+      publishedAt: blogPostsTable.publishedAt,
+      featuredImage: blogPostsTable.featuredImage,
+      featuredInRss: blogPostsTable.featuredInRss,
+      featuredOrder: blogPostsTable.featuredOrder,
+    }).from(blogPostsTable).where(eq(blogPostsTable.status, "published"));
+  } catch {
+    res.status(503).type("text").send("RSS feed unavailable");
+    return;
+  }
+
+  posts.sort((a, b) => {
+    if (a.featuredInRss !== b.featuredInRss) return a.featuredInRss ? -1 : 1;
+    if (a.featuredInRss && b.featuredInRss && a.featuredOrder !== b.featuredOrder) return a.featuredOrder - b.featuredOrder;
+    return b.publishedAt.getTime() - a.publishedAt.getTime();
+  });
+
+  const items = posts.slice(0, 50).map(p => `    <item>
+      <title>${escape(p.title)}</title>
+      <link>${siteUrl}/blog/${p.slug}</link>
+      <guid isPermaLink="true">${siteUrl}/blog/${p.slug}</guid>
+      <pubDate>${p.publishedAt.toUTCString()}</pubDate>
+      <author>noreply@${(req.get("host") ?? "example.com").split(":")[0]} (${escape(p.author)})</author>
+      <description>${escape(p.excerpt)}</description>${p.featuredImage ? `\n      <enclosure url="${escape(p.featuredImage)}" type="image/jpeg" />` : ""}
+    </item>`).join("\n");
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>SEO &amp; Marketing Hub</title>
+    <link>${siteUrl}/blog</link>
+    <description>Latest posts from the SEO &amp; Marketing Hub blog</description>
+    <language>en-us</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    <atom:link xmlns:atom="http://www.w3.org/2005/Atom" href="${siteUrl}/rss.xml" rel="self" type="application/rss+xml" />
+${items}
+  </channel>
+</rss>`;
+
+  rssCache = { xml, expiresAt: now + 300_000 };
+  res.setHeader("Content-Type", "application/rss+xml; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.send(xml);
+});
+
 app.use("/api", router);
 
 export default app;

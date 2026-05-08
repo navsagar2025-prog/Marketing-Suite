@@ -66,6 +66,7 @@ const navItems = [
   { path: "/ab-tests", label: "A/B Tests", icon: FlaskConical, permission: "analytics" },
   { path: "/reports", label: "Reports", icon: FileBarChart, permission: "analytics" },
   { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
+  { path: "/admin/blog", label: "Blog Editor", icon: BookOpen, permission: null, adminOnly: true },
   { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
   { path: "/files", label: "Files", icon: FolderOpen, permission: null },
   { path: "/settings", label: "Settings", icon: Settings, permission: null },
@@ -349,7 +350,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const providerLabel = PROVIDER_SHORT[aiProvider] ?? aiProvider;
 
   const visibleNavItems = navItems.filter(item =>
-    item.permission == null || hasPermission(item.permission)
+    (item.permission == null || hasPermission(item.permission)) &&
+    (!("adminOnly" in item) || !item.adminOnly || user?.role === "admin")
   );
 
   const allNavItems = [

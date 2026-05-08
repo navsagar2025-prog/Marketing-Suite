@@ -24,6 +24,7 @@ import ReportPage from "@/pages/report";
 import LandingPage from "@/pages/landing";
 import PricingPage from "@/pages/pricing";
 import AdminPage from "@/pages/admin";
+import AdminBlogPage from "@/pages/admin-blog";
 import ConversationsPage from "@/pages/conversations";
 import BlogPage from "@/pages/blog";
 import BlogPostPage from "@/pages/blog-post";
@@ -217,6 +218,7 @@ function ProtectedRouter() {
             <Route path="/kb" component={KnowledgeBasePage} />
             <Route path="/settings" component={SettingsPage} />
             <Route path="/files" component={FilesPage} />
+            <Route path="/admin/blog" component={AdminBlogPage} />
             <Route path="/admin" component={AdminPage} />
             <Route component={NotFound} />
           </Switch>

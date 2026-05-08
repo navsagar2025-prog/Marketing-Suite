@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiFetch } from "@/lib/catalog-api";
+import { isMarketingRoute } from "@/lib/marketing-routes";
 
 interface SiteCode { headHtml: string; bodyHtml: string }
 
@@ -31,15 +33,18 @@ function injectInto(target: HTMLElement, html: string, marker: string): () => vo
 }
 
 export function CustomCodeInjector() {
+  const [location] = useLocation();
+  const allowed = isMarketingRoute(location);
   const { data } = useQuery<SiteCode>({
     queryKey: ["public-site-code"],
     queryFn: () => apiFetch<SiteCode>("/public/site-code"),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
+    enabled: allowed,
   });
 
   useEffect(() => {
-    if (!data) return;
+    if (!allowed || !data) return;
     const cleanups: Array<() => void> = [];
     if (data.headHtml.trim()) {
       cleanups.push(injectInto(document.head, data.headHtml, "site-code-head"));
@@ -48,7 +53,7 @@ export function CustomCodeInjector() {
       cleanups.push(injectInto(document.body, data.bodyHtml, "site-code-body"));
     }
     return () => { cleanups.forEach(c => c()); };
-  }, [data?.headHtml, data?.bodyHtml]);
+  }, [allowed, data?.headHtml, data?.bodyHtml]);
 
   return null;
 }

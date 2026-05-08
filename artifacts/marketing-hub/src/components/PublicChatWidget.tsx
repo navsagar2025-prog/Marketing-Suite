@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiFetch } from "@/lib/catalog-api";
+import { isMarketingRoute } from "@/lib/marketing-routes";
 import { cn } from "@/lib/utils";
 
 interface PublicChatbotConfig { enabled: boolean; name: string; avatar: string; greeting: string }
@@ -20,11 +22,14 @@ function getVisitorId(): string {
 }
 
 export function PublicChatWidget() {
+  const [location] = useLocation();
+  const allowed = isMarketingRoute(location);
   const { data: config } = useQuery<PublicChatbotConfig>({
     queryKey: ["public-chatbot-config"],
     queryFn: () => apiFetch<PublicChatbotConfig>("/public/chatbot/config"),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+    enabled: allowed,
   });
 
   const [open, setOpen] = useState(false);
@@ -46,7 +51,7 @@ export function PublicChatWidget() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  if (!config?.enabled) return null;
+  if (!allowed || !config?.enabled) return null;
 
   const send = async (text: string) => {
     const content = text.trim();

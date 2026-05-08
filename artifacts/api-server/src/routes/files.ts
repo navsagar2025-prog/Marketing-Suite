@@ -346,18 +346,39 @@ router.post("/files/extract-zip", async (req, res): Promise<void> => {
       res.status(400).json({ error: "Not a .zip file" });
       return;
     }
+    const MAX_ENTRIES = 1000;
+    const MAX_TOTAL_BYTES = 500 * 1024 * 1024;
     const baseAbs = path.dirname(abs);
-    let extracted = 0;
     const directory = await unzipper.Open.file(abs);
-    for (const entry of directory.files) {
-      if (entry.type === "Directory") continue;
+    const fileEntries = directory.files.filter(e => e.type !== "Directory");
+    if (fileEntries.length > MAX_ENTRIES) {
+      res.status(413).json({ error: `Zip has too many entries (max ${MAX_ENTRIES})` });
+      return;
+    }
+    const totalUncompressed = fileEntries.reduce((s, e) => s + (e.uncompressedSize || 0), 0);
+    if (totalUncompressed > MAX_TOTAL_BYTES) {
+      res.status(413).json({ error: `Zip would extract more than ${Math.round(MAX_TOTAL_BYTES / 1024 / 1024)} MB` });
+      return;
+    }
+    let extracted = 0;
+    let writtenBytes = 0;
+    for (const entry of fileEntries) {
       const target = safeZipEntryPath(home, baseAbs, entry.path);
       await fsp.mkdir(path.dirname(target), { recursive: true });
       await new Promise<void>((resolve, reject) => {
-        entry.stream()
-          .pipe(fs.createWriteStream(target))
-          .on("finish", resolve)
-          .on("error", reject);
+        let entryBytes = 0;
+        const out = fs.createWriteStream(target);
+        const stream = entry.stream();
+        stream.on("data", (chunk: Buffer) => {
+          entryBytes += chunk.length;
+          writtenBytes += chunk.length;
+          if (writtenBytes > MAX_TOTAL_BYTES) {
+            stream.destroy();
+            out.destroy();
+            reject(new Error("Extraction exceeded size limit"));
+          }
+        });
+        stream.pipe(out).on("finish", resolve).on("error", reject);
       });
       extracted++;
     }

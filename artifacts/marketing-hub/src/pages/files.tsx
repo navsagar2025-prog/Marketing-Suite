@@ -72,7 +72,7 @@ function FileIconFor({ item }: { item: FileItem }) {
   return <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />;
 }
 
-function TreeView({ node, depth, currentPath, onSelect, onDropMove }: { node: TreeNode; depth: number; currentPath: string; onSelect: (path: string) => void; onDropMove: (dest: string) => void }) {
+function TreeView({ node, depth, currentPath, onSelect, onDropMove }: { node: TreeNode; depth: number; currentPath: string; onSelect: (path: string) => void; onDropMove: (dest: string, paths: string[]) => void }) {
   const [open, setOpen] = useState(depth < 1);
   const [hover, setHover] = useState(false);
   const isActive = node.path === currentPath;
@@ -89,9 +89,12 @@ function TreeView({ node, depth, currentPath, onSelect, onDropMove }: { node: Tr
           e.preventDefault();
           e.stopPropagation();
           setHover(false);
-          if (e.dataTransfer.types.includes("application/x-file-paths")) {
-            onDropMove(node.path);
-          }
+          const raw = e.dataTransfer.getData("application/x-file-paths");
+          if (!raw) return;
+          try {
+            const paths = JSON.parse(raw) as string[];
+            if (Array.isArray(paths) && paths.length > 0) onDropMove(node.path, paths);
+          } catch {}
         }}
         data-testid={`tree-node-${node.path || "root"}`}
       >
@@ -482,10 +485,7 @@ export default function FilesPage() {
         <Card className="overflow-auto">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-1.5"><Home className="h-4 w-4" /> Folders</CardTitle></CardHeader>
           <CardContent className="pt-0 px-2">
-            {tree ? <TreeView node={tree} depth={0} currentPath={currentPath} onSelect={setCurrentPath} onDropMove={(dest) => {
-              const raw = (window as any).__lastDragPaths as string[] | undefined;
-              if (raw && raw.length) performMove(raw, dest);
-            }} /> : <div className="text-xs text-muted-foreground p-2">Loading…</div>}
+            {tree ? <TreeView node={tree} depth={0} currentPath={currentPath} onSelect={setCurrentPath} onDropMove={(dest, paths) => performMove(paths, dest)} /> : <div className="text-xs text-muted-foreground p-2">Loading…</div>}
           </CardContent>
         </Card>
 
@@ -549,12 +549,8 @@ export default function FilesPage() {
                       key={item.path}
                       className={`border-t hover:bg-muted/30 group ${item.isDirectory && rowHover === item.path ? "ring-2 ring-inset ring-primary bg-primary/10" : ""}`}
                       draggable={renaming?.path !== item.path}
-                      onDragStart={e => {
-                        const paths = selected.has(item.path) && selected.size > 0 ? Array.from(selected) : [item.path];
-                        (window as any).__lastDragPaths = paths;
-                        onRowDragStart(item, e);
-                      }}
-                      onDragEnd={() => { (window as any).__lastDragPaths = undefined; setRowHover(null); }}
+                      onDragStart={e => onRowDragStart(item, e)}
+                      onDragEnd={() => setRowHover(null)}
                       onDragOver={item.isDirectory ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setRowHover(item.path); }) : undefined}
                       onDragLeave={item.isDirectory ? (() => setRowHover(prev => prev === item.path ? null : prev)) : undefined}
                       onDrop={item.isDirectory ? (e => onFolderRowDrop(item, e)) : undefined}

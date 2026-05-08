@@ -155,6 +155,10 @@ router.post("/files/rename", async (req, res): Promise<void> => {
       return;
     }
     const safe = newName.replace(/[/\\]/g, "_").trim();
+    if (!safe || safe === "." || safe === "..") {
+      res.status(400).json({ error: "newName must not be empty or '.'/'..'" });
+      return;
+    }
     const src = resolveJailed(home, rel);
     const dst = resolveJailed(home, path.join(path.dirname(rel), safe));
     await fsp.rename(src, dst);

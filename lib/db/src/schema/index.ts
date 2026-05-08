@@ -36,3 +36,5 @@ export * from "./password-reset-tokens";
 export * from "./login-attempts";
 export * from "./coupons";
 export * from "./pagespeed-results";
+export * from "./sessions";
+export * from "./security-events";

@@ -37,6 +37,8 @@ import pagespeedRouter from "./pagespeed";
 import googleIntegrationRouter from "./integrations-google";
 import googleCallbackRouter from "./integrations-google-callback";
 import emailTemplatesRouter from "./email-templates";
+import sessionsRouter from "./sessions";
+import adminSecurityRouter from "./admin-security";
 import localSeoRouter from "./local-seo";
 import contentBriefRouter from "./content-brief";
 import publicBillingRouter from "./public-billing";
@@ -113,6 +115,8 @@ router.use(pagespeedRouter);
 router.use(googleIntegrationRouter);
 router.use("/email-templates", requirePermission("campaigns"));
 router.use(emailTemplatesRouter);
+router.use(sessionsRouter);
+router.use(adminSecurityRouter);
 router.use(adminRouter);
 
 export default router;

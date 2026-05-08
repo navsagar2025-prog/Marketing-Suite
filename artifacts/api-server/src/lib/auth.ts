@@ -1,6 +1,9 @@
 import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
+import { eq, and, isNull } from "drizzle-orm";
+import { db, sessionsTable } from "@workspace/db";
 import { logger } from "./logger.js";
+import { emitSecurityEvent, clientIp, clientUa } from "./security-events.js";
 
 const JWT_SECRET = process.env.SESSION_SECRET;
 
@@ -13,10 +16,13 @@ export interface JwtPayload {
   username: string;
   role: "admin" | "staff";
   permissions?: string[] | null;
+  jti: string;
+  actorId?: number;
+  actorUsername?: string;
 }
 
-export function signToken(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET!, { expiresIn: "7d" });
+export function signToken(payload: JwtPayload, ttlSeconds: number): string {
+  return jwt.sign(payload, JWT_SECRET!, { expiresIn: ttlSeconds });
 }
 
 export function verifyToken(token: string): JwtPayload | null {
@@ -35,7 +41,10 @@ declare global {
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+const lastSeenCache = new Map<string, number>();
+const LAST_SEEN_THROTTLE_MS = 60_000;
+
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
@@ -45,8 +54,36 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
 
   const payload = verifyToken(token);
-  if (!payload) {
+  if (!payload || !payload.jti) {
     res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+
+  try {
+    const [session] = await db
+      .select()
+      .from(sessionsTable)
+      .where(and(eq(sessionsTable.jti, payload.jti), isNull(sessionsTable.revokedAt)));
+    if (!session) {
+      res.status(401).json({ error: "Session revoked or expired" });
+      return;
+    }
+    if (session.expiresAt.getTime() < Date.now()) {
+      res.status(401).json({ error: "Session expired" });
+      return;
+    }
+    const now = Date.now();
+    const last = lastSeenCache.get(payload.jti) ?? 0;
+    if (now - last > LAST_SEEN_THROTTLE_MS) {
+      lastSeenCache.set(payload.jti, now);
+      db.update(sessionsTable)
+        .set({ lastSeenAt: new Date(now), ip: clientIp(req), userAgent: clientUa(req) })
+        .where(eq(sessionsTable.id, session.id))
+        .catch((err) => logger.warn({ err }, "Failed to update session last_seen"));
+    }
+  } catch (err) {
+    logger.error({ err }, "Session validation error");
+    res.status(500).json({ error: "Auth backend error" });
     return;
   }
 
@@ -55,8 +92,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  requireAuth(req, res, () => {
+  void requireAuth(req, res, () => {
     if (req.user?.role !== "admin") {
+      void emitSecurityEvent({
+        action: "permission_denied",
+        userId: req.user?.id,
+        actorId: req.user?.actorId,
+        target: "admin",
+        ip: clientIp(req),
+        userAgent: clientUa(req),
+      });
       res.status(403).json({ error: "Admin access required" });
       return;
     }
@@ -64,41 +109,36 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
   });
 }
 
-/**
- * Middleware factory that checks if the authenticated user has permission for a given module.
- * Admins always pass. Staff with null permissions (legacy) also pass (full access fallback).
- * Staff with an explicit permissions array must have the module in that array.
- */
 export function requirePermission(module: string) {
   return requireAnyPermission(module);
 }
 
-/**
- * Middleware factory that passes if the user has ANY of the specified module permissions.
- * Use when a single API route serves multiple frontend sections (e.g. social-posts for
- * both "social" and "calendar" modules).
- */
 export function requireAnyPermission(...modules: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: "Authentication required" });
       return;
     }
-    // Admins always retain full access
     if (req.user.role === "admin") {
       next();
       return;
     }
-    // Legacy staff with no permissions set: full access
     if (req.user.permissions == null) {
       next();
       return;
     }
-    // Explicit permissions array: check for any of the required modules
     if (modules.some(m => req.user!.permissions!.includes(m))) {
       next();
       return;
     }
+    void emitSecurityEvent({
+      action: "permission_denied",
+      userId: req.user.id,
+      actorId: req.user.actorId,
+      target: modules.join(","),
+      ip: clientIp(req),
+      userAgent: clientUa(req),
+    });
     res.status(403).json({ error: `Permission denied: requires one of ${modules.join(", ")}` });
   };
 }

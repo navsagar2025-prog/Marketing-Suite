@@ -8,36 +8,64 @@ export interface AuthUser {
   permissions: string[] | null;
 }
 
+export interface ImpersonationInfo {
+  actorId: number;
+  actorUsername: string;
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
-  login: (token: string, user: AuthUser) => void;
+  impersonation: ImpersonationInfo | null;
+  login: (token: string, user: AuthUser, impersonation?: ImpersonationInfo | null) => void;
   logout: () => void;
+  stopImpersonation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const TOKEN_KEY = "auth_token";
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [impersonation, setImpersonation] = useState<ImpersonationInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
+    const t = localStorage.getItem(TOKEN_KEY);
+    if (t) {
+      fetch(`${BASE}/api/auth/logout`, { method: "POST", headers: { Authorization: `Bearer ${t}` } }).catch(() => {});
+    }
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    setImpersonation(null);
     setAuthTokenGetter(null);
   }, []);
 
-  const login = useCallback((newToken: string, newUser: AuthUser) => {
+  const login = useCallback((newToken: string, newUser: AuthUser, imp: ImpersonationInfo | null = null) => {
     localStorage.setItem(TOKEN_KEY, newToken);
     setToken(newToken);
     setUser(newUser);
+    setImpersonation(imp);
     setAuthTokenGetter(() => Promise.resolve(newToken));
   }, []);
+
+  const stopImpersonation = useCallback(async () => {
+    const t = localStorage.getItem(TOKEN_KEY);
+    if (!t) return;
+    const res = await fetch(`${BASE}/api/auth/stop-impersonate`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${t}` },
+    });
+    if (!res.ok) throw new Error("Failed to stop impersonation");
+    const { token: newToken, user: newUser } = await res.json();
+    login(newToken, newUser, null);
+    window.location.href = `${BASE}/`;
+  }, [login]);
 
   useEffect(() => {
     const storedToken = localStorage.getItem(TOKEN_KEY);
@@ -46,8 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-    fetch(`${base}/api/auth/me`, {
+    fetch(`${BASE}/api/auth/me`, {
       headers: { Authorization: `Bearer ${storedToken}` },
     })
       .then(async (r) => {
@@ -55,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await r.json();
         setToken(storedToken);
         setUser(data.user);
+        setImpersonation(data.impersonation ?? null);
         setAuthTokenGetter(() => Promise.resolve(storedToken));
       })
       .catch(() => {
@@ -64,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, impersonation, login, logout, stopImpersonation }}>
       {children}
     </AuthContext.Provider>
   );
@@ -76,10 +104,6 @@ export function useAuth() {
   return ctx;
 }
 
-/**
- * Returns true if the current user has a given permission.
- * Admins always return true. Staff with null permissions (legacy) return true (full access).
- */
 export function usePermissions() {
   const { user } = useAuth();
 

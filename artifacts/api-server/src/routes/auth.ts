@@ -1,15 +1,18 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { eq, and, gt, sql } from "drizzle-orm";
-import { randomBytes, createHash } from "crypto";
-import { db, staffUsersTable, passwordResetTokensTable, loginAttemptsTable } from "@workspace/db";
+import { eq, and, gt, sql, isNull } from "drizzle-orm";
+import { randomBytes, createHash, randomUUID } from "crypto";
+import { db, staffUsersTable, passwordResetTokensTable, loginAttemptsTable, sessionsTable } from "@workspace/db";
 import { signToken, requireAuth } from "../lib/auth.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
 import { logger } from "../lib/logger.js";
 import { loginRateLimit } from "../middleware/login-rate-limit.js";
+import { emitSecurityEvent, clientIp, clientUa } from "../lib/security-events.js";
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
+const SHORT_TTL_SECONDS = 60 * 60 * 24;
+const REMEMBER_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 const VALID_PLANS = ["starter", "growth", "agency"] as const;
 type Plan = (typeof VALID_PLANS)[number];
@@ -17,13 +20,16 @@ type Plan = (typeof VALID_PLANS)[number];
 const router: IRouter = Router();
 
 router.post("/auth/login", loginRateLimit, async (req, res): Promise<void> => {
-  const { username, password, plan } = req.body as { username?: string; password?: string; plan?: string };
+  const { username, password, plan, remember } = req.body as {
+    username?: string; password?: string; plan?: string; remember?: boolean;
+  };
   if (!username || !password) {
     res.status(400).json({ error: "Username and password are required" });
     return;
   }
 
-  const ip = req.ip ?? req.socket.remoteAddress ?? "unknown";
+  const ip = clientIp(req);
+  const ua = clientUa(req);
   const now = new Date();
 
   const [user] = await db.select().from(staffUsersTable).where(eq(staffUsersTable.username, username.trim().toLowerCase()));
@@ -43,6 +49,13 @@ router.post("/auth/login", loginRateLimit, async (req, res): Promise<void> => {
       const lockedUntil = new Date(now.getTime() + LOCKOUT_MS);
       await db.update(loginAttemptsTable).set({ lockedUntil }).where(eq(loginAttemptsTable.ip, ip));
       logger.warn({ ip, attempts: updated.attempts }, "Login brute-force lockout triggered");
+      await emitSecurityEvent({
+        action: "login_lockout",
+        userId: user?.id ?? null,
+        target: username,
+        ip, userAgent: ua,
+        details: { attempts: updated.attempts, lockedUntil: lockedUntil.toISOString() },
+      });
       res.status(429).json({
         error: `Too many login attempts. Try again in ${LOCKOUT_MS / 60000} minute(s).`,
         retryAfterSeconds: LOCKOUT_MS / 1000,
@@ -51,6 +64,12 @@ router.post("/auth/login", loginRateLimit, async (req, res): Promise<void> => {
       return;
     }
 
+    await emitSecurityEvent({
+      action: "login_failure",
+      userId: user?.id ?? null,
+      target: username,
+      ip, userAgent: ua,
+    });
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
@@ -58,7 +77,25 @@ router.post("/auth/login", loginRateLimit, async (req, res): Promise<void> => {
   await db.delete(loginAttemptsTable).where(eq(loginAttemptsTable.ip, ip));
 
   const permissions = user.role === "admin" ? null : (user.permissions ?? null);
-  const token = signToken({ id: user.id, username: user.username, role: user.role, permissions });
+  const ttlSeconds = remember ? REMEMBER_TTL_SECONDS : SHORT_TTL_SECONDS;
+  const jti = randomUUID();
+  const token = signToken({ id: user.id, username: user.username, role: user.role, permissions, jti }, ttlSeconds);
+
+  await db.insert(sessionsTable).values({
+    userId: user.id,
+    jti,
+    device: remember ? "Remembered browser" : "Browser session",
+    ip, userAgent: ua,
+    expiresAt: new Date(Date.now() + ttlSeconds * 1000),
+  });
+
+  await emitSecurityEvent({
+    action: "login_success",
+    userId: user.id,
+    target: user.username,
+    ip, userAgent: ua,
+    details: { remember: !!remember },
+  });
 
   const requestedPlan =
     plan && VALID_PLANS.includes(plan as Plan) ? (plan as Plan) : null;
@@ -71,7 +108,16 @@ router.post("/auth/login", loginRateLimit, async (req, res): Promise<void> => {
   });
 });
 
-router.post("/auth/logout", (_req, res): void => {
+router.post("/auth/logout", requireAuth, async (req, res): Promise<void> => {
+  if (req.user?.jti) {
+    await db.update(sessionsTable).set({ revokedAt: new Date() }).where(eq(sessionsTable.jti, req.user.jti));
+  }
+  await emitSecurityEvent({
+    action: "logout",
+    userId: req.user!.id,
+    actorId: req.user!.actorId,
+    ip: clientIp(req), userAgent: clientUa(req),
+  });
   res.json({ ok: true });
 });
 
@@ -98,6 +144,13 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
       userId: user.id,
       tokenHash,
       expiresAt,
+    });
+
+    await emitSecurityEvent({
+      action: "password_reset_request",
+      userId: user.id,
+      target: normalizedEmail,
+      ip: clientIp(req), userAgent: clientUa(req),
     });
 
     try {
@@ -176,7 +229,7 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
   const now = new Date();
   const passwordHash = await bcrypt.hash(password, 10);
 
-  let resetDone = false;
+  let resetUserId: number | null = null;
   await db.transaction(async (tx) => {
     const consumed = await tx
       .update(passwordResetTokensTable)
@@ -197,13 +250,23 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
       .set({ passwordHash })
       .where(eq(staffUsersTable.id, consumed[0].userId));
 
-    resetDone = true;
+    resetUserId = consumed[0].userId;
   });
 
-  if (!resetDone) {
+  if (resetUserId === null) {
     res.status(400).json({ error: "This reset link is invalid, expired, or has already been used." });
     return;
   }
+
+  // Revoke all active sessions for this user — force re-login everywhere
+  await db.update(sessionsTable).set({ revokedAt: new Date() })
+    .where(and(eq(sessionsTable.userId, resetUserId), isNull(sessionsTable.revokedAt)));
+
+  await emitSecurityEvent({
+    action: "password_reset_complete",
+    userId: resetUserId,
+    ip: clientIp(req), userAgent: clientUa(req),
+  });
 
   res.json({ ok: true });
 });
@@ -235,8 +298,11 @@ router.post("/auth/plan", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/auth/me", requireAuth, (req, res): void => {
-  const { id, username, role, permissions } = req.user!;
-  res.json({ user: { id, username, role, permissions: permissions ?? null } });
+  const { id, username, role, permissions, actorId, actorUsername } = req.user!;
+  res.json({
+    user: { id, username, role, permissions: permissions ?? null },
+    impersonation: actorId ? { actorId, actorUsername } : null,
+  });
 });
 
 export default router;

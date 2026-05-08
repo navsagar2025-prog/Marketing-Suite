@@ -4,6 +4,7 @@ import { appSettingsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth.js";
 import { testWebhook, type WebhookKind } from "../lib/notification-webhooks.js";
+import { validateWebhookUrl } from "../lib/webhook-url.js";
 
 const router: IRouter = Router();
 
@@ -32,10 +33,26 @@ router.get("/settings/webhooks", requireAdmin, async (_req, res): Promise<void> 
 router.patch("/settings/webhooks", requireAdmin, async (req, res): Promise<void> => {
   const { slackWebhookUrl, discordWebhookUrl } = req.body ?? {};
   if (typeof slackWebhookUrl === "string") {
-    await setValue("slack_webhook_url", slackWebhookUrl.trim());
+    const trimmed = slackWebhookUrl.trim();
+    if (trimmed) {
+      const v = validateWebhookUrl(trimmed, "slack");
+      if (!v.ok) {
+        res.status(400).json({ error: `Slack webhook: ${v.reason}` });
+        return;
+      }
+    }
+    await setValue("slack_webhook_url", trimmed);
   }
   if (typeof discordWebhookUrl === "string") {
-    await setValue("discord_webhook_url", discordWebhookUrl.trim());
+    const trimmed = discordWebhookUrl.trim();
+    if (trimmed) {
+      const v = validateWebhookUrl(trimmed, "discord");
+      if (!v.ok) {
+        res.status(400).json({ error: `Discord webhook: ${v.reason}` });
+        return;
+      }
+    }
+    await setValue("discord_webhook_url", trimmed);
   }
   res.json({ ok: true });
 });
@@ -46,8 +63,9 @@ router.post("/settings/webhooks/test", requireAdmin, async (req, res): Promise<v
     res.status(400).json({ error: "kind (slack|discord) and url are required" });
     return;
   }
-  if (!url.startsWith("https://")) {
-    res.status(400).json({ error: "url must be HTTPS" });
+  const v = validateWebhookUrl(url, kind);
+  if (!v.ok) {
+    res.status(400).json({ error: v.reason });
     return;
   }
   const ok = await testWebhook(kind, url);

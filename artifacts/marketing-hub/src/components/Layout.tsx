@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { OnboardingFloatWidget } from "@/components/OnboardingChecklist";
 import { CommandPalette } from "@/components/CommandPalette";
 import { ChatWidget } from "@/components/ChatWidget";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 import {
   LayoutDashboard,
   Globe,
@@ -388,7 +389,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background flex-col">
+      <ImpersonationBanner />
+    <div className="flex flex-1 overflow-hidden">
       {/* Desktop sidebar */}
       <aside
         data-testid="sidebar"
@@ -468,6 +471,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Floating AI chat assistant */}
       <ChatWidget />
+    </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, backlinksTable, websitesTable } from "@workspace/db";
+import { sendWebhookNotification } from "../lib/notification-webhooks.js";
 import {
   ListBacklinksQueryParams,
   ListBacklinksResponse,
@@ -123,6 +124,9 @@ router.post("/backlinks", async (req, res): Promise<void> => {
     return;
   }
   const [backlink] = await db.insert(backlinksTable).values(parsed.data).returning();
+  void sendWebhookNotification(
+    `:link: New backlink tracked — ${backlink.sourceUrl} → ${backlink.targetUrl} (DA ${backlink.domainAuthority ?? "?"}, status: ${backlink.status})`
+  );
   res.status(201).json(backlink);
 });
 

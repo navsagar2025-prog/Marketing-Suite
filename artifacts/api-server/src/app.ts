@@ -5,6 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db, utmLinksTable, abVariantsTable, clientReportsTable, websitesTable, blogPostsTable } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { securityHeaders } from "./middleware/security-headers";
 
 const app: Express = express();
 
@@ -30,6 +31,7 @@ app.use(
   }),
 );
 app.use(cors());
+app.use(securityHeaders);
 app.use(
   express.json({
     verify: (req, _res, buf) => {

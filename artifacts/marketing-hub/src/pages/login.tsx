@@ -30,6 +30,7 @@ export default function LoginPage() {
   const [, setLocation] = useLocation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export default function LoginPage() {
       const res = await fetch(`${base}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, plan: selectedPlan ?? undefined }),
+        body: JSON.stringify({ username, password, plan: selectedPlan ?? undefined, remember }),
       });
 
       if (!res.ok) {
@@ -146,6 +147,16 @@ export default function LoginPage() {
                 required
               />
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-input"
+                data-testid="checkbox-remember"
+              />
+              <span className="text-muted-foreground">Keep me signed in for 30 days</span>
+            </label>
             {error && (
               <p className="text-sm text-destructive" data-testid="text-login-error">{error}</p>
             )}

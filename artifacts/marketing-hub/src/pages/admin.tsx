@@ -29,6 +29,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Loader2, Trash2, Plus, ShieldCheck, Users, Activity, BarChart2, AlertTriangle, ArrowUpDown, Lock, Unlock, ChevronDown, ChevronUp, ListChecks, ArrowUp, ArrowDown, GripVertical, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart,
@@ -548,7 +549,7 @@ function ModuleChecklist({
 function StaffTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { token, user: currentUser } = useAuth();
+  const { token, user: currentUser, login } = useAuth();
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 
@@ -833,6 +834,28 @@ function StaffTab() {
                           onClick={() => openPermissionsPanel(staff)}
                         >
                           {expandedUserId === staff.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      )}
+                      {staff.id !== currentUser?.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-amber-700 hover:text-amber-900"
+                          title="Sign in as this user"
+                          data-testid={`button-impersonate-${staff.id}`}
+                          onClick={async () => {
+                            const res = await fetch(`${base}/api/admin/staff/${staff.id}/impersonate`, { method: "POST", headers });
+                            if (!res.ok) {
+                              const d = await res.json().catch(() => ({}));
+                              toast({ title: d.error ?? "Failed to impersonate", variant: "destructive" });
+                              return;
+                            }
+                            const { token: newToken, user: newUser, actor } = await res.json();
+                            login(newToken, newUser, actor ? { actorId: actor.id, actorUsername: actor.username } : null);
+                            window.location.href = `${base}/`;
+                          }}
+                        >
+                          Impersonate
                         </Button>
                       )}
                       {staff.id !== currentUser?.id && (
@@ -1381,6 +1404,159 @@ function OnboardingTab() {
   );
 }
 
+interface SecurityEventRow {
+  id: number;
+  userId: number | null;
+  actorId: number | null;
+  action: string;
+  target: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+function SecurityEventsTab() {
+  const { token } = useAuth();
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const headers = { Authorization: `Bearer ${token}` };
+  const [actionFilter, setActionFilter] = useState("");
+  const [userFilter, setUserFilter] = useState("");
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["admin-security-events", actionFilter, userFilter],
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (actionFilter) qs.set("action", actionFilter);
+      if (userFilter) qs.set("userId", userFilter);
+      const r = await fetch(`${base}/api/admin/security-events?${qs.toString()}`, { headers });
+      if (!r.ok) throw new Error("Failed");
+      return r.json() as Promise<SecurityEventRow[]>;
+    },
+  });
+
+  const { data: actionCounts } = useQuery({
+    queryKey: ["admin-security-event-actions"],
+    queryFn: async () => {
+      const r = await fetch(`${base}/api/admin/security-events/actions`, { headers });
+      if (!r.ok) throw new Error("Failed");
+      return r.json() as Promise<{ action: string; count: number }[]>;
+    },
+  });
+
+  const downloadCsv = () => {
+    const qs = new URLSearchParams({ format: "csv" });
+    if (actionFilter) qs.set("action", actionFilter);
+    if (userFilter) qs.set("userId", userFilter);
+    fetch(`${base}/api/admin/security-events?${qs.toString()}`, { headers })
+      .then(r => r.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "security-events.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+  };
+
+  const ACTION_BADGES: Record<string, string> = {
+    login_success: "bg-green-500/10 text-green-700 border-green-300",
+    login_failure: "bg-amber-500/10 text-amber-700 border-amber-300",
+    login_lockout: "bg-red-500/10 text-red-700 border-red-300",
+    permission_denied: "bg-red-500/10 text-red-700 border-red-300",
+    impersonation_start: "bg-amber-500/10 text-amber-700 border-amber-300",
+    impersonation_stop: "bg-blue-500/10 text-blue-700 border-blue-300",
+    password_reset_request: "bg-blue-500/10 text-blue-700 border-blue-300",
+    password_reset_complete: "bg-green-500/10 text-green-700 border-green-300",
+    session_revoke: "bg-slate-500/10 text-slate-700 border-slate-300",
+    session_revoke_all: "bg-slate-500/10 text-slate-700 border-slate-300",
+    logout: "bg-slate-500/10 text-slate-700 border-slate-300",
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2"><Activity className="h-4 w-4" /> Security Audit Log</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">All authentication events, permission denials, impersonation actions, and session changes.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => refetch()}>Refresh</Button>
+            <Button size="sm" variant="outline" onClick={downloadCsv}>Export CSV</Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex gap-2 mb-3 flex-wrap items-end">
+          <div>
+            <Label className="text-xs">Action</Label>
+            <select
+              className="h-8 text-xs rounded-md border bg-background px-2 ml-2"
+              value={actionFilter}
+              onChange={e => setActionFilter(e.target.value)}
+              data-testid="filter-action"
+            >
+              <option value="">All actions</option>
+              {actionCounts?.map(a => (
+                <option key={a.action} value={a.action}>{a.action} ({a.count})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">User ID</Label>
+            <Input
+              type="number"
+              value={userFilter}
+              onChange={e => setUserFilter(e.target.value)}
+              className="h-8 w-24 text-xs ml-2 inline-block"
+              placeholder="Any"
+              data-testid="filter-user-id"
+            />
+          </div>
+        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : !data?.length ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">No events match those filters.</p>
+        ) : (
+          <div className="overflow-auto max-h-[60vh]">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-background border-b">
+                <tr className="text-muted-foreground">
+                  <th className="text-left p-2">When</th>
+                  <th className="text-left p-2">Action</th>
+                  <th className="text-left p-2">User</th>
+                  <th className="text-left p-2">Actor</th>
+                  <th className="text-left p-2">Target</th>
+                  <th className="text-left p-2">IP</th>
+                </tr>
+              </thead>
+              <tbody data-testid="security-events-list">
+                {data.map(ev => (
+                  <tr key={ev.id} className="border-b hover:bg-muted/30">
+                    <td className="p-2 text-muted-foreground tabular-nums whitespace-nowrap">{new Date(ev.createdAt).toLocaleString()}</td>
+                    <td className="p-2">
+                      <span className={cn("inline-block rounded border px-1.5 py-0.5 text-[10px] font-medium", ACTION_BADGES[ev.action] ?? "bg-muted text-foreground border-border")}>
+                        {ev.action}
+                      </span>
+                    </td>
+                    <td className="p-2 tabular-nums">{ev.userId ?? "—"}</td>
+                    <td className="p-2 tabular-nums">{ev.actorId ?? "—"}</td>
+                    <td className="p-2 truncate max-w-[180px]" title={ev.target ?? ""}>{ev.target ?? "—"}</td>
+                    <td className="p-2 text-muted-foreground">{ev.ip ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -1407,6 +1583,7 @@ export default function AdminPage() {
           <TabsTrigger value="allowlist">Allowlist</TabsTrigger>
           <TabsTrigger value="staff">Staff Accounts</TabsTrigger>
           <TabsTrigger value="onboarding">Onboarding Checklist</TabsTrigger>
+          <TabsTrigger value="security" data-testid="tab-security-events">Security Events</TabsTrigger>
         </TabsList>
         <TabsContent value="visitors" className="mt-4">
           <VisitorsTab />
@@ -1419,6 +1596,9 @@ export default function AdminPage() {
         </TabsContent>
         <TabsContent value="onboarding" className="mt-4">
           <OnboardingTab />
+        </TabsContent>
+        <TabsContent value="security" className="mt-4">
+          <SecurityEventsTab />
         </TabsContent>
       </Tabs>
     </div>

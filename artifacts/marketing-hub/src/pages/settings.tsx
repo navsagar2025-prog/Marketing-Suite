@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send } from "lucide-react";
 import { ByokCard } from "@/components/ByokCard";
+import { SessionsCard } from "@/components/SessionsCard";
 import { CouponManagementCard } from "@/components/CouponManagementCard";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -2127,6 +2128,7 @@ export default function SettingsPage() {
       {/* Rank Change Notifications (admin only) */}
       {isAdmin && (
         <>
+          <SessionsCard />
           <NotificationSettingsCard />
           <WebhooksCard />
         </>

@@ -77,6 +77,19 @@ router.post("/admin/staff/:id/impersonate", requireAdmin, async (req, res): Prom
     res.status(404).json({ error: "User not found" });
     return;
   }
+  if (target.role === "admin") {
+    await emitSecurityEvent({
+      action: "permission_denied",
+      userId: req.user!.id,
+      actorId: req.user!.id,
+      target: `impersonate:staff:${target.id}`,
+      ip: clientIp(req),
+      userAgent: clientUa(req),
+      details: { reason: "admin_target_blocked" },
+    });
+    res.status(403).json({ error: "Cannot impersonate another admin account" });
+    return;
+  }
 
   const ttlSeconds = 60 * 60;
   const jti = randomUUID();

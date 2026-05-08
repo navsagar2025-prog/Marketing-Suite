@@ -1422,14 +1422,22 @@ function SecurityEventsTab() {
   const headers = { Authorization: `Bearer ${token}` };
   const [actionFilter, setActionFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
+  const [sinceFilter, setSinceFilter] = useState("");
+  const [untilFilter, setUntilFilter] = useState("");
+
+  const buildQs = () => {
+    const qs = new URLSearchParams();
+    if (actionFilter) qs.set("action", actionFilter);
+    if (userFilter) qs.set("userId", userFilter);
+    if (sinceFilter) qs.set("since", new Date(sinceFilter).toISOString());
+    if (untilFilter) qs.set("until", new Date(untilFilter).toISOString());
+    return qs;
+  };
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["admin-security-events", actionFilter, userFilter],
+    queryKey: ["admin-security-events", actionFilter, userFilter, sinceFilter, untilFilter],
     queryFn: async () => {
-      const qs = new URLSearchParams();
-      if (actionFilter) qs.set("action", actionFilter);
-      if (userFilter) qs.set("userId", userFilter);
-      const r = await fetch(`${base}/api/admin/security-events?${qs.toString()}`, { headers });
+      const r = await fetch(`${base}/api/admin/security-events?${buildQs().toString()}`, { headers });
       if (!r.ok) throw new Error("Failed");
       return r.json() as Promise<SecurityEventRow[]>;
     },
@@ -1445,9 +1453,8 @@ function SecurityEventsTab() {
   });
 
   const downloadCsv = () => {
-    const qs = new URLSearchParams({ format: "csv" });
-    if (actionFilter) qs.set("action", actionFilter);
-    if (userFilter) qs.set("userId", userFilter);
+    const qs = buildQs();
+    qs.set("format", "csv");
     fetch(`${base}/api/admin/security-events?${qs.toString()}`, { headers })
       .then(r => r.blob())
       .then(blob => {
@@ -1515,6 +1522,29 @@ function SecurityEventsTab() {
               data-testid="filter-user-id"
             />
           </div>
+          <div>
+            <Label className="text-xs">From</Label>
+            <Input
+              type="datetime-local"
+              value={sinceFilter}
+              onChange={e => setSinceFilter(e.target.value)}
+              className="h-8 w-44 text-xs ml-2 inline-block"
+              data-testid="filter-since"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">To</Label>
+            <Input
+              type="datetime-local"
+              value={untilFilter}
+              onChange={e => setUntilFilter(e.target.value)}
+              className="h-8 w-44 text-xs ml-2 inline-block"
+              data-testid="filter-until"
+            />
+          </div>
+          {(actionFilter || userFilter || sinceFilter || untilFilter) && (
+            <Button size="sm" variant="ghost" onClick={() => { setActionFilter(""); setUserFilter(""); setSinceFilter(""); setUntilFilter(""); }}>Clear</Button>
+          )}
         </div>
         {isLoading ? (
           <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>

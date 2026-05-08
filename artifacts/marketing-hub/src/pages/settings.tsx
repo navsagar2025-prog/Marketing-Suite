@@ -2125,10 +2125,11 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      <SessionsCard />
+
       {/* Rank Change Notifications (admin only) */}
       {isAdmin && (
         <>
-          <SessionsCard />
           <NotificationSettingsCard />
           <WebhooksCard />
         </>

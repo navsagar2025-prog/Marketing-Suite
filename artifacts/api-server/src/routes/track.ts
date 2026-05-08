@@ -17,7 +17,8 @@ const isBotUa = (ua: string | undefined | null): boolean => !ua || BOT_UA.test(u
 
 const hashIp = (ip: string | undefined): string | null => {
   if (!ip) return null;
-  const salt = process.env.SESSION_SECRET ?? "static-salt";
+  const salt = process.env.SESSION_SECRET;
+  if (!salt) return null;
   return crypto.createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 32);
 };
 
@@ -47,8 +48,15 @@ router.get("/track/pixel", async (req, res): Promise<void> => {
   res.setHeader("Cache-Control", "no-store");
   const ua = req.headers["user-agent"] ?? "";
   if (!isBotUa(ua)) {
-    const path = typeof req.query.p === "string" ? String(req.query.p).slice(0, 500) : "/";
-    const referrer = typeof req.query.r === "string" ? String(req.query.r).slice(0, 500) : null;
+    const inferPath = (): string => {
+      const ref = req.headers.referer;
+      if (typeof ref === "string") {
+        try { return new URL(ref).pathname.slice(0, 500); } catch {}
+      }
+      return "/";
+    };
+    const path = typeof req.query.p === "string" ? String(req.query.p).slice(0, 500) : inferPath();
+    const referrer = typeof req.query.r === "string" ? String(req.query.r).slice(0, 500) : (typeof req.headers.referer === "string" ? String(req.headers.referer).slice(0, 500) : null);
     const visitorId = ensureVisitor(req, res);
     const ipHash = hashIp(req.ip);
     try {

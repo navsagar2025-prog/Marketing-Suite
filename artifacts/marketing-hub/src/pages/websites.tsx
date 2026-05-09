@@ -390,9 +390,19 @@ export default function Websites() {
           {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-36 rounded-lg" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
+        <div className="text-center py-16 text-muted-foreground" data-testid="empty-state-websites">
           <Globe className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">{search ? "No websites match your search" : "No websites yet. Add your first one."}</p>
+          <p className="font-medium text-sm text-foreground">{search ? "No websites match your search" : "Add your first website"}</p>
+          {!search && (
+            <>
+              <p className="text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
+                Connect a website to start tracking keywords, auditing performance, and monitoring your SEO health score.
+              </p>
+              <Button size="sm" className="mt-4" onClick={() => setDialogOpen(true)} data-testid="empty-cta-add-website">
+                <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Website
+              </Button>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

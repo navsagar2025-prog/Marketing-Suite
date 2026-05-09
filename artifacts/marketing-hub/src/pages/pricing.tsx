@@ -34,7 +34,7 @@ const PLANS: Plan[] = [
     cta: "Get Started",
     features: [
       { label: "1 website", included: true },
-      { label: "5 keywords tracked", included: true },
+      { label: "25 keywords tracked", included: true },
       { label: "1 active campaign", included: true },
       { label: "SEO audits", included: true },
       { label: "Keyword rank tracking", included: true },
@@ -59,7 +59,7 @@ const PLANS: Plan[] = [
     cta: "Get Started",
     features: [
       { label: "1 website", included: true },
-      { label: "10 keywords tracked", included: true },
+      { label: "75 keywords tracked", included: true },
       { label: "Unlimited campaigns", included: true },
       { label: "SEO audits", included: true },
       { label: "Keyword rank tracking", included: true },
@@ -84,7 +84,7 @@ const PLANS: Plan[] = [
     cta: "Get Started",
     features: [
       { label: "1 website", included: true },
-      { label: "20 keywords tracked", included: true },
+      { label: "200 keywords tracked", included: true },
       { label: "Unlimited campaigns", included: true },
       { label: "SEO audits", included: true },
       { label: "Keyword rank tracking", included: true },
@@ -104,7 +104,7 @@ const PLANS: Plan[] = [
 const FAQ = [
   {
     q: "Is there a free trial?",
-    a: "Yes — you can run a free SEO audit on any URL without creating an account. When you're ready for keyword tracking, campaigns, and AI tools, pick any plan and start a 7-day free trial. No credit card required.",
+    a: "Yes — you can run a free SEO audit on any URL without creating an account. When you're ready for keyword tracking, campaigns, and AI tools, pick any plan and start a 14-day free trial. No credit card required.",
   },
   {
     q: "How does annual billing work?",
@@ -235,7 +235,7 @@ export default function PricingPage() {
             All-in-one SEO + AI + CRM — one platform, one price.
           </p>
           <p className="text-sidebar-foreground/50 text-sm mb-8">
-            All plans include a 7-day free trial. No credit card required.
+            All plans include a 14-day free trial. No credit card required.
           </p>
 
           <div className="inline-flex items-center gap-3 bg-sidebar-foreground/10 rounded-full px-2 py-1.5">
@@ -431,7 +431,7 @@ export default function PricingPage() {
             Start free. No credit card needed.
           </h2>
           <p className="text-sidebar-foreground/70 mb-8">
-            Every plan includes a 7-day free trial. Cancel anytime.
+            Every plan includes a 14-day free trial. Cancel anytime.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button size="lg" onClick={() => navigateToLogin("growth", couponResult?.code)} className="w-full sm:w-auto">

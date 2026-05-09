@@ -573,10 +573,15 @@ function SequencesTab({ aiDisabled }: { aiDisabled: boolean }) {
       {isLoading ? (
         <div className="space-y-3">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
       ) : (sequences ?? []).length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
+        <div className="text-center py-16 text-muted-foreground" data-testid="empty-state-sequences">
           <List className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No sequences yet</p>
-          <p className="text-xs mt-1">Create a sequence to automatically nurture leads over time</p>
+          <p className="font-medium text-sm text-foreground">No sequences yet</p>
+          <p className="text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
+            Email sequences automatically nurture leads over time — send a welcome email, follow-ups, and closing offers on a schedule you define.
+          </p>
+          <Button size="sm" className="mt-4" onClick={handleNewOpen} data-testid="empty-cta-new-sequence">
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> New Sequence
+          </Button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1077,13 +1082,18 @@ export default function Campaigns() {
           {isLoading ? (
             <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-14 text-muted-foreground">
+            <div className="text-center py-14 text-muted-foreground" data-testid="empty-state-campaigns">
               <Megaphone className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="font-medium text-sm">{search ? "No campaigns match your search" : "No campaigns yet"}</p>
+              <p className="font-medium text-sm text-foreground">{search ? "No campaigns match your search" : "No campaigns yet"}</p>
               {!search && (
-                <p className="text-xs mt-2 max-w-sm mx-auto leading-relaxed">
-                  Campaigns let you plan and track focused marketing pushes — whether that's an email series, a paid ad run, or a social media blitz. Click "New Campaign" to get started.
-                </p>
+                <>
+                  <p className="text-xs mt-2 max-w-sm mx-auto leading-relaxed">
+                    Campaigns let you plan and track focused marketing pushes — email series, paid ads, social media blitzes, and more. Each campaign tracks status, budget, and results in one place.
+                  </p>
+                  <Button size="sm" className="mt-4" onClick={() => setOpen(true)} data-testid="empty-cta-new-campaign">
+                    <Plus className="h-3.5 w-3.5 mr-1.5" /> New Campaign
+                  </Button>
+                </>
               )}
             </div>
           ) : (

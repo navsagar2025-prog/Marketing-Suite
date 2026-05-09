@@ -25,7 +25,7 @@ import { db } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { mediaAssetsTable, websitesTable } from "@workspace/db/schema";
 import { getSetting } from "./settings.js";
-import { callAI, getDbSetting, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS } from "../lib/ai-provider.js";
+import { callAI, callAIForUser, getDbSetting, FAL_IMAGE_MODELS, FAL_VIDEO_MODELS } from "../lib/ai-provider.js";
 import { checkAndIncrementUsage } from "../lib/ai-usage.js";
 
 const router: IRouter = Router();
@@ -696,6 +696,46 @@ The first email should have delayDays: 0 (send immediately upon enrollment). Sub
     const message = err instanceof Error ? err.message : "AI generation failed";
     res.status(503).json({ error: message });
   }
+});
+
+router.post("/ai/chat", async (req, res): Promise<void> => {
+  const userId = req.user!.id;
+  const usageCheck = await checkAndIncrementUsage(userId, "text");
+  if (!usageCheck.allowed) {
+    res.status(429).json({ error: "Monthly text generation limit reached", used: usageCheck.used, limit: usageCheck.limit, type: "text" });
+    return;
+  }
+
+  const { messages } = req.body as { messages?: Array<{ role: "user" | "assistant"; content: string }> };
+  if (!Array.isArray(messages) || messages.length === 0) {
+    res.status(400).json({ error: "messages array required" });
+    return;
+  }
+
+  const lastUserMessage = messages.filter(m => m.role === "user").at(-1);
+  if (!lastUserMessage) {
+    res.status(400).json({ error: "At least one user message is required" });
+    return;
+  }
+
+  const systemPrompt = `You are an expert SEO and digital marketing assistant for SEO Command — an all-in-one SEO, content, and CRM platform. Help users with:
+- Keyword research and SEO strategy
+- Content creation, optimization, and blog drafting
+- Campaign planning and ad copywriting
+- Lead generation and pipeline workflows
+- Analytics interpretation and reporting
+- Technical SEO guidance
+
+Be concise, practical, and actionable. Use bullet points and headers where helpful. Always ground advice in what users can do inside the platform.`;
+
+  const history = messages.slice(0, -1);
+  const { result } = await callAIForUser(userId, lastUserMessage.content, {
+    systemPrompt,
+    history,
+    maxTokens: 1024,
+  });
+
+  res.json({ content: result });
 });
 
 export default router;

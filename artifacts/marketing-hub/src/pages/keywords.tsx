@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import PlanLimitWarning from "@/components/PlanLimitWarning";
 import { BulkKeywordImportDialog } from "@/components/BulkKeywordImport";
-import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight, RefreshCw, AlertTriangle, LineChart as LineChartIcon } from "lucide-react";
+import { Plus, Search, Sparkles, Trash2, Camera, TrendingUp, TrendingDown, ChevronRight, Layers, TableProperties, X, Clock, Zap, FlaskConical, BarChart2, BookOpen, History, ArrowRight, RefreshCw, AlertTriangle, LineChart as LineChartIcon, Download } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useForm } from "react-hook-form";
@@ -488,9 +488,15 @@ function ClustersView({
       </div>
 
       {named.length === 0 && !unclustered && keywords.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground">
-          <Layers className="h-8 w-8 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No keywords tracked yet</p>
+        <div className="text-center py-16 text-muted-foreground" data-testid="empty-state-keyword-clusters">
+          <Layers className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="font-medium text-sm text-foreground">No keywords tracked yet</p>
+          <p className="text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
+            Add keywords to track your search rankings and group them into topic clusters for smarter content planning.
+          </p>
+          <Button size="sm" variant="outline" className="mt-4" onClick={() => setActiveTab("table")} data-testid="empty-cta-go-to-table">
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Keywords
+          </Button>
         </div>
       )}
 
@@ -1276,6 +1282,35 @@ export default function Keywords() {
               {snapshotMutation.isPending ? "Snapshotting..." : "Snapshot ranks now"}
             </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            data-testid="button-export-keywords-csv"
+            disabled={(keywords ?? []).length === 0}
+            onClick={() => {
+              const rows = filtered.map(k => ({
+                keyword: k.keyword,
+                status: k.status,
+                currentRank: k.currentRank ?? "",
+                searchVolume: k.searchVolume ?? "",
+                difficulty: k.difficulty ?? "",
+                cluster: k.cluster ?? "",
+                notes: k.notes ?? "",
+              }));
+              if (!rows.length) return;
+              const headers = Object.keys(rows[0]);
+              const csv = [headers.join(","), ...rows.map(r => headers.map(h => JSON.stringify((r as Record<string, unknown>)[h] ?? "")).join(","))].join("\n");
+              const blob = new Blob([csv], { type: "text/csv" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "keywords.csv";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" /> Export CSV
+          </Button>
           <Dialog open={aiOpen} onOpenChange={setAiOpen}>
             <DialogTrigger asChild>
               <Button
@@ -1598,9 +1633,19 @@ export default function Keywords() {
             {isLoading ? (
               <div className="p-4 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Search className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">{search ? "No keywords match" : "No keywords tracked yet"}</p>
+              <div className="text-center py-14 text-muted-foreground" data-testid="empty-state-keywords-table">
+                <Search className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium text-sm text-foreground">{search ? "No keywords match your search" : "No keywords tracked yet"}</p>
+                {!search && (
+                  <>
+                    <p className="text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
+                      Start tracking keywords to monitor your Google rankings, spot trends, and get alerted when positions change.
+                    </p>
+                    <Button size="sm" className="mt-4" onClick={() => setOpen(true)} data-testid="empty-cta-add-keyword">
+                      <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Keyword
+                    </Button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="overflow-x-auto">

@@ -455,6 +455,7 @@ export default function SettingsPage() {
   const [, setLocation] = useLocation();
   const isAdmin = user?.role === "admin";
   const hasFullAccess = !isAdmin && permissions === null;
+  const [settingsTab, setSettingsTab] = useState<"plan" | "ai" | "email" | "admin">("plan");
 
   // Fal.ai state
   const [falApiKey, setFalApiKey] = useState("");
@@ -809,6 +810,13 @@ export default function SettingsPage() {
     });
   };
 
+  const SETTINGS_TABS = [
+    { id: "plan" as const, label: "Plan & Account" },
+    { id: "ai" as const, label: "AI" },
+    { id: "email" as const, label: "Email" },
+    ...(isAdmin ? [{ id: "admin" as const, label: "Admin" }] : []),
+  ];
+
   return (
     <div className="p-6 space-y-6 max-w-2xl">
       <div>
@@ -816,6 +824,26 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Configure integrations and API keys</p>
       </div>
 
+      {/* Tab navigation */}
+      <div className="flex gap-1 border-b -mb-2">
+        {SETTINGS_TABS.map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setSettingsTab(tab.id)}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors",
+              settingsTab === tab.id
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className={settingsTab === "plan" ? "space-y-6" : "hidden"}>
       {/* Billing & Plan */}
       <Card data-testid="card-billing-plan">
         <CardHeader>
@@ -958,6 +986,9 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      </div>
+
+      <div className={settingsTab === "ai" ? "space-y-6" : "hidden"}>
       {/* Bring Your Own AI Key */}
       <ByokCard />
 
@@ -1296,6 +1327,9 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      </div>
+
+      <div className={settingsTab === "email" ? "space-y-6" : "hidden"}>
       {/* Email Provider */}
       <Card>
         <CardHeader>
@@ -1533,6 +1567,9 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      </div>
+
+      <div className={settingsTab === "admin" ? "space-y-6" : "hidden"}>
       {/* Admin: AI Usage Overview */}
       {isAdmin && (
         <Card>
@@ -2125,8 +2162,13 @@ export default function SettingsPage() {
         </Card>
       )}
 
-      <SessionsCard />
+      </div>
 
+      <div className={settingsTab === "plan" ? "space-y-6" : "hidden"}>
+      <SessionsCard />
+      </div>
+
+      <div className={settingsTab === "admin" ? "space-y-6" : "hidden"}>
       {/* Rank Change Notifications (admin only) */}
       {isAdmin && (
         <>
@@ -2183,6 +2225,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }

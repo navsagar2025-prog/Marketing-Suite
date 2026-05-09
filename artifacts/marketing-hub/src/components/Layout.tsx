@@ -23,6 +23,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  ChevronDown,
   CalendarDays,
   Brain,
   AlertCircle,
@@ -52,41 +53,104 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useGetSettings, useGetMyUsage } from "@workspace/api-client-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 
-const navItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard, permission: null },
-  { path: "/websites", label: "Websites", icon: Globe, permission: "websites" },
-  { path: "/keywords", label: "Keywords", icon: Search, permission: "keywords" },
-  { path: "/competitors", label: "Competitors", icon: Swords, permission: "keywords" },
-  { path: "/local-seo", label: "Local SEO", icon: MapPin, permission: "keywords" },
-  { path: "/content-brief", label: "Content Brief", icon: FileText, permission: "keywords" },
-  { path: "/social", label: "Social Media", icon: Share2, permission: "social" },
-  { path: "/calendar", label: "Calendar", icon: CalendarDays, permission: "calendar" },
-  { path: "/campaigns", label: "Campaigns", icon: Megaphone, permission: "campaigns" },
-  { path: "/backlinks", label: "Backlinks", icon: Link2, permission: "backlinks" },
-  { path: "/outreach", label: "Outreach", icon: Send, permission: "backlinks" },
-  { path: "/leads", label: "Leads", icon: Users, permission: "leads" },
-  { path: "/conversations", label: "Conversations", icon: MessageSquare, permission: "conversations" },
-  { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "analytics" },
-  { path: "/ai", label: "AI Tools", icon: Sparkles, permission: "ai_tools" },
-  { path: "/media", label: "Media Library", icon: ImageIcon, permission: "media" },
-  { path: "/utm-builder", label: "UTM Builder", icon: Link2, permission: "campaigns" },
-  { path: "/ab-tests", label: "A/B Tests", icon: FlaskConical, permission: "analytics" },
-  { path: "/reports", label: "Reports", icon: FileBarChart, permission: "analytics" },
-  { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
-  { path: "/products", label: "Products", icon: Package, permission: null },
-  { path: "/gallery", label: "Gallery", icon: ImageIcon, permission: null },
-  { path: "/admin/blog", label: "Blog Editor", icon: BookOpen, permission: null, adminOnly: true },
-  { path: "/admin/catalog", label: "Catalog", icon: Package, permission: null, adminOnly: true },
-  { path: "/admin/gallery", label: "Galleries", icon: ImageIcon, permission: null, adminOnly: true },
-  { path: "/admin/promotions", label: "Promotions", icon: Tag, permission: null, adminOnly: true },
-  { path: "/admin/seo-fill", label: "Bulk SEO Fill", icon: Wand2, permission: null, adminOnly: true },
-  { path: "/admin/system-health", label: "System Health", icon: Activity, permission: null, adminOnly: true },
-  { path: "/admin/live-traffic", label: "Live Traffic", icon: Activity, permission: null, adminOnly: true },
-  { path: "/admin/site-code", label: "Site Code", icon: Code2, permission: "site_code" },
-  { path: "/admin/chatbot", label: "Public Chatbot", icon: MessageCircle, permission: null, adminOnly: true },
-  { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
-  { path: "/files", label: "Files", icon: FolderOpen, permission: null },
-  { path: "/settings", label: "Settings", icon: Settings, permission: null },
+type NavItem = {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission?: string | null;
+  adminOnly?: boolean;
+};
+
+type NavGroup = {
+  label: string | null;
+  items: NavItem[];
+  adminOnly?: boolean;
+  collapsible?: boolean;
+};
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: null,
+    items: [
+      { path: "/", label: "Dashboard", icon: LayoutDashboard, permission: null },
+    ],
+  },
+  {
+    label: "SEO Tools",
+    items: [
+      { path: "/websites", label: "Websites", icon: Globe, permission: "websites" },
+      { path: "/keywords", label: "Keywords", icon: Search, permission: "keywords" },
+      { path: "/competitors", label: "Competitors", icon: Swords, permission: "keywords" },
+      { path: "/local-seo", label: "Local SEO", icon: MapPin, permission: "keywords" },
+      { path: "/content-brief", label: "Content Brief", icon: FileText, permission: "keywords" },
+    ],
+  },
+  {
+    label: "Marketing",
+    items: [
+      { path: "/social", label: "Social Media", icon: Share2, permission: "social" },
+      { path: "/calendar", label: "Calendar", icon: CalendarDays, permission: "calendar" },
+      { path: "/campaigns", label: "Campaigns", icon: Megaphone, permission: "campaigns" },
+      { path: "/backlinks", label: "Backlinks", icon: Link2, permission: "backlinks" },
+      { path: "/outreach", label: "Outreach", icon: Send, permission: "backlinks" },
+    ],
+  },
+  {
+    label: "Leads & CRM",
+    items: [
+      { path: "/leads", label: "Leads", icon: Users, permission: "leads" },
+      { path: "/conversations", label: "Conversations", icon: MessageSquare, permission: "conversations" },
+    ],
+  },
+  {
+    label: "Analytics",
+    items: [
+      { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "analytics" },
+      { path: "/utm-builder", label: "UTM Builder", icon: Link2, permission: "campaigns" },
+      { path: "/ab-tests", label: "A/B Tests", icon: FlaskConical, permission: "analytics" },
+      { path: "/reports", label: "Reports", icon: FileBarChart, permission: "analytics" },
+    ],
+  },
+  {
+    label: "AI & Media",
+    items: [
+      { path: "/ai", label: "AI Tools", icon: Sparkles, permission: "ai_tools" },
+      { path: "/media", label: "Media Library", icon: ImageIcon, permission: "media" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
+      { path: "/products", label: "Products", icon: Package, permission: null },
+      { path: "/gallery", label: "Gallery", icon: ImageIcon, permission: null },
+    ],
+  },
+  {
+    label: "Admin",
+    adminOnly: true,
+    collapsible: true,
+    items: [
+      { path: "/admin", label: "Admin Panel", icon: ShieldCheck, permission: null, adminOnly: true },
+      { path: "/admin/blog", label: "Blog Editor", icon: BookOpen, permission: null, adminOnly: true },
+      { path: "/admin/catalog", label: "Catalog", icon: Package, permission: null, adminOnly: true },
+      { path: "/admin/gallery", label: "Galleries", icon: ImageIcon, permission: null, adminOnly: true },
+      { path: "/admin/promotions", label: "Promotions", icon: Tag, permission: null, adminOnly: true },
+      { path: "/admin/seo-fill", label: "Bulk SEO Fill", icon: Wand2, permission: null, adminOnly: true },
+      { path: "/admin/system-health", label: "System Health", icon: Activity, permission: null, adminOnly: true },
+      { path: "/admin/live-traffic", label: "Live Traffic", icon: Activity, permission: null, adminOnly: true },
+      { path: "/admin/site-code", label: "Site Code", icon: Code2, permission: "site_code" },
+      { path: "/admin/chatbot", label: "Public Chatbot", icon: MessageCircle, permission: null, adminOnly: true },
+    ],
+  },
+  {
+    label: "Resources",
+    items: [
+      { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
+      { path: "/files", label: "Files", icon: FolderOpen, permission: null },
+      { path: "/settings", label: "Settings", icon: Settings, permission: null },
+    ],
+  },
 ];
 
 const PAGE_TITLES: Array<[string, string]> = [
@@ -156,8 +220,91 @@ function useTheme() {
   return { theme, toggleTheme };
 }
 
+function NavGroupSection({
+  group,
+  location,
+  sidebarOpen,
+  onNavClick,
+  hasPermission,
+  isAdmin,
+}: {
+  group: NavGroup;
+  location: string;
+  sidebarOpen: boolean;
+  onNavClick?: () => void;
+  hasPermission: (p: string) => boolean;
+  isAdmin: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const visibleItems = group.items.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.permission && item.permission !== null && !isAdmin && !hasPermission(item.permission)) return false;
+    return true;
+  });
+
+  if (visibleItems.length === 0) return null;
+  if (group.adminOnly && !isAdmin) return null;
+
+  const hasActiveItem = visibleItems.some(item =>
+    item.path === "/" ? location === "/" : location.startsWith(item.path)
+  );
+
+  return (
+    <div className="mb-1">
+      {group.label && sidebarOpen && (
+        <button
+          className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 hover:text-sidebar-foreground/60 transition-colors"
+          onClick={() => group.collapsible && setCollapsed(!collapsed)}
+        >
+          <span>{group.label}</span>
+          {group.collapsible && (
+            collapsed
+              ? <ChevronRight className="h-3 w-3" />
+              : <ChevronDown className="h-3 w-3" />
+          )}
+        </button>
+      )}
+      {group.label && !sidebarOpen && (
+        <div className="mx-2 my-1 border-t border-sidebar-border/40" />
+      )}
+      {(!group.collapsible || !collapsed || hasActiveItem) && (
+        <>
+          {visibleItems.map(({ path, label, icon: Icon }) => {
+            const active = path === "/" ? location === "/" : location.startsWith(path);
+            const tourAttr =
+              label === "Keywords" ? "nav-keywords"
+              : label === "Campaigns" ? "nav-campaigns"
+              : label === "Backlinks" ? "nav-backlinks"
+              : undefined;
+            return (
+              <Link
+                key={path}
+                href={path}
+                data-testid={`link-nav-${label.toLowerCase().replace(/\s/g, "-")}`}
+                {...(tourAttr ? { "data-tour": tourAttr } : {})}
+                onClick={onNavClick}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 mx-1 rounded-md text-sm font-medium transition-colors cursor-pointer",
+                  active
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {sidebarOpen && <span className="truncate">{label}</span>}
+                {sidebarOpen && active && <ChevronRight className="h-3 w-3 ml-auto shrink-0 opacity-70" />}
+              </Link>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
 function SidebarContent({
-  allNavItems,
+  navGroups,
   location,
   sidebarOpen,
   setSidebarOpen,
@@ -171,8 +318,9 @@ function SidebarContent({
   toggleTheme,
   user,
   logout,
+  hasPermission,
 }: {
-  allNavItems: typeof navItems;
+  navGroups: NavGroup[];
   location: string;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
@@ -186,7 +334,10 @@ function SidebarContent({
   toggleTheme: () => void;
   user: { username: string; role: string } | null;
   logout: () => void;
+  hasPermission: (p: string) => boolean;
 }) {
+  const isAdmin = user?.role === "admin";
+
   return (
     <>
       {/* Logo */}
@@ -207,38 +358,19 @@ function SidebarContent({
         </Button>
       </div>
 
-      {/* Nav items */}
-      <nav className="flex-1 py-2 overflow-y-auto">
-        {allNavItems.map(({ path, label, icon: Icon }) => {
-          const active = location === path || (path !== "/" && location.startsWith(path));
-          const tourAttr =
-            label === "Keywords"
-              ? "nav-keywords"
-              : label === "Campaigns"
-              ? "nav-campaigns"
-              : label === "Backlinks"
-              ? "nav-backlinks"
-              : undefined;
-          return (
-            <Link
-              key={path}
-              href={path}
-              data-testid={`link-nav-${label.toLowerCase().replace(/\s/g, "-")}`}
-              {...(tourAttr ? { "data-tour": tourAttr } : {})}
-              onClick={onNavClick}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 mx-1 rounded-md text-sm font-medium transition-colors cursor-pointer",
-                active
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {sidebarOpen && <span className="truncate">{label}</span>}
-              {sidebarOpen && active && <ChevronRight className="h-3 w-3 ml-auto shrink-0 opacity-70" />}
-            </Link>
-          );
-        })}
+      {/* Nav groups */}
+      <nav className="flex-1 py-2 overflow-y-auto" data-tour="sidebar-nav">
+        {navGroups.map((group, idx) => (
+          <NavGroupSection
+            key={group.label ?? idx}
+            group={group}
+            location={location}
+            sidebarOpen={sidebarOpen}
+            onNavClick={onNavClick}
+            hasPermission={hasPermission}
+            isAdmin={isAdmin ?? false}
+          />
+        ))}
       </nav>
 
       {/* AI Usage widget */}
@@ -330,6 +462,9 @@ function SidebarContent({
         {sidebarOpen && user && (
           <p className="text-xs text-sidebar-foreground/60 px-1 truncate">
             Signed in as <span className="font-medium text-sidebar-foreground">{user.username}</span>
+            {user.role === "admin" && (
+              <span className="ml-1 text-[10px] text-primary font-semibold uppercase">admin</span>
+            )}
           </p>
         )}
         <Button
@@ -372,16 +507,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const aiProvider = settings?.aiProvider ?? "replit";
   const providerLabel = PROVIDER_SHORT[aiProvider] ?? aiProvider;
 
-  const visibleNavItems = navItems.filter(item =>
-    (item.permission == null || hasPermission(item.permission)) &&
-    (!("adminOnly" in item) || !item.adminOnly || user?.role === "admin")
-  );
-
-  const allNavItems = [
-    ...visibleNavItems,
-    ...(user?.role === "admin" ? [{ path: "/admin", label: "Admin", icon: ShieldCheck, permission: null }] : []),
-  ];
-
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -401,7 +526,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [location]);
 
   const sharedSidebarProps = {
-    allNavItems,
+    navGroups: NAV_GROUPS,
     location,
     sidebarOpen,
     setSidebarOpen,
@@ -414,6 +539,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     toggleTheme,
     user,
     logout,
+    hasPermission,
   };
 
   return (
@@ -425,7 +551,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside
         data-testid="sidebar"
-        data-tour="sidebar-nav"
         className={cn(
           "hidden md:flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-200",
           sidebarOpen ? "w-56" : "w-14"

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { TrendingUp, Target, Globe, Users, Wifi } from "lucide-react";
+import { TrendingUp, Target, Globe, Users, Wifi, Download, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -20,13 +21,52 @@ const COLORS = [
   "hsl(var(--chart-4))", "hsl(var(--chart-5))"
 ];
 
+type DateRange = "7d" | "30d" | "90d" | "1y" | "all";
+
+const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+  { value: "1y", label: "Last year" },
+  { value: "all", label: "All time" },
+];
+
+function getDateRangeParams(range: DateRange): { from?: string; to?: string } {
+  if (range === "all") return {};
+  const to = new Date();
+  const from = new Date();
+  if (range === "7d") from.setDate(from.getDate() - 7);
+  else if (range === "30d") from.setDate(from.getDate() - 30);
+  else if (range === "90d") from.setDate(from.getDate() - 90);
+  else if (range === "1y") from.setFullYear(from.getFullYear() - 1);
+  return {
+    from: from.toISOString().split("T")[0],
+    to: to.toISOString().split("T")[0],
+  };
+}
+
+function downloadCsv(data: Record<string, unknown>[], filename: string) {
+  if (!data.length) return;
+  const headers = Object.keys(data[0]);
+  const rows = data.map(row => headers.map(h => JSON.stringify(row[h] ?? "")).join(","));
+  const csv = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Analytics() {
+  const [dateRange, setDateRange] = useState<DateRange>("30d");
+  const [selectedWebsiteId, setSelectedWebsiteId] = useState<number | null>(null);
+
   const { data: summary, isLoading: summaryLoading } = useGetAnalyticsSummary();
   const { data: funnel, isLoading: funnelLoading } = useGetLeadsFunnel();
   const { data: campaigns, isLoading: campaignsLoading } = useGetCampaignAnalytics();
   const { data: websites } = useListWebsites();
-
-  const [selectedWebsiteId, setSelectedWebsiteId] = useState<number | null>(null);
 
   const funnelData = funnel
     ? [
@@ -43,38 +83,89 @@ export default function Analytics() {
     .map(w => ({ name: w.name, score: w.seoScore ?? 0 }))
     .sort((a, b) => b.score - a.score);
 
+  const summaryCards = [
+    { label: "Total Websites", value: summary?.totalWebsites ?? 0, icon: Globe },
+    { label: "Total Leads", value: summary?.totalLeads ?? 0, icon: Users, sub: `${summary?.convertedLeads ?? 0} converted` },
+    { label: "Active Campaigns", value: summary?.activeCampaigns ?? 0, icon: TrendingUp },
+    { label: "Avg SEO Score", value: summary?.avgSeoScore != null ? Math.round(summary.avgSeoScore) : "—", icon: Target },
+    { label: "Total Keywords", value: summary?.totalKeywords ?? 0, icon: Target },
+    { label: "Backlinks", value: summary?.totalBacklinks ?? 0, icon: TrendingUp, sub: `${summary?.securedBacklinks ?? 0} secured` },
+    { label: "Scheduled Posts", value: summary?.scheduledPosts ?? 0, icon: Calendar },
+    { label: "High-Intent Leads", value: summary?.highIntentLeads ?? 0, icon: Users, sub: "score ≥ 70" },
+  ];
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Full cross-site performance overview</p>
+      {/* Header + date range */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold font-display" data-testid="text-page-title">Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Full cross-site performance overview</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1">
+            {DATE_RANGE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setDateRange(opt.value)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  dateRange === opt.value
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={() => {
+              if (campaigns?.length) {
+                downloadCsv(campaigns.map(c => ({
+                  Campaign: c.name,
+                  Type: c.type,
+                  Status: c.status,
+                  Impressions: c.impressions ?? 0,
+                  Clicks: c.clicks ?? 0,
+                  "CTR (%)": c.ctr != null ? c.ctr.toFixed(2) : "",
+                  Conversions: c.conversions ?? 0,
+                  Leads: c.leads ?? 0,
+                  Spend: c.spend ?? "",
+                })), "campaign-analytics.csv");
+              }
+            }}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export
+          </Button>
+        </div>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Summary stats — 8 cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {summaryLoading ? (
-          [...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)
-        ) : [
-          { label: "Total Websites", value: summary?.totalWebsites ?? 0, icon: Globe },
-          { label: "Total Leads", value: summary?.totalLeads ?? 0, icon: Users, sub: `${summary?.convertedLeads ?? 0} converted` },
-          { label: "Active Campaigns", value: summary?.activeCampaigns ?? 0, icon: TrendingUp },
-          { label: "Avg SEO Score", value: summary?.avgSeoScore != null ? Math.round(summary.avgSeoScore) : "—", icon: Target },
-        ].map(({ label, value, icon: Icon, sub }) => (
-          <Card key={label} data-testid={`card-analytics-${label.toLowerCase().replace(/\s/g, "-")}`}>
-            <CardContent className="pt-4 pb-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
-                  <p className="text-2xl font-bold font-display mt-1">{value}</p>
-                  {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+          [...Array(8)].map((_, i) => <Skeleton key={i} className="h-20" />)
+        ) : (
+          summaryCards.map(({ label, value, icon: Icon, sub }) => (
+            <Card key={label} data-testid={`card-analytics-${label.toLowerCase().replace(/\s/g, "-")}`}>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                    <p className="text-2xl font-bold font-display mt-1">{value}</p>
+                    {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+                  </div>
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Icon className="h-4 w-4 text-primary" />
+                  </div>
                 </div>
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Icon className="h-4 w-4 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Charts row */}
@@ -85,7 +176,11 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             {websiteSeoData.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No SEO score data</div>
+              <div className="h-48 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Globe className="h-8 w-8 opacity-30" />
+                <p>No SEO score data yet</p>
+                <p className="text-xs">Add a website and run an audit to see scores</p>
+              </div>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={websiteSeoData} margin={{ left: 0, right: 10, bottom: 20 }}>
@@ -110,7 +205,11 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             {funnelLoading ? <Skeleton className="h-48 w-full" /> : funnelData.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-sm text-muted-foreground">No lead data</div>
+              <div className="h-48 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-8 w-8 opacity-30" />
+                <p>No lead data for this period</p>
+                <p className="text-xs">Leads captured in this window will appear here</p>
+              </div>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
@@ -127,14 +226,40 @@ export default function Analytics() {
 
       {/* Campaign analytics table */}
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-base">Campaign Performance</CardTitle>
+          {(campaigns ?? []).length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => {
+                downloadCsv((campaigns ?? []).map(c => ({
+                  Campaign: c.name,
+                  Type: c.type,
+                  Status: c.status,
+                  Impressions: c.impressions ?? 0,
+                  Clicks: c.clicks ?? 0,
+                  "CTR (%)": c.ctr != null ? c.ctr.toFixed(2) : "",
+                  Conversions: c.conversions ?? 0,
+                  Leads: c.leads ?? 0,
+                  Spend: c.spend ?? "",
+                })), "campaigns.csv");
+              }}
+            >
+              <Download className="h-3 w-3" /> CSV
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {campaignsLoading ? (
             <div className="p-4 space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : (campaigns ?? []).length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground text-sm">No campaign data yet</div>
+            <div className="flex flex-col items-center justify-center py-12 gap-2 text-muted-foreground">
+              <TrendingUp className="h-8 w-8 opacity-30" />
+              <p className="text-sm font-medium">No campaigns yet</p>
+              <p className="text-xs">Create your first campaign to start tracking performance</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -175,7 +300,7 @@ export default function Analytics() {
         </CardContent>
       </Card>
 
-      {/* ── GA4 Traffic Dashboard ──────────────────────────────────────────── */}
+      {/* GA4 Traffic */}
       <div>
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">

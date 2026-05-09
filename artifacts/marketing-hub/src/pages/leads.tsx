@@ -936,9 +936,24 @@ export default function Leads() {
           {isLoading ? (
             <div className="p-4 space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Users className="h-10 w-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">{search || filterIntent ? "No leads match" : "No leads yet"}</p>
+            <div className="text-center py-14 text-muted-foreground" data-testid="empty-state-leads">
+              <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium text-sm text-foreground">{search || filterIntent ? "No leads match your filters" : "No leads yet"}</p>
+              {!search && !filterIntent && (
+                <>
+                  <p className="text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
+                    Leads come in through your embedded forms, manual entry, or CSV import. Add a lead form to your site to start capturing contacts automatically.
+                  </p>
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <Button size="sm" onClick={() => setOpen(true)} data-testid="empty-cta-add-lead">
+                      <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Lead
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setActiveTab("forms")} data-testid="empty-cta-go-to-forms">
+                      <FileText className="h-3.5 w-3.5 mr-1.5" /> Set Up a Form
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

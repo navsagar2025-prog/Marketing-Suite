@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, count, sql, gte } from "drizzle-orm";
+import { eq, count, sql, gte, and, lte } from "drizzle-orm";
 import { db, websitesTable, keywordsTable, socialPostsTable, campaignsTable, backlinksTable, leadsTable } from "@workspace/db";
 import {
   GetWebsiteAnalyticsParams,
@@ -11,17 +11,33 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/analytics/summary", async (_req, res): Promise<void> => {
+router.get("/analytics/summary", async (req, res): Promise<void> => {
+  const { from, to } = req.query as { from?: string; to?: string };
+  const fromDate = from ? new Date(from) : null;
+  const toDate = to ? new Date(to) : null;
+
+  function dateFilter(col: typeof leadsTable.createdAt) {
+    const filters = [];
+    if (fromDate) filters.push(gte(col, fromDate));
+    if (toDate) filters.push(lte(col, toDate));
+    return filters.length ? and(...filters) : undefined;
+  }
+
+  const leadsFilter = dateFilter(leadsTable.createdAt);
+
   const [websites] = await db.select({ count: count() }).from(websitesTable);
   const [keywords] = await db.select({ count: count() }).from(keywordsTable);
-  const [leads] = await db.select({ count: count() }).from(leadsTable);
+  const leadsQ = db.select({ count: count() }).from(leadsTable);
+  const [leads] = leadsFilter ? await leadsQ.where(leadsFilter) : await leadsQ;
   const [campaigns] = await db.select({ count: count() }).from(campaignsTable);
   const [activeCampaigns] = await db.select({ count: count() }).from(campaignsTable).where(eq(campaignsTable.status, "active"));
   const [backlinks] = await db.select({ count: count() }).from(backlinksTable);
   const [securedBacklinks] = await db.select({ count: count() }).from(backlinksTable).where(eq(backlinksTable.status, "link_secured"));
   const [scheduledPosts] = await db.select({ count: count() }).from(socialPostsTable).where(eq(socialPostsTable.status, "scheduled"));
-  const [convertedLeads] = await db.select({ count: count() }).from(leadsTable).where(eq(leadsTable.status, "converted"));
-  const [highIntentLeads] = await db.select({ count: count() }).from(leadsTable).where(gte(leadsTable.score, 70));
+  const convertedFilter = leadsFilter ? and(eq(leadsTable.status, "converted"), leadsFilter) : eq(leadsTable.status, "converted");
+  const [convertedLeads] = await db.select({ count: count() }).from(leadsTable).where(convertedFilter);
+  const highIntentFilter = leadsFilter ? and(gte(leadsTable.score, 70), leadsFilter) : gte(leadsTable.score, 70);
+  const [highIntentLeads] = await db.select({ count: count() }).from(leadsTable).where(highIntentFilter);
   const avgSeoResult = await db.select({ avg: sql<number>`avg(seo_score)` }).from(websitesTable);
 
   res.json(GetAnalyticsSummaryResponse.parse({

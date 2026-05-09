@@ -7,6 +7,7 @@ export const pageViewsTable = pgTable("page_views", {
   ipHash: text("ip_hash"),
   userAgent: text("user_agent"),
   visitorId: text("visitor_id"),
+  country: text("country"),
   confirmed: boolean("confirmed").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({

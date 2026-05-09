@@ -33,6 +33,7 @@ import AdminSiteCodePage from "@/pages/admin-site-code";
 import AdminChatbotPage from "@/pages/admin-chatbot";
 import AdminSeoFillPage from "@/pages/admin-seo-fill";
 import AdminSystemHealthPage from "@/pages/admin-system-health";
+import AdminLiveTrafficPage from "@/pages/admin-live-traffic";
 import { PageViewTracker } from "@/components/PageViewTracker";
 import { PublicChatWidget } from "@/components/PublicChatWidget";
 import { CustomCodeInjector } from "@/components/CustomCodeInjector";
@@ -255,6 +256,7 @@ function ProtectedRouter() {
             <Route path="/admin/chatbot"><AdminGuard><AdminChatbotPage /></AdminGuard></Route>
             <Route path="/admin/seo-fill"><AdminGuard><AdminSeoFillPage /></AdminGuard></Route>
             <Route path="/admin/system-health"><AdminGuard><AdminSystemHealthPage /></AdminGuard></Route>
+            <Route path="/admin/live-traffic"><AdminGuard><AdminLiveTrafficPage /></AdminGuard></Route>
             <Route path="/products/:slug" component={ProductDetailPage} />
             <Route path="/products" component={ProductsPage} />
             <Route path="/gallery" component={GalleryPage} />

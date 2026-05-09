@@ -5,6 +5,7 @@ import { db, pageViewsTable, visitorSessionsTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import { getDbSetting } from "../lib/ai-provider.js";
 import { requireAdmin } from "../lib/auth.js";
+import { lookupCountry } from "../lib/geo.js";
 
 const router: IRouter = Router();
 
@@ -59,8 +60,9 @@ router.get("/track/pixel", async (req, res): Promise<void> => {
     const referrer = typeof req.query.r === "string" ? String(req.query.r).slice(0, 500) : (typeof req.headers.referer === "string" ? String(req.headers.referer).slice(0, 500) : null);
     const visitorId = ensureVisitor(req, res);
     const ipHash = hashIp(req.ip);
+    const country = lookupCountry(req.ip);
     try {
-      await db.insert(pageViewsTable).values({ path, referrer, ipHash, userAgent: String(ua).slice(0, 300), visitorId });
+      await db.insert(pageViewsTable).values({ path, referrer, ipHash, userAgent: String(ua).slice(0, 300), visitorId, country });
       await db.insert(visitorSessionsTable)
         .values({ visitorId, ipHash, userAgent: String(ua).slice(0, 300) })
         .onConflictDoUpdate({ target: visitorSessionsTable.visitorId, set: { lastSeenAt: new Date(), ipHash, userAgent: String(ua).slice(0, 300) } });
@@ -77,8 +79,9 @@ router.post("/track/pageview", async (req, res): Promise<void> => {
   const referrer = typeof req.body?.referrer === "string" ? String(req.body.referrer).slice(0, 500) : null;
   const visitorId = ensureVisitor(req, res);
   const ipHash = hashIp(req.ip);
+  const country = lookupCountry(req.ip);
   try {
-    await db.insert(pageViewsTable).values({ path, referrer, ipHash, userAgent: String(ua).slice(0, 300), visitorId });
+    await db.insert(pageViewsTable).values({ path, referrer, ipHash, userAgent: String(ua).slice(0, 300), visitorId, country });
     await db.insert(visitorSessionsTable)
       .values({ visitorId, ipHash, userAgent: String(ua).slice(0, 300) })
       .onConflictDoUpdate({
@@ -205,6 +208,56 @@ adminTrackRouter.get("/admin/top-pages", async (req, res): Promise<void> => {
     .orderBy(desc(sql`count(*)`))
     .limit(20);
   res.json({ days, pages: rows });
+});
+
+adminTrackRouter.get("/admin/live-traffic/recent", async (req, res): Promise<void> => {
+  const limitRaw = Number(req.query.limit);
+  const limit = limitRaw > 0 && limitRaw <= 200 ? Math.floor(limitRaw) : 50;
+  const sinceRaw = typeof req.query.since === "string" ? req.query.since : null;
+  const sinceDate = sinceRaw ? new Date(sinceRaw) : null;
+  const where = sinceDate && !isNaN(sinceDate.getTime())
+    ? gte(pageViewsTable.createdAt, sinceDate)
+    : undefined;
+  const rows = await db
+    .select({
+      id: pageViewsTable.id,
+      path: pageViewsTable.path,
+      referrer: pageViewsTable.referrer,
+      country: pageViewsTable.country,
+      visitorId: pageViewsTable.visitorId,
+      createdAt: pageViewsTable.createdAt,
+    })
+    .from(pageViewsTable)
+    .where(where ?? sql`true`)
+    .orderBy(desc(pageViewsTable.createdAt))
+    .limit(limit);
+  res.json({ events: rows });
+});
+
+adminTrackRouter.get("/admin/live-traffic/countries", async (req, res): Promise<void> => {
+  const minutesRaw = Number(req.query.minutes);
+  const minutes = minutesRaw > 0 && minutesRaw <= 1440 ? minutesRaw : 60;
+  const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+  const rows = await db
+    .select({
+      country: pageViewsTable.country,
+      visitors: sql<number>`count(distinct ${pageViewsTable.visitorId})::int`,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(gte(pageViewsTable.createdAt, cutoff))
+    .groupBy(pageViewsTable.country)
+    .orderBy(desc(sql`count(*)`));
+  const activeCutoff = new Date(Date.now() - ACTIVE_WINDOW_MS);
+  const [active] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(visitorSessionsTable)
+    .where(gte(visitorSessionsTable.heartbeatAt, activeCutoff));
+  res.json({
+    minutes,
+    activeVisitors: active?.count ?? 0,
+    countries: rows.map(r => ({ country: r.country, visitors: r.visitors, views: r.views })),
+  });
 });
 
 export { adminTrackRouter };

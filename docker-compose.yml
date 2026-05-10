@@ -1,0 +1,79 @@
+version: "3.9"
+
+# SEO Command — full production stack
+#
+# Quick start:
+#   cp .env.example .env    # fill in SESSION_SECRET, ADMIN_PASSWORD, DB_PASSWORD
+#   docker compose up -d --build
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       seocommand
+      POSTGRES_USER:     seocommand
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_in_env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U seocommand -d seocommand"]
+      interval: 5s
+      timeout:  5s
+      retries:  12
+
+  # ── Application (nginx + node in one container) ────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # BASE_PATH=/ puts the app at the domain root.
+        # Change to e.g. /seo if you want to serve under a sub-path.
+        BASE_PATH: /
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT:     "8080"
+
+      # ── Database ────────────────────────────────────────────────────────
+      DATABASE_URL: postgres://seocommand:${DB_PASSWORD:-changeme_in_env}@db:5432/seocommand
+      PGHOST:       db
+      PGPORT:       "5432"
+      PGUSER:       seocommand
+      PGPASSWORD:   ${DB_PASSWORD:-changeme_in_env}
+      PGDATABASE:   seocommand
+
+      # ── Auth (required) ─────────────────────────────────────────────────
+      SESSION_SECRET: ${SESSION_SECRET}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+
+      # ── AI provider ─────────────────────────────────────────────────────
+      # Setting OPENAI_API_KEY enables the "Replit Default" AI provider.
+      # Leave blank to configure AI from Settings → AI Provider after login.
+      AI_INTEGRATIONS_OPENAI_API_KEY:  ${OPENAI_API_KEY:-}
+      AI_INTEGRATIONS_OPENAI_BASE_URL: https://api.openai.com/v1
+
+      # ── Optional ────────────────────────────────────────────────────────
+      APP_URL:                  ${APP_URL:-}
+      EMAIL_ENCRYPTION_KEY:     ${EMAIL_ENCRYPTION_KEY:-}
+      GOOGLE_CLIENT_ID:         ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET:     ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI:      ${GOOGLE_REDIRECT_URI:-}
+      GOOGLE_PAGESPEED_API_KEY: ${GOOGLE_PAGESPEED_API_KEY:-}
+      FAL_AI_API_KEY:           ${FAL_AI_API_KEY:-}
+      FAL_KEY:                  ${FAL_AI_API_KEY:-}
+    ports:
+      - "${HOST_PORT:-80}:80"
+    volumes:
+      # Persists uploaded files (media assets, imports, etc.)
+      - uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  uploads:

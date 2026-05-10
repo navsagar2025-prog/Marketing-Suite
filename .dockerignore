@@ -1,0 +1,35 @@
+# ── Version control ───────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ── Replit / IDE ──────────────────────────────────────────────────────────────
+.local/
+.cache/
+.replit
+.replitignore
+.agents/
+.cursor/
+.vscode/
+
+# ── Node modules (reinstalled inside Docker) ─────────────────────────────────
+node_modules
+**/node_modules
+
+# ── Build outputs (rebuilt inside Docker) ────────────────────────────────────
+**/dist
+**/*.tsbuildinfo
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ── OS junk ───────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Top-level Docker orchestration files (not needed inside the image) ───────
+docker-compose.yml
+.env
+.env.*
+!.env.example

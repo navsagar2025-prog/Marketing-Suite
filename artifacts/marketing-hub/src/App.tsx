@@ -57,6 +57,8 @@ import SharedReportPage from "@/pages/shared-report";
 import PublicHealthPage from "@/pages/public-health";
 import WelcomePage from "@/pages/welcome";
 import FilesPage from "@/pages/files";
+import IntegrationsPage from "@/pages/integrations";
+import ChangelogPage from "@/pages/changelog";
 import { AuthProvider, useAuth, usePermissions } from "@/contexts/AuthContext";
 import { Loader2, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -133,6 +135,8 @@ function ProtectedRouter() {
         <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/welcome" component={WelcomePage} />
         <Route path="/pricing" component={PricingPage} />
+        <Route path="/integrations" component={IntegrationsPage} />
+        <Route path="/changelog" component={ChangelogPage} />
         <Route path="/report/:token">
           {(params) => <SharedReportPage token={params.token ?? ""} />}
         </Route>
@@ -162,6 +166,8 @@ function ProtectedRouter() {
       </Route>
       <Route path="/welcome" component={WelcomePage} />
       <Route path="/pricing" component={PricingPage} />
+      <Route path="/integrations" component={IntegrationsPage} />
+      <Route path="/changelog" component={ChangelogPage} />
       <Route path="/report/:token">
         {(params) => <SharedReportPage token={params.token ?? ""} />}
       </Route>

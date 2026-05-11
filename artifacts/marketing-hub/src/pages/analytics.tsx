@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, Target, Globe, Users, Wifi, Download, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,6 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import {
-  useGetAnalyticsSummary,
   useGetLeadsFunnel,
   useGetCampaignAnalytics,
   useListWebsites,
@@ -63,7 +63,28 @@ export default function Analytics() {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
   const [selectedWebsiteId, setSelectedWebsiteId] = useState<number | null>(null);
 
-  const { data: summary, isLoading: summaryLoading } = useGetAnalyticsSummary();
+  const { from: drFrom, to: drTo } = getDateRangeParams(dateRange);
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ["analytics-summary", drFrom, drTo],
+    queryFn: async ({ signal }) => {
+      const base = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
+      const params = new URLSearchParams();
+      if (drFrom) params.set("from", drFrom);
+      if (drTo) params.set("to", drTo);
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch(`${base}/api/analytics/summary?${params}`, {
+        signal,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to fetch analytics summary");
+      return res.json() as Promise<{
+        totalWebsites: number; totalLeads: number; convertedLeads: number;
+        activeCampaigns: number; avgSeoScore: number | null; totalKeywords: number;
+        totalBacklinks: number; securedBacklinks: number; scheduledPosts: number;
+        highIntentLeads: number;
+      }>;
+    },
+  });
   const { data: funnel, isLoading: funnelLoading } = useGetLeadsFunnel();
   const { data: campaigns, isLoading: campaignsLoading } = useGetCampaignAnalytics();
   const { data: websites } = useListWebsites();

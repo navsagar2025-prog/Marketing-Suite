@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { HomeSlider } from "@/components/HomeSlider";
+import { useDarkMode } from "@/lib/useDarkMode";
 import {
   ShieldCheck,
   TrendingUp,
@@ -23,7 +25,13 @@ import {
   Search,
   MapPin,
   FlaskConical,
-  FileBarChart,
+  Moon,
+  Sun,
+  Play,
+  Check,
+  X,
+  Minus,
+  ExternalLink,
 } from "lucide-react";
 
 const SERVICES = [
@@ -120,33 +128,98 @@ const HIGHLIGHTS = [
 ];
 
 const STATS = [
-  { value: "500+", label: "Websites Audited" },
-  { value: "50,000+", label: "Keywords Tracked" },
-  { value: "12,000+", label: "Leads Captured" },
-  { value: "98%", label: "Customer Satisfaction" },
+  { value: "8-in-1", label: "Tools in one platform" },
+  { value: "200", label: "Keywords tracked per site" },
+  { value: "1,000", label: "AI generations on Agency" },
+  { value: "25%", label: "Saved with annual billing" },
 ];
 
 const TESTIMONIALS = [
   {
     body: "Replaced SEMrush and 3 other tools. Everything I need is in one place — and it actually costs less.",
     name: "Priya Mehta",
-    title: "Founder, GrowthCraft",
+    title: "Founder",
+    company: "GrowthCraft",
     initials: "PM",
     rating: 5,
+    color: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
   },
   {
     body: "The AI content brief alone saves us 4–5 hours a week. The keyword tracker keeps our clients happy and informed.",
     name: "Arjun Sinha",
-    title: "SEO Lead, DigitalEdge",
+    title: "SEO Lead",
+    company: "DigitalEdge",
     initials: "AS",
     rating: 5,
+    color: "bg-violet-500/15 text-violet-700 dark:text-violet-400",
   },
   {
     body: "White-label reports are a game changer. Our clients think we built a custom analytics tool just for them.",
     name: "Sneha Kapoor",
-    title: "Agency Owner, Rank Factory",
+    title: "Agency Owner",
+    company: "Rank Factory",
     initials: "SK",
     rating: 5,
+    color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  },
+];
+
+const COMPARISON = [
+  {
+    feature: "AI content generation",
+    us: "full",
+    semrush: "limited",
+    ahrefs: "none",
+    moz: "none",
+  },
+  {
+    feature: "Lead capture & CRM",
+    us: "full",
+    semrush: "none",
+    ahrefs: "none",
+    moz: "none",
+  },
+  {
+    feature: "Email campaigns",
+    us: "full",
+    semrush: "none",
+    ahrefs: "none",
+    moz: "none",
+  },
+  {
+    feature: "Social scheduling",
+    us: "full",
+    semrush: "full",
+    ahrefs: "none",
+    moz: "none",
+  },
+  {
+    feature: "White-label reports",
+    us: "full",
+    semrush: "full",
+    ahrefs: "none",
+    moz: "limited",
+  },
+  {
+    feature: "Free SEO audit (no login)",
+    us: "full",
+    semrush: "limited",
+    ahrefs: "none",
+    moz: "limited",
+  },
+  {
+    feature: "Keyword rank tracking",
+    us: "full",
+    semrush: "full",
+    ahrefs: "full",
+    moz: "full",
+  },
+  {
+    feature: "All-in-one platform",
+    us: "full",
+    semrush: "none",
+    ahrefs: "none",
+    moz: "none",
   },
 ];
 
@@ -179,9 +252,38 @@ const FAQ_ITEMS = [
 
 const NAV_LINKS = [
   { label: "Free SEO Audit", href: "/report" },
+  { label: "Integrations", href: "/integrations" },
   { label: "Pricing", href: "/pricing" },
   { label: "Sign In", href: "/login" },
 ];
+
+const FOOTER_LINKS = {
+  Product: [
+    { label: "Free SEO Audit", href: "/report" },
+    { label: "Pricing", href: "/pricing" },
+    { label: "Integrations", href: "/integrations" },
+    { label: "Changelog", href: "/changelog" },
+  ],
+  Resources: [
+    { label: "Knowledge Base", href: "/kb" },
+    { label: "Blog", href: "/blog" },
+    { label: "Sign In", href: "/login" },
+    { label: "Start Free Trial", href: "/login" },
+  ],
+  Legal: [
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
+    { label: "Contact Us", href: "mailto:support@seocommand.in" },
+  ],
+};
+
+type CompCell = "full" | "limited" | "none";
+
+function CompIcon({ val }: { val: CompCell }) {
+  if (val === "full") return <Check className="h-4 w-4 text-emerald-500 mx-auto" />;
+  if (val === "limited") return <Minus className="h-4 w-4 text-amber-500 mx-auto" />;
+  return <X className="h-4 w-4 text-muted-foreground/30 mx-auto" />;
+}
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
@@ -205,6 +307,19 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 export default function LandingPage() {
   const [, setLocation] = useLocation();
+  const { dark, toggle } = useDarkMode();
+  const [auditUrl, setAuditUrl] = useState("");
+  const [showVideoModal, setShowVideoModal] = useState(false);
+
+  const handleAudit = () => {
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const url = auditUrl.trim();
+    if (url) {
+      window.location.href = `${base}/report?url=${encodeURIComponent(url)}`;
+    } else {
+      setLocation("/report");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -216,17 +331,34 @@ export default function LandingPage() {
             <ShieldCheck className="h-5 w-5 text-primary" />
             <span>SEO Command</span>
           </div>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 sm:gap-2">
             {NAV_LINKS.map(link => (
               <Button
                 key={link.href}
                 variant={link.href === "/login" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setLocation(link.href)}
+                className="hidden sm:inline-flex"
               >
                 {link.label}
               </Button>
             ))}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggle}
+              aria-label="Toggle theme"
+              className="shrink-0"
+            >
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setLocation("/login")}
+              className="sm:hidden"
+            >
+              Sign In
+            </Button>
           </nav>
         </div>
       </header>
@@ -251,6 +383,28 @@ export default function LandingPage() {
           <p className="text-sm text-primary font-medium mb-8">
             14-day free trial &bull; No credit card required
           </p>
+
+          {/* Live URL audit input */}
+          <div className="max-w-xl mx-auto mb-6">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Enter your website URL to get a free audit…"
+                  value={auditUrl}
+                  onChange={e => setAuditUrl(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAudit()}
+                  className="pl-9 bg-background/90 text-foreground border-sidebar-foreground/20 placeholder:text-muted-foreground h-11"
+                />
+              </div>
+              <Button size="default" className="h-11 px-5 shrink-0" onClick={handleAudit}>
+                Audit Free
+                <ArrowRight className="h-4 w-4 ml-1.5" />
+              </Button>
+            </div>
+            <p className="text-xs text-sidebar-foreground/40 mt-2">No account needed for your first audit</p>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button
               size="lg"
@@ -264,17 +418,16 @@ export default function LandingPage() {
             <Button
               size="lg"
               variant="outline"
-              onClick={() => setLocation("/report")}
+              onClick={() => setLocation("/pricing")}
               className="w-full sm:w-auto border-sidebar-foreground/30 text-sidebar-foreground hover:bg-sidebar-foreground/10"
-              data-testid="hero-free-audit"
             >
-              View Free SEO Audit
+              View Pricing
             </Button>
           </div>
         </div>
       </section>
 
-      {/* ── Social proof stats ── */}
+      {/* ── Capability stats ── */}
       <section className="border-b bg-muted/40">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
@@ -325,7 +478,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Dashboard preview mockup ── */}
+      {/* ── Dashboard preview mockup + video ── */}
       <section className="py-16 sm:py-20 border-b bg-muted/20 overflow-hidden">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-10">
@@ -336,7 +489,7 @@ export default function LandingPage() {
               One unified dashboard gives you your entire digital presence — live.
             </p>
           </div>
-          <div className="rounded-2xl border bg-card shadow-xl overflow-hidden">
+          <div className="relative rounded-2xl border bg-card shadow-xl overflow-hidden group cursor-pointer" onClick={() => setShowVideoModal(true)}>
             {/* Mock top bar */}
             <div className="bg-sidebar px-4 py-3 flex items-center gap-3 border-b border-sidebar-border">
               <div className="flex gap-1.5">
@@ -430,7 +583,42 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
+            {/* Play button overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center gap-2">
+                <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                  <Play className="h-6 w-6 text-primary fill-primary ml-0.5" />
+                </div>
+                <span className="text-white text-sm font-medium drop-shadow">Watch 60-sec demo</span>
+              </div>
+            </div>
           </div>
+          {showVideoModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowVideoModal(false)}
+            >
+              <div
+                className="bg-card rounded-2xl border shadow-2xl p-6 max-w-lg w-full mx-4 text-center"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Play className="h-7 w-7 text-primary fill-primary ml-0.5" />
+                </div>
+                <h3 className="text-xl font-bold font-display mb-2">Product Demo</h3>
+                <p className="text-muted-foreground text-sm mb-5">
+                  A full walkthrough is coming soon. In the meantime, try our live demo — run a free SEO audit on any URL right now, no account needed.
+                </p>
+                <div className="flex gap-3 justify-center">
+                  <Button onClick={() => { setShowVideoModal(false); setLocation("/report"); }}>
+                    Try Free Audit
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowVideoModal(false)}>Close</Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -482,11 +670,84 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ── */}
-      <section className="py-14 sm:py-20 border-b">
+      {/* ── Competitor comparison ── */}
+      <section className="py-16 sm:py-20 border-b">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-bold font-display mb-2">Trusted by marketers across India</h2>
+            <h2 className="text-2xl sm:text-3xl font-bold font-display mb-3">
+              How we compare
+            </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Most SEO tools only do one thing. SEO Command does everything — at a fraction of the combined cost.
+            </p>
+          </div>
+          <div className="rounded-xl border overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-muted/50 border-b">
+                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground w-1/2">Feature</th>
+                    <th className="px-4 py-3 font-semibold text-primary text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span>SEO Command</span>
+                        <span className="text-[10px] font-normal text-primary/70">from ₹5,999/mo</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span>SEMrush</span>
+                        <span className="text-[10px] font-normal">from $130/mo</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span>Ahrefs</span>
+                        <span className="text-[10px] font-normal">from $99/mo</span>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <span>Moz</span>
+                        <span className="text-[10px] font-normal">from $99/mo</span>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPARISON.map((row, i) => (
+                    <tr key={row.feature} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}>
+                      <td className="px-4 py-3 text-sm">{row.feature}</td>
+                      <td className="px-4 py-3 text-center bg-primary/5">
+                        <CompIcon val={row.us} />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <CompIcon val={row.semrush} />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <CompIcon val={row.ahrefs} />
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <CompIcon val={row.moz} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center gap-4 px-4 py-2.5 bg-muted/30 border-t text-[11px] text-muted-foreground">
+              <span className="flex items-center gap-1"><Check className="h-3 w-3 text-emerald-500" /> Included</span>
+              <span className="flex items-center gap-1"><Minus className="h-3 w-3 text-amber-500" /> Limited</span>
+              <span className="flex items-center gap-1"><X className="h-3 w-3 text-muted-foreground/40" /> Not available</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Testimonials ── */}
+      <section className="py-14 sm:py-20 border-b bg-muted/20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl sm:text-3xl font-bold font-display mb-2">Trusted by growth teams everywhere</h2>
             <p className="text-muted-foreground text-sm">Real teams. Real results.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
@@ -502,10 +763,13 @@ export default function LandingPage() {
                   <div className="w-9 h-9 rounded-full bg-primary/15 flex items-center justify-center text-primary text-xs font-bold shrink-0">
                     {t.initials}
                   </div>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold leading-tight">{t.name}</p>
                     <p className="text-xs text-muted-foreground">{t.title}</p>
                   </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${t.color}`}>
+                    {t.company}
+                  </span>
                 </div>
               </div>
             ))}
@@ -514,7 +778,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="py-14 sm:py-20 border-b bg-muted/20">
+      <section className="py-14 sm:py-20 border-b">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-10">
             <h2 className="text-2xl sm:text-3xl font-bold font-display mb-2">Frequently asked questions</h2>
@@ -561,29 +825,60 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 font-display font-bold text-base">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <span>SEO Command</span>
+      <footer className="border-t bg-background py-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 mb-10">
+            {/* Brand */}
+            <div className="col-span-2 sm:col-span-1">
+              <div className="flex items-center gap-2 font-display font-bold text-base mb-3">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>SEO Command</span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                All-in-one SEO, AI &amp; marketing platform for agencies, freelancers, and growing businesses.
+              </p>
+            </div>
+
+            {/* Link groups */}
+            {Object.entries(FOOTER_LINKS).map(([group, links]) => (
+              <div key={group}>
+                <p className="text-xs font-semibold uppercase tracking-wider text-foreground/60 mb-3">{group}</p>
+                <ul className="space-y-2">
+                  {links.map(link => (
+                    <li key={link.label}>
+                      {link.href.startsWith("mailto:") ? (
+                        <a
+                          href={link.href}
+                          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {link.label}
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => setLocation(link.href)}
+                          className="text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
+                        >
+                          {link.label}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <button onClick={() => setLocation("/report")} className="hover:text-foreground transition-colors">
-              Free SEO Audit
-            </button>
-            <button onClick={() => setLocation("/pricing")} className="hover:text-foreground transition-colors">
-              Pricing
-            </button>
-            <button onClick={() => setLocation("/kb")} className="hover:text-foreground transition-colors">
-              Help
-            </button>
-            <button onClick={() => setLocation("/login")} className="hover:text-foreground transition-colors font-medium text-primary">
-              Sign In
-            </button>
-          </nav>
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} SEO Command. All rights reserved.
-          </p>
+
+          <div className="border-t pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              &copy; {new Date().getFullYear()} SEO Command. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <button onClick={toggle} className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                {dark ? "Light mode" : "Dark mode"}
+              </button>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

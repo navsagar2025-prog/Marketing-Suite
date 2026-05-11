@@ -455,7 +455,7 @@ export default function SettingsPage() {
   const [, setLocation] = useLocation();
   const isAdmin = user?.role === "admin";
   const hasFullAccess = !isAdmin && permissions === null;
-  const [settingsTab, setSettingsTab] = useState<"plan" | "ai" | "email" | "admin">("plan");
+  const [settingsTab, setSettingsTab] = useState<"plan" | "ai" | "email" | "webhooks" | "admin">("plan");
 
   // Fal.ai state
   const [falApiKey, setFalApiKey] = useState("");
@@ -814,6 +814,7 @@ export default function SettingsPage() {
     { id: "plan" as const, label: "Plan & Account" },
     { id: "ai" as const, label: "AI" },
     { id: "email" as const, label: "Email" },
+    ...(isAdmin ? [{ id: "webhooks" as const, label: "Webhooks" }] : []),
     ...(isAdmin ? [{ id: "admin" as const, label: "Admin" }] : []),
   ];
 
@@ -2077,7 +2078,19 @@ export default function SettingsPage() {
         <CouponManagementCard />
       )}
 
-      {/* Webhook Events Log (admin only) */}
+      </div>
+
+      <div className={settingsTab === "plan" ? "space-y-6" : "hidden"}>
+      <SessionsCard />
+      </div>
+
+      <div className={settingsTab === "webhooks" ? "space-y-6" : "hidden"}>
+      {/* Outbound webhooks config */}
+      {isAdmin && (
+        <WebhooksCard />
+      )}
+
+      {/* Webhook Events Log */}
       {isAdmin && (
         <Card>
           <CardHeader>
@@ -2161,11 +2174,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
-
-      </div>
-
-      <div className={settingsTab === "plan" ? "space-y-6" : "hidden"}>
-      <SessionsCard />
       </div>
 
       <div className={settingsTab === "admin" ? "space-y-6" : "hidden"}>
@@ -2173,7 +2181,6 @@ export default function SettingsPage() {
       {isAdmin && (
         <>
           <NotificationSettingsCard />
-          <WebhooksCard />
         </>
       )}
 

@@ -52,6 +52,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useGetSettings, useGetMyUsage } from "@workspace/api-client-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { NotificationBell } from "@/components/NotificationCenter";
 
 type NavItem = {
   path: string;
@@ -148,6 +149,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
       { path: "/files", label: "Files", icon: FolderOpen, permission: null },
+      { path: "/changelog", label: "Changelog", icon: Tag, permission: null },
       { path: "/settings", label: "Settings", icon: Settings, permission: null },
     ],
   },
@@ -185,6 +187,8 @@ const PAGE_TITLES: Array<[string, string]> = [
   ["/blog", "Blog"],
   ["/kb", "Knowledge Base"],
   ["/files", "Files"],
+  ["/changelog", "Changelog"],
+  ["/integrations", "Integrations"],
   ["/settings", "Settings"],
   ["/admin", "Admin Panel"],
   ["/", "Dashboard"],
@@ -201,7 +205,9 @@ const PROVIDER_SHORT: Record<string, string> = {
 function useTheme() {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("theme") as "light" | "dark") || "light";
+      const saved = localStorage.getItem("theme");
+      if (saved) return saved as "light" | "dark";
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     }
     return "light";
   });
@@ -235,7 +241,16 @@ function NavGroupSection({
   hasPermission: (p: string) => boolean;
   isAdmin: boolean;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const storageKey = `sidebar-collapsed-${group.label ?? "main"}`;
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(storageKey) === "true";
+  });
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem(storageKey, String(next));
+  };
 
   const visibleItems = group.items.filter(item => {
     if (item.adminOnly && !isAdmin) return false;
@@ -255,7 +270,7 @@ function NavGroupSection({
       {group.label && sidebarOpen && (
         <button
           className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40 hover:text-sidebar-foreground/60 transition-colors"
-          onClick={() => group.collapsible && setCollapsed(!collapsed)}
+          onClick={() => group.collapsible && toggleCollapsed()}
         >
           <span>{group.label}</span>
           {group.collapsible && (
@@ -309,6 +324,7 @@ function SidebarContent({
   sidebarOpen,
   setSidebarOpen,
   onNavClick,
+  onOpenCmd,
   settings,
   aiEnabled,
   providerLabel,
@@ -325,6 +341,7 @@ function SidebarContent({
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
   onNavClick?: () => void;
+  onOpenCmd?: () => void;
   settings: ReturnType<typeof useGetSettings>["data"];
   aiEnabled: boolean;
   providerLabel: string;
@@ -343,15 +360,24 @@ function SidebarContent({
       {/* Logo */}
       <div className="flex items-center justify-between px-3 py-4 border-b border-sidebar-border">
         {sidebarOpen && (
-          <span className="font-display font-bold text-base text-sidebar-foreground tracking-tight">
+          <span className="font-display font-bold text-base text-sidebar-foreground tracking-tight flex-1 truncate">
             SEO Command
           </span>
+        )}
+        {sidebarOpen && onOpenCmd && (
+          <button
+            onClick={onOpenCmd}
+            title="Command palette (⌘K)"
+            className="mr-1 hidden md:flex items-center px-1.5 py-0.5 rounded border border-sidebar-border/50 text-[10px] text-sidebar-foreground/40 hover:text-sidebar-foreground hover:border-sidebar-border transition-colors font-mono shrink-0"
+          >
+            ⌘K
+          </button>
         )}
         <Button
           variant="ghost"
           size="icon"
           data-testid="button-toggle-sidebar"
-          className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ml-auto"
+          className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground shrink-0"
           onClick={() => setSidebarOpen(!sidebarOpen)}
         >
           {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -457,7 +483,7 @@ function SidebarContent({
         </div>
       )}
 
-      {/* Footer: user info + theme toggle + logout */}
+      {/* Footer: user info + notifications + theme toggle + logout */}
       <div className="p-2 border-t border-sidebar-border space-y-1">
         {sidebarOpen && user && (
           <p className="text-xs text-sidebar-foreground/60 px-1 truncate">
@@ -467,6 +493,7 @@ function SidebarContent({
             )}
           </p>
         )}
+        <NotificationBell sidebarOpen={sidebarOpen} />
         <Button
           variant="ghost"
           size={sidebarOpen ? "sm" : "icon"}
@@ -530,6 +557,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     location,
     sidebarOpen,
     setSidebarOpen,
+    onOpenCmd: () => setCmdOpen(true),
     settings,
     aiEnabled,
     providerLabel,

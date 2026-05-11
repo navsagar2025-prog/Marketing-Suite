@@ -10,14 +10,17 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { CheckCircle2, ShieldCheck, ArrowRight, Check, X, Tag, Loader2 } from "lucide-react";
+import { CheckCircle2, ShieldCheck, ArrowRight, Check, X, Tag, Loader2, Moon, Sun } from "lucide-react";
+import { useDarkMode } from "@/lib/useDarkMode";
 
 type Plan = {
   id: string;
   name: string;
   tagline: string;
-  monthlyPrice: number;
-  annualPrice: number;
+  monthlyPriceINR: number;
+  annualPriceINR: number;
+  monthlyPriceUSD: number;
+  annualPriceUSD: number;
   popular: boolean;
   cta: string;
   features: { label: string; included: boolean }[];
@@ -28,8 +31,10 @@ const PLANS: Plan[] = [
     id: "starter",
     name: "Starter",
     tagline: "Perfect for freelancers & solo founders",
-    monthlyPrice: 5999,
-    annualPrice: 4499,
+    monthlyPriceINR: 5999,
+    annualPriceINR: 4499,
+    monthlyPriceUSD: 69,
+    annualPriceUSD: 52,
     popular: false,
     cta: "Get Started",
     features: [
@@ -53,12 +58,14 @@ const PLANS: Plan[] = [
     id: "growth",
     name: "Growth",
     tagline: "For growing businesses that need more",
-    monthlyPrice: 8999,
-    annualPrice: 6749,
+    monthlyPriceINR: 8999,
+    annualPriceINR: 6749,
+    monthlyPriceUSD: 99,
+    annualPriceUSD: 74,
     popular: true,
     cta: "Get Started",
     features: [
-      { label: "1 website", included: true },
+      { label: "3 websites", included: true },
       { label: "75 keywords tracked", included: true },
       { label: "Unlimited campaigns", included: true },
       { label: "SEO audits", included: true },
@@ -78,13 +85,15 @@ const PLANS: Plan[] = [
     id: "agency",
     name: "Agency",
     tagline: "For agencies & power users at scale",
-    monthlyPrice: 15999,
-    annualPrice: 11999,
+    monthlyPriceINR: 15999,
+    annualPriceINR: 11999,
+    monthlyPriceUSD: 179,
+    annualPriceUSD: 134,
     popular: false,
     cta: "Get Started",
     features: [
-      { label: "1 website", included: true },
-      { label: "200 keywords tracked", included: true },
+      { label: "Unlimited websites", included: true },
+      { label: "200 keywords tracked / site", included: true },
       { label: "Unlimited campaigns", included: true },
       { label: "SEO audits", included: true },
       { label: "Keyword rank tracking", included: true },
@@ -116,7 +125,7 @@ const FAQ = [
   },
   {
     q: "Does pricing include GST?",
-    a: "Prices shown are exclusive of GST. 18% GST is added at checkout as applicable under Indian tax law. A GST invoice is automatically issued to your registered email after every payment.",
+    a: "INR prices shown are exclusive of GST. 18% GST is added at checkout as applicable under Indian tax law. A GST invoice is automatically issued to your registered email after every payment.",
   },
   {
     q: "Can I change plans later?",
@@ -161,14 +170,40 @@ function applyDiscount(price: number, coupon: CouponResult | null): number {
 
 export default function PricingPage() {
   const [annual, setAnnual] = useState(false);
+  const [currency, setCurrency] = useState<"INR" | "USD">("INR");
   const [, setLocation] = useLocation();
   const [couponCode, setCouponCode] = useState("");
   const [couponResult, setCouponResult] = useState<CouponResult | null>(null);
   const [couponError, setCouponError] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
+  const { dark, toggle } = useDarkMode();
 
-  const fmt = (n: number) =>
+  const fmtINR = (n: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+  const fmtUSD = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+
+  const fmt = (plan: Plan) => {
+    const raw = annual
+      ? (currency === "INR" ? plan.annualPriceINR : plan.annualPriceUSD)
+      : (currency === "INR" ? plan.monthlyPriceINR : plan.monthlyPriceUSD);
+    return currency === "INR" ? fmtINR(raw) : fmtUSD(raw);
+  };
+
+  const basePrice = (plan: Plan) =>
+    annual
+      ? (currency === "INR" ? plan.annualPriceINR : plan.annualPriceUSD)
+      : (currency === "INR" ? plan.monthlyPriceINR : plan.monthlyPriceUSD);
+
+  const savingsPerYear = (plan: Plan) => {
+    if (currency === "INR") return (plan.monthlyPriceINR - plan.annualPriceINR) * 12;
+    return (plan.monthlyPriceUSD - plan.annualPriceUSD) * 12;
+  };
+
+  const annualTotal = (plan: Plan) => {
+    const monthly = currency === "INR" ? plan.annualPriceINR : plan.annualPriceUSD;
+    return currency === "INR" ? fmtINR(monthly * 12) : fmtUSD(monthly * 12);
+  };
 
   const handleValidateCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -216,6 +251,9 @@ export default function PricingPage() {
             <Button variant="ghost" size="sm" onClick={() => setLocation("/report")}>
               Free SEO Audit
             </Button>
+            <Button variant="ghost" size="icon" onClick={toggle} aria-label="Toggle theme">
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Button size="sm" onClick={() => setLocation("/login")}>
               Sign In
             </Button>
@@ -225,9 +263,6 @@ export default function PricingPage() {
 
       <section className="bg-sidebar text-sidebar-foreground py-16 sm:py-20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <Badge variant="outline" className="mb-4 border-primary/40 text-primary bg-primary/10">
-            Pricing in Indian Rupees
-          </Badge>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-display mb-4">
             Simple, transparent pricing
           </h1>
@@ -238,30 +273,57 @@ export default function PricingPage() {
             All plans include a 14-day free trial. No credit card required.
           </p>
 
-          <div className="inline-flex items-center gap-3 bg-sidebar-foreground/10 rounded-full px-2 py-1.5">
-            <button
-              onClick={() => setAnnual(false)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                !annual
-                  ? "bg-primary text-primary-foreground shadow"
-                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setAnnual(true)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${
-                annual
-                  ? "bg-primary text-primary-foreground shadow"
-                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
-              }`}
-            >
-              Annual
-              <span className="bg-green-500/20 text-green-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                SAVE 25%
-              </span>
-            </button>
+          {/* Billing cycle toggle */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="inline-flex items-center gap-3 bg-sidebar-foreground/10 rounded-full px-2 py-1.5">
+              <button
+                onClick={() => setAnnual(false)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  !annual
+                    ? "bg-primary text-primary-foreground shadow"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setAnnual(true)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 ${
+                  annual
+                    ? "bg-primary text-primary-foreground shadow"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                }`}
+              >
+                Annual
+                <span className="bg-green-500/20 text-green-400 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  SAVE 25%
+                </span>
+              </button>
+            </div>
+
+            {/* Currency toggle */}
+            <div className="inline-flex items-center gap-1 bg-sidebar-foreground/10 rounded-full px-1.5 py-1.5">
+              <button
+                onClick={() => setCurrency("INR")}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                  currency === "INR"
+                    ? "bg-sidebar-foreground/20 text-sidebar-foreground"
+                    : "text-sidebar-foreground/50 hover:text-sidebar-foreground/70"
+                }`}
+              >
+                ₹ INR
+              </button>
+              <button
+                onClick={() => setCurrency("USD")}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                  currency === "USD"
+                    ? "bg-sidebar-foreground/20 text-sidebar-foreground"
+                    : "text-sidebar-foreground/50 hover:text-sidebar-foreground/70"
+                }`}
+              >
+                $ USD
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -281,7 +343,7 @@ export default function PricingPage() {
                   <p className="text-xs text-green-600/80 dark:text-green-500/80">
                     {couponResult.discountType === "percent"
                       ? `${couponResult.discountValue}% off`
-                      : `₹${couponResult.discountValue / 100} off`}
+                      : `${currency === "INR" ? "₹" : "$"}${couponResult.discountValue / 100} off`}
                     {couponResult.appliesTo !== "all" ? ` on ${couponResult.appliesTo} plan` : " on all plans"}
                   </p>
                 </div>
@@ -319,10 +381,11 @@ export default function PricingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
             {PLANS.map((plan) => {
-              const basePrice = annual ? plan.annualPrice : plan.monthlyPrice;
+              const bp = basePrice(plan);
               const couponApplies = !couponResult || couponResult.appliesTo === "all" || couponResult.appliesTo === plan.id;
-              const price = couponApplies ? applyDiscount(basePrice, couponResult) : basePrice;
+              const price = couponApplies ? applyDiscount(bp, couponResult) : bp;
               const hasDiscount = couponApplies && couponResult !== null;
+              const fmtPrice = (n: number) => currency === "INR" ? fmtINR(n) : fmtUSD(n);
               return (
                 <Card
                   key={plan.id}
@@ -347,25 +410,25 @@ export default function PricingPage() {
                     <div className="flex items-end gap-1">
                       {hasDiscount && (
                         <span className="text-xl font-medium text-muted-foreground/50 line-through mr-1">
-                          {fmt(basePrice)}
+                          {fmtPrice(bp)}
                         </span>
                       )}
-                      <span className="text-4xl font-bold font-display">{fmt(price)}</span>
+                      <span className="text-4xl font-bold font-display">{fmtPrice(price)}</span>
                       <span className="text-muted-foreground text-sm mb-1.5">/mo</span>
                     </div>
                     {hasDiscount && (
                       <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                        Coupon applied — saving {fmt(basePrice - price)}/mo
+                        Coupon applied — saving {fmtPrice(bp - price)}/mo
                       </p>
                     )}
                     {annual && !hasDiscount && (
                       <p className="text-xs text-muted-foreground">
-                        Billed annually — {fmt(price * 12)}/year
+                        Billed annually — {annualTotal(plan)}/year
                       </p>
                     )}
                     {!annual && !hasDiscount && (
                       <p className="text-xs text-green-600 dark:text-green-400">
-                        Or {fmt(plan.annualPrice)}/mo on annual — save {fmt((plan.monthlyPrice - plan.annualPrice) * 12)}/year
+                        Or save {fmtPrice(savingsPerYear(plan))}/year on annual
                       </p>
                     )}
                   </CardHeader>
@@ -399,7 +462,9 @@ export default function PricingPage() {
           </div>
 
           <p className="text-center text-xs text-muted-foreground mt-6">
-            All prices in INR, exclusive of 18% GST. Annual plans billed as a single payment.
+            {currency === "INR"
+              ? "All prices in INR, exclusive of 18% GST. Annual plans billed as a single payment."
+              : "All prices in USD. Annual plans billed as a single payment. Taxes may apply."}
           </p>
         </div>
       </section>
@@ -450,26 +515,41 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <footer className="border-t py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2 font-display font-bold text-base">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <span>SEO Command</span>
+      <footer className="border-t py-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-2 font-display font-bold text-base">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <span>SEO Command</span>
+            </div>
+            <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+              <button onClick={() => setLocation("/report")} className="hover:text-foreground transition-colors">
+                Free SEO Audit
+              </button>
+              <button onClick={() => setLocation("/integrations")} className="hover:text-foreground transition-colors">
+                Integrations
+              </button>
+              <button onClick={() => setLocation("/changelog")} className="hover:text-foreground transition-colors">
+                Changelog
+              </button>
+              <button onClick={() => setLocation("/pricing")} className="hover:text-foreground transition-colors font-medium text-primary">
+                Pricing
+              </button>
+              <button onClick={() => setLocation("/login")} className="hover:text-foreground transition-colors">
+                Sign In
+              </button>
+            </nav>
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <button onClick={() => setLocation("/report")} className="hover:text-foreground transition-colors">
-              Free SEO Audit
-            </button>
-            <button onClick={() => setLocation("/pricing")} className="hover:text-foreground transition-colors font-medium text-primary">
-              Pricing
-            </button>
-            <button onClick={() => setLocation("/login")} className="hover:text-foreground transition-colors">
-              Sign In
-            </button>
-          </nav>
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} SEO Command. All rights reserved.
-          </p>
+          <div className="border-t pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              &copy; {new Date().getFullYear()} SEO Command. All rights reserved.
+            </p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <a href="mailto:support@seocommand.in" className="hover:text-foreground transition-colors">Contact</a>
+              <button onClick={() => setLocation("/privacy")} className="hover:text-foreground transition-colors">Privacy</button>
+              <button onClick={() => setLocation("/terms")} className="hover:text-foreground transition-colors">Terms</button>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

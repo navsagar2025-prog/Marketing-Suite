@@ -5242,7 +5242,9 @@ components:
           nullable: true
         configured:
           type: boolean
-      required: [connected, email, propertyUrl, ga4PropertyId, configured]
+        scopesIncludeAnalytics:
+          type: boolean
+      required: [connected, email, propertyUrl, ga4PropertyId, configured, scopesIncludeAnalytics]
 
     GscProperty:
       type: object

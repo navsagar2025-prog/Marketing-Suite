@@ -127,12 +127,17 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     ))
     .limit(1);
 
+  const scopesIncludeAnalytics = token
+    ? (token.scopes ?? "").includes("analytics.readonly")
+    : false;
+
   res.json({
     connected: !!token,
     email: token?.googleEmail ?? null,
     propertyUrl: token?.gscPropertyUrl ?? null,
     ga4PropertyId: token?.ga4PropertyId ?? null,
     configured: !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET),
+    scopesIncludeAnalytics,
   });
 });
 

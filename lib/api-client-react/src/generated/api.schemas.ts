@@ -1604,6 +1604,7 @@ export interface GscStatus {
   propertyUrl: string | null;
   ga4PropertyId: string | null;
   configured: boolean;
+  scopesIncludeAnalytics: boolean;
 }
 
 export interface GscProperty {

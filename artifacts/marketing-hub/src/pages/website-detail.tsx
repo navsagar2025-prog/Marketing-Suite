@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, Crosshair, Activity, ExternalLink, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
+import { ArrowLeft, Globe, Search, Megaphone, Users, Link2, ShieldCheck, AlertTriangle, Info, Loader2, Copy, Check, RefreshCw, TrendingUp, Plus, Trash2, Crosshair, Activity, ExternalLink, ChevronDown, ChevronUp, ChevronRight, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +29,7 @@ import {
   useStartSiteAudit,
   useGetSiteAuditStatus,
   useGetSiteAuditResults,
+  useGetGoogleIntegrationStatus,
   getGetWebsiteQueryKey,
   getGetWebsiteAnalyticsQueryKey,
   getListKeywordsQueryKey,
@@ -39,6 +40,7 @@ import {
   getListCompetitorsQueryKey,
   getGetSiteAuditStatusQueryKey,
   getGetSiteAuditResultsQueryKey,
+  getGetGoogleIntegrationStatusQueryKey,
 } from "@workspace/api-client-react";
 import type { SeoAudit, SeoAuditIssue, LinkSuggestion, CompetitorAnalysis, SiteAuditIssueResult, SiteAuditPageResult } from "@workspace/api-client-react";
 import SearchPerformanceTab from "@/components/SearchPerformanceTab";
@@ -1193,11 +1195,25 @@ function ShareHealthButton({ websiteId }: { websiteId: number }) {
   );
 }
 
+const TOKEN_KEY = "auth_token";
+
+async function fetchGoogleAuthUrl(websiteId: number): Promise<string | null> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  const res = await fetch(`/api/integrations/google/auth?websiteId=${websiteId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return (data as { authUrl?: string }).authUrl ?? null;
+}
+
 export default function WebsiteDetail() {
   const [, params] = useRoute("/websites/:id");
   const id = params?.id ? parseInt(params.id) : 0;
   const initialTab = new URLSearchParams(window.location.search).get("tab") ?? "overview";
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   const { data: website, isLoading: websiteLoading } = useGetWebsite(id, {
     query: { enabled: !!id, queryKey: getGetWebsiteQueryKey(id) }
@@ -1214,6 +1230,24 @@ export default function WebsiteDetail() {
   const { data: leads, isLoading: leadsLoading } = useListLeads({ websiteId: id }, {
     query: { enabled: !!id, queryKey: getListLeadsQueryKey({ websiteId: id }) }
   });
+  const { data: googleStatus, isLoading: googleStatusLoading } = useGetGoogleIntegrationStatus(id, {
+    query: { enabled: !!id, queryKey: getGetGoogleIntegrationStatusQueryKey(id) }
+  });
+
+  const needsAnalyticsReconnect =
+    !googleStatusLoading &&
+    googleStatus?.connected === true &&
+    googleStatus?.scopesIncludeAnalytics === false;
+
+  const handleReconnectGoogle = async () => {
+    setIsReconnecting(true);
+    try {
+      const authUrl = await fetchGoogleAuthUrl(id);
+      if (authUrl) window.location.href = authUrl;
+    } finally {
+      setIsReconnecting(false);
+    }
+  };
 
   if (websiteLoading) {
     return <div className="p-6 space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-32 w-full" /></div>;
@@ -1252,6 +1286,35 @@ export default function WebsiteDetail() {
         {website.niche && <p className="text-sm text-muted-foreground mt-1">Niche: {website.niche}</p>}
         {website.notes && <p className="text-sm text-muted-foreground mt-1">{website.notes}</p>}
       </div>
+
+      {/* GA4 scope reconnect banner */}
+      {needsAnalyticsReconnect && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3" data-testid="banner-ga4-reconnect">
+          <BarChart3 className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Reconnect Google to enable GA4 data
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+              Your Google connection is missing the Analytics permission. Reconnect to grant access and load traffic data.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/60 text-xs"
+            onClick={handleReconnectGoogle}
+            disabled={isReconnecting}
+            data-testid="button-website-detail-ga4-reconnect"
+          >
+            {isReconnecting ? (
+              <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Connecting…</>
+            ) : (
+              "Reconnect Google"
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* Analytics summary */}
       {analyticsLoading ? (

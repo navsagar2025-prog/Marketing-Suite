@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings, RefreshCw } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings, RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,10 +12,25 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetGa4Report,
+  useGetGoogleIntegrationStatus,
   getGetGa4ReportQueryKey,
+  getGetGoogleIntegrationStatusQueryKey,
   getGa4Report,
   type GetGa4ReportRefresh,
 } from "@workspace/api-client-react";
+
+const TOKEN_KEY = "auth_token";
+
+async function fetchGoogleAuthUrl(websiteId: number): Promise<string | null> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) return null;
+  const res = await fetch(`/api/integrations/google/auth?websiteId=${websiteId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return (data as { authUrl?: string }).authUrl ?? null;
+}
 
 const COLORS = [
   "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
@@ -58,7 +73,14 @@ const DATE_RANGE_LABELS: Record<DateRange, string> = { "7d": "7 days", "30d": "3
 export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const queryClient = useQueryClient();
+
+  const statusQueryKey = getGetGoogleIntegrationStatusQueryKey(websiteId);
+  const { data: googleStatus, isLoading: statusLoading } = useGetGoogleIntegrationStatus(
+    websiteId,
+    { query: { enabled: !!websiteId, queryKey: statusQueryKey } }
+  );
 
   const queryParams = { dateRange };
   const queryKey = getGetGa4ReportQueryKey(websiteId, queryParams);
@@ -90,14 +112,58 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
     }
   };
 
+  const handleReconnect = async () => {
+    setIsConnecting(true);
+    try {
+      const authUrl = await fetchGoogleAuthUrl(websiteId);
+      if (authUrl) window.location.href = authUrl;
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const ga4ErrorCode = error
     ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error === "GA4_PROPERTY_NOT_SET"
         ? "not_configured"
         : "api_error")
     : null;
 
+  const needsReconnect =
+    !statusLoading &&
+    googleStatus?.connected === true &&
+    googleStatus?.scopesIncludeAnalytics === false;
+
   return (
     <div className="space-y-4">
+      {/* Reconnect banner — shown when Google is connected but missing analytics.readonly scope */}
+      {needsReconnect && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Reconnect Google to enable GA4 data
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+              Your Google connection is missing the Analytics permission. Reconnect to grant access.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/60 text-xs"
+            onClick={handleReconnect}
+            disabled={isConnecting}
+            data-testid="button-ga4-reconnect"
+          >
+            {isConnecting ? (
+              <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Connecting…</>
+            ) : (
+              "Reconnect Google"
+            )}
+          </Button>
+        </div>
+      )}
+
       {/* Date range selector + refresh */}
       <div className="flex items-center justify-between gap-2">
         {/* Last updated label */}

@@ -415,7 +415,7 @@ function GscWebsiteRow({ website }: { website: Website }) {
             </>
           ) : (
             <Button size="sm" className="text-xs h-7 px-2" onClick={handleConnect} disabled={isLoading}>
-              Connect Google
+              Connect Google (GSC + GA4)
             </Button>
           )}
         </div>

@@ -108,6 +108,8 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
       ))
       .limit(1);
 
+    const FULL_SCOPES = "openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly";
+
     if (existing) {
       await db.update(oauthTokensTable).set({
         accessToken: encryptToken(tokens.access_token),
@@ -115,6 +117,7 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
         expiresAt,
         googleEmail,
         gscPropertyUrl: null,
+        scopes: FULL_SCOPES,
       }).where(eq(oauthTokensTable.id, existing.id));
     } else {
       await db.insert(oauthTokensTable).values({
@@ -124,7 +127,7 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
         accessToken: encryptToken(tokens.access_token),
         refreshToken: tokens.refresh_token ? encryptToken(tokens.refresh_token) : null,
         expiresAt,
-        scopes: "openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly",
+        scopes: FULL_SCOPES,
         googleEmail,
       });
     }

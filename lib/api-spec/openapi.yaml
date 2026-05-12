@@ -5247,10 +5247,13 @@ components:
           type: boolean
         scopesIncludeAnalytics:
           type: boolean
+        missingScopesCount:
+          type: integer
+          description: Number of required OAuth scopes that were not granted. Greater than 0 means the user should reconnect to grant new permissions.
         redirectUri:
           type: string
           description: The OAuth redirect URI configured for this server instance.
-      required: [connected, expired, email, propertyUrl, ga4PropertyId, configured, scopesIncludeAnalytics, redirectUri]
+      required: [connected, expired, email, propertyUrl, ga4PropertyId, configured, scopesIncludeAnalytics, missingScopesCount, redirectUri]
 
     GscProperty:
       type: object

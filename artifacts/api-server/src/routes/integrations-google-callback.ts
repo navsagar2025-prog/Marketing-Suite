@@ -8,6 +8,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { createCipheriv, createDecipheriv } from "node:crypto";
 import { db, oauthTokensTable, gscCacheTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
+import { GOOGLE_SCOPES_STRING } from "../lib/google-scopes.js";
 
 const router: IRouter = Router();
 
@@ -83,6 +84,7 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
       access_token: string;
       refresh_token?: string;
       expires_in: number;
+      scope?: string;
     };
 
     let googleEmail: string | null = null;
@@ -98,6 +100,8 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
 
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
+    const grantedScopes = tokens.scope ?? null;
+
     const [existing] = await db
       .select()
       .from(oauthTokensTable)
@@ -108,8 +112,6 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
       ))
       .limit(1);
 
-    const FULL_SCOPES = "openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly";
-
     if (existing) {
       await db.update(oauthTokensTable).set({
         accessToken: encryptToken(tokens.access_token),
@@ -117,7 +119,8 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
         expiresAt,
         googleEmail,
         gscPropertyUrl: null,
-        scopes: FULL_SCOPES,
+        scopes: GOOGLE_SCOPES_STRING,
+        grantedScopes,
         tokenExpired: false,
       }).where(eq(oauthTokensTable.id, existing.id));
     } else {
@@ -128,7 +131,8 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
         accessToken: encryptToken(tokens.access_token),
         refreshToken: tokens.refresh_token ? encryptToken(tokens.refresh_token) : null,
         expiresAt,
-        scopes: FULL_SCOPES,
+        scopes: GOOGLE_SCOPES_STRING,
+        grantedScopes,
         googleEmail,
         tokenExpired: false,
       });

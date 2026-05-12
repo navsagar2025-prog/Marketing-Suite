@@ -543,6 +543,22 @@ function GscWebsiteRow({ website }: { website: Website }) {
           </Button>
         </div>
       )}
+      {status?.connected && !status.expired && (status.missingScopesCount ?? 0) > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Zap className="h-4 w-4 text-blue-500 shrink-0" />
+            <span className="text-xs text-blue-800 dark:text-blue-300 font-medium">New permissions available — reconnect to unlock new features</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs h-7 px-2 shrink-0 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+            onClick={handleConnect}
+          >
+            Upgrade
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{website.url}</p>

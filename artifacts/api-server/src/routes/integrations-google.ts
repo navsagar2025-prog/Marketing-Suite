@@ -7,6 +7,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { createHmac, randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 import { db, oauthTokensTable, gscCacheTable, ga4CacheTable, keywordsTable, keywordRankHistoryTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
+import { GOOGLE_REQUIRED_SCOPES, GOOGLE_SCOPES_STRING } from "../lib/google-scopes.js";
 
 const router: IRouter = Router();
 
@@ -16,12 +17,7 @@ const _rawSecret = process.env.SESSION_SECRET;
 if (!_rawSecret) throw new Error("SESSION_SECRET environment variable is required");
 const SESSION_SECRET: string = _rawSecret;
 
-const SCOPES = [
-  "openid",
-  "email",
-  "https://www.googleapis.com/auth/webmasters.readonly",
-  "https://www.googleapis.com/auth/analytics.readonly",
-];
+const SCOPES = GOOGLE_REQUIRED_SCOPES;
 
 function getRedirectUri(): string {
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
@@ -142,9 +138,15 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     ))
     .limit(1);
 
-  const scopesIncludeAnalytics = token
-    ? (token.scopes ?? "").includes("analytics.readonly")
-    : false;
+  let scopesIncludeAnalytics = false;
+  let missingScopesCount = 0;
+
+  if (token) {
+    const grantedScopeStr = token.grantedScopes ?? token.scopes ?? "";
+    const grantedSet = new Set(grantedScopeStr.split(/\s+/).filter(Boolean));
+    scopesIncludeAnalytics = grantedSet.has("https://www.googleapis.com/auth/analytics.readonly");
+    missingScopesCount = GOOGLE_REQUIRED_SCOPES.filter(s => !grantedSet.has(s)).length;
+  }
 
   res.json({
     connected: !!token,
@@ -154,6 +156,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     ga4PropertyId: token?.ga4PropertyId ?? null,
     configured: !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET),
     scopesIncludeAnalytics,
+    missingScopesCount,
     redirectUri: getRedirectUri(),
   });
 });

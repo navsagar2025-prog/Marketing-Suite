@@ -11,6 +11,7 @@ export const oauthTokensTable = pgTable("oauth_tokens", {
   refreshToken: text("refresh_token"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   scopes: text("scopes"),
+  grantedScopes: text("granted_scopes"),
   gscPropertyUrl: text("gsc_property_url"),
   ga4PropertyId: text("ga4_property_id"),
   googleEmail: text("google_email"),

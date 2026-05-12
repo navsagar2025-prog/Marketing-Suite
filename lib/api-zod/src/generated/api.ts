@@ -592,11 +592,24 @@ export const GetGoogleIntegrationStatusParams = zod.object({
 
 export const GetGoogleIntegrationStatusResponse = zod.object({
   connected: zod.boolean(),
+  expired: zod
+    .boolean()
+    .describe(
+      "True when a token refresh attempt failed with HTTP 400\/401 from Google, meaning the user must reconnect.",
+    ),
   email: zod.string().nullable(),
   propertyUrl: zod.string().nullable(),
   ga4PropertyId: zod.string().nullable(),
   configured: zod.boolean(),
-  redirectUri: zod.string(),
+  scopesIncludeAnalytics: zod.boolean(),
+  missingScopesCount: zod
+    .number()
+    .describe(
+      "Number of required OAuth scopes that were not granted. Greater than 0 means the user should reconnect to grant new permissions.",
+    ),
+  redirectUri: zod
+    .string()
+    .describe("The OAuth redirect URI configured for this server instance."),
 });
 
 /**

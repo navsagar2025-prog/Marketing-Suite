@@ -15,5 +15,8 @@ export interface GscStatus {
   ga4PropertyId: string | null;
   configured: boolean;
   scopesIncludeAnalytics: boolean;
+  /** Number of required OAuth scopes that were not granted. Greater than 0 means the user should reconnect to grant new permissions. */
+  missingScopesCount: number;
+  /** The OAuth redirect URI configured for this server instance. */
   redirectUri: string;
 }

@@ -124,7 +124,7 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
         accessToken: encryptToken(tokens.access_token),
         refreshToken: tokens.refresh_token ? encryptToken(tokens.refresh_token) : null,
         expiresAt,
-        scopes: "openid email https://www.googleapis.com/auth/webmasters.readonly",
+        scopes: "openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly",
         googleEmail,
       });
     }

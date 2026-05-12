@@ -415,7 +415,7 @@ function GscWebsiteRow({ website }: { website: Website }) {
             </>
           ) : (
             <Button size="sm" className="text-xs h-7 px-2" onClick={handleConnect} disabled={isLoading}>
-              Connect
+              Connect Google
             </Button>
           )}
         </div>
@@ -2193,9 +2193,9 @@ export default function SettingsPage() {
                 <Search className="h-4 w-4" />
               </div>
               <div>
-                <CardTitle className="text-base">Google Search Console</CardTitle>
+                <CardTitle className="text-base">Google (Search Console + GA4)</CardTitle>
                 <CardDescription className="mt-0.5">
-                  Connect each website to Google Search Console to show real organic traffic data.
+                  Connect each website via OAuth 2.0 to enable Google Search Console data and GA4 Analytics traffic reports.
                 </CardDescription>
               </div>
             </div>
@@ -2226,7 +2226,7 @@ export default function SettingsPage() {
                 <div><span className="text-primary">GOOGLE_REDIRECT_URI</span>=https://your-domain/api/integrations/google/callback</div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Create credentials at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary underline">console.cloud.google.com</a>. Enable the <strong>Search Console API</strong> and add the callback URI to your OAuth client.
+                Create an OAuth 2.0 client ID at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary underline">console.cloud.google.com</a>. Enable both the <strong>Google Search Console API</strong> and the <strong>Google Analytics Data API</strong>, then add the callback URI to your OAuth client. No service account or JSON key file is required.
               </p>
             </div>
           </CardContent>

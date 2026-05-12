@@ -145,7 +145,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     // Lazy backfill: copy scopes → grantedScopes for rows created before the
     // grantedScopes column was added (Task #22). This ensures existing users
     // get accurate missingScopesCount without needing to reconnect.
-    if (token.grantedScopes === null && token.scopes) {
+    if (token.grantedScopes === null && token.scopes !== null) {
       await db.update(oauthTokensTable)
         .set({ grantedScopes: token.scopes })
         .where(eq(oauthTokensTable.id, token.id));

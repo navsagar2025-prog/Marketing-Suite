@@ -508,6 +508,30 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
         </div>
       </div>
 
+      {/* Missing Search Console scope banner */}
+      {status?.connected && !status.expired && status.scopesIncludeSearchConsole === false && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Search Console permission missing
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+              Your Google account hasn't granted Search Console access.{" "}
+              <button
+                onClick={handleReconnect}
+                disabled={isReconnecting}
+                className="underline font-medium hover:no-underline disabled:opacity-60"
+                data-testid="button-gsc-reconnect-missing-scope"
+              >
+                {isReconnecting ? "Connecting…" : "Reconnect now"}
+              </button>
+              {" "}to grant the required permission.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Expired token banner — shown when Google token has expired or been revoked */}
       {!expiredBannerDismissed && status?.connected && (status?.expired || (perfError as { data?: { error?: string } } | null)?.data?.error === "TOKEN_EXPIRED") && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">

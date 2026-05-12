@@ -139,6 +139,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     .limit(1);
 
   let scopesIncludeAnalytics = false;
+  let scopesIncludeSearchConsole = false;
   let missingScopesCount = 0;
 
   if (token) {
@@ -155,6 +156,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     const grantedScopeStr = token.grantedScopes ?? token.scopes ?? "";
     const grantedSet = new Set(grantedScopeStr.split(/\s+/).filter(Boolean));
     scopesIncludeAnalytics = grantedSet.has("https://www.googleapis.com/auth/analytics.readonly");
+    scopesIncludeSearchConsole = grantedSet.has("https://www.googleapis.com/auth/webmasters.readonly");
     missingScopesCount = GOOGLE_REQUIRED_SCOPES.filter(s => !grantedSet.has(s)).length;
   }
 
@@ -166,6 +168,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     ga4PropertyId: token?.ga4PropertyId ?? null,
     configured: !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET),
     scopesIncludeAnalytics,
+    scopesIncludeSearchConsole,
     missingScopesCount,
     redirectUri: getRedirectUri(),
   });

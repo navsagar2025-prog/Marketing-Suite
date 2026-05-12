@@ -1239,6 +1239,11 @@ export default function WebsiteDetail() {
     googleStatus?.connected === true &&
     googleStatus?.scopesIncludeAnalytics === false;
 
+  const needsGscReconnect =
+    !googleStatusLoading &&
+    googleStatus?.connected === true &&
+    googleStatus?.scopesIncludeSearchConsole === false;
+
   const handleReconnectGoogle = async () => {
     setIsReconnecting(true);
     try {
@@ -1361,7 +1366,12 @@ export default function WebsiteDetail() {
           <TabsTrigger value="site-audit" data-testid="tab-site-audit">Full Site Audit</TabsTrigger>
           <TabsTrigger value="internal-links" data-testid="tab-internal-links">Internal Links</TabsTrigger>
           <TabsTrigger value="competitors" data-testid="tab-competitors">Competitors</TabsTrigger>
-          <TabsTrigger value="search-performance" data-testid="tab-search-performance">Search Performance</TabsTrigger>
+          <TabsTrigger value="search-performance" data-testid="tab-search-performance" className="flex items-center gap-1.5">
+            Search Performance
+            {needsGscReconnect && (
+              <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 shrink-0" aria-label="Search Console permission missing" />
+            )}
+          </TabsTrigger>
           <TabsTrigger value="traffic-ga4" data-testid="tab-traffic-ga4" className="flex items-center gap-1.5">
             Traffic (GA4)
             {needsAnalyticsReconnect && (

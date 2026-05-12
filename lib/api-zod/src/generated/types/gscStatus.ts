@@ -8,6 +8,8 @@
 
 export interface GscStatus {
   connected: boolean;
+  /** True when a token refresh attempt failed with HTTP 400/401 from Google, meaning the user must reconnect. */
+  expired: boolean;
   email: string | null;
   propertyUrl: string | null;
   ga4PropertyId: string | null;

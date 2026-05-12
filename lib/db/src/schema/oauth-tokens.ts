@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { staffUsersTable } from "./staff-users";
 import { websitesTable } from "./websites";
 
@@ -14,6 +14,7 @@ export const oauthTokensTable = pgTable("oauth_tokens", {
   gscPropertyUrl: text("gsc_property_url"),
   ga4PropertyId: text("ga4_property_id"),
   googleEmail: text("google_email"),
+  tokenExpired: boolean("token_expired").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

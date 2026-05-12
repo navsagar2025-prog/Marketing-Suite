@@ -463,7 +463,7 @@ function GoogleSetupGuide({ websites }: { websites: Website[] }) {
               <span className="text-primary">GOOGLE_REDIRECT_URI</span>=https://your-production-domain/api/integrations/google/callback
             </div>
             <p className="text-xs text-muted-foreground ml-7">
-              After saving the secrets, restart the API server. The Connect Google button will appear for each website below.
+              After saving the secrets, restart the API server. The Connect Google button will appear for each website below. You can update these secrets at any time without affecting existing connections.
             </p>
           </div>
         </div>
@@ -527,6 +527,22 @@ function GscWebsiteRow({ website }: { website: Website }) {
 
   return (
     <div className="border rounded-md px-3 py-2.5 space-y-2">
+      {status?.connected && status.expired && (
+        <div className="flex items-center justify-between gap-3 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+            <span className="text-xs text-amber-800 dark:text-amber-300 font-medium">Google access expired — data may be stale</span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs h-7 px-2 shrink-0 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            onClick={handleConnect}
+          >
+            Reconnect
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{website.url}</p>
@@ -534,8 +550,14 @@ function GscWebsiteRow({ website }: { website: Website }) {
             <p className="text-xs text-muted-foreground">Checking status…</p>
           ) : status?.connected ? (
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
-              <span className="text-xs text-green-600 font-medium">Connected</span>
+              {status.expired ? (
+                <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+              ) : (
+                <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+              )}
+              <span className={`text-xs font-medium ${status.expired ? "text-amber-600 dark:text-amber-400" : "text-green-600"}`}>
+                {status.expired ? "Access expired" : "Connected"}
+              </span>
               {status.email && <span className="text-xs text-muted-foreground">· {status.email}</span>}
               {status.propertyUrl && <span className="text-xs text-muted-foreground truncate">· {status.propertyUrl}</span>}
             </div>

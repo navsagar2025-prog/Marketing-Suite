@@ -5231,6 +5231,9 @@ components:
       properties:
         connected:
           type: boolean
+        expired:
+          type: boolean
+          description: True when a token refresh attempt failed with HTTP 400/401 from Google, meaning the user must reconnect.
         email:
           type: string
           nullable: true
@@ -5244,7 +5247,10 @@ components:
           type: boolean
         scopesIncludeAnalytics:
           type: boolean
-      required: [connected, email, propertyUrl, ga4PropertyId, configured, scopesIncludeAnalytics]
+        redirectUri:
+          type: string
+          description: The OAuth redirect URI configured for this server instance.
+      required: [connected, expired, email, propertyUrl, ga4PropertyId, configured, scopesIncludeAnalytics, redirectUri]
 
     GscProperty:
       type: object

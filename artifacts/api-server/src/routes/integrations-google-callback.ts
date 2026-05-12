@@ -118,6 +118,7 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
         googleEmail,
         gscPropertyUrl: null,
         scopes: FULL_SCOPES,
+        tokenExpired: false,
       }).where(eq(oauthTokensTable.id, existing.id));
     } else {
       await db.insert(oauthTokensTable).values({
@@ -129,6 +130,7 @@ router.get("/integrations/google/callback", async (req, res): Promise<void> => {
         expiresAt,
         scopes: FULL_SCOPES,
         googleEmail,
+        tokenExpired: false,
       });
     }
 

@@ -47,6 +47,13 @@ function decryptToken(encrypted: string): string {
   return decipher.update(data) + decipher.final("utf8");
 }
 
+class TokenExpiredError extends Error {
+  constructor(status: number) {
+    super(`Token refresh rejected by Google (HTTP ${status}) — user must reconnect.`);
+    this.name = "TokenExpiredError";
+  }
+}
+
 async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; expiresAt: Date }> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -58,6 +65,7 @@ async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: 
       grant_type: "refresh_token",
     }),
   });
+  if (res.status === 400 || res.status === 401) throw new TokenExpiredError(res.status);
   if (!res.ok) throw new Error(`Token refresh failed: ${res.status}`);
   const data = await res.json() as { access_token: string; expires_in: number };
   return { accessToken: data.access_token, expiresAt: new Date(Date.now() + data.expires_in * 1000) };
@@ -76,9 +84,16 @@ async function getValidAccessToken(tokenRow: typeof oauthTokensTable.$inferSelec
   const isExpired = tokenRow.expiresAt && tokenRow.expiresAt.getTime() < Date.now() + 30_000;
   if (!isExpired) return decryptToken(tokenRow.accessToken);
   if (!tokenRow.refreshToken) throw new Error("Token expired and no refresh token — please reconnect Google Search Console.");
-  const { accessToken, expiresAt } = await refreshAccessToken(decryptToken(tokenRow.refreshToken));
-  await db.update(oauthTokensTable).set({ accessToken: encryptToken(accessToken), expiresAt }).where(eq(oauthTokensTable.id, tokenRow.id));
-  return accessToken;
+  try {
+    const { accessToken, expiresAt } = await refreshAccessToken(decryptToken(tokenRow.refreshToken));
+    await db.update(oauthTokensTable).set({ accessToken: encryptToken(accessToken), expiresAt, tokenExpired: false }).where(eq(oauthTokensTable.id, tokenRow.id));
+    return accessToken;
+  } catch (err) {
+    if (err instanceof TokenExpiredError) {
+      await db.update(oauthTokensTable).set({ tokenExpired: true }).where(eq(oauthTokensTable.id, tokenRow.id));
+    }
+    throw err;
+  }
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -133,6 +148,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
 
   res.json({
     connected: !!token,
+    expired: token ? !!token.tokenExpired : false,
     email: token?.googleEmail ?? null,
     propertyUrl: token?.gscPropertyUrl ?? null,
     ga4PropertyId: token?.ga4PropertyId ?? null,

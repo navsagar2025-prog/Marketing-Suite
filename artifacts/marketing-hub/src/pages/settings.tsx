@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send, Copy, Check, ExternalLink } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send, Copy, Check, ExternalLink, BarChart3 } from "lucide-react";
 import { ByokCard } from "@/components/ByokCard";
 import { SessionsCard } from "@/components/SessionsCard";
 import { CouponManagementCard } from "@/components/CouponManagementCard";
@@ -549,18 +549,46 @@ function GscWebsiteRow({ website }: { website: Website }) {
           {isLoading ? (
             <p className="text-xs text-muted-foreground">Checking status…</p>
           ) : status?.connected ? (
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              {status.expired ? (
-                <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
-              ) : (
-                <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
-              )}
-              <span className={`text-xs font-medium ${status.expired ? "text-amber-600 dark:text-amber-400" : "text-green-600"}`}>
-                {status.expired ? "Access expired" : "Connected"}
-              </span>
-              {status.email && <span className="text-xs text-muted-foreground">· {status.email}</span>}
-              {status.propertyUrl && <span className="text-xs text-muted-foreground truncate">· {status.propertyUrl}</span>}
-            </div>
+            <>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                {status.expired ? (
+                  <AlertCircle className="h-3 w-3 text-amber-500 shrink-0" />
+                ) : (
+                  <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                )}
+                <span className={`text-xs font-medium ${status.expired ? "text-amber-600 dark:text-amber-400" : "text-green-600"}`}>
+                  {status.expired ? "Access expired" : "Connected"}
+                </span>
+                {status.email && <span className="text-xs text-muted-foreground">· {status.email}</span>}
+                {status.propertyUrl && <span className="text-xs text-muted-foreground truncate">· {status.propertyUrl}</span>}
+              </div>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 bg-green-500/10 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-medium">
+                  <Search className="h-2.5 w-2.5 shrink-0" />
+                  Search Console
+                </span>
+                {status.scopesIncludeAnalytics ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 bg-green-500/10 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-medium">
+                    <BarChart3 className="h-2.5 w-2.5 shrink-0" />
+                    Analytics
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[11px] rounded-full px-2 py-0.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 font-medium">
+                    <AlertCircle className="h-2.5 w-2.5 shrink-0" />
+                    Analytics missing
+                  </span>
+                )}
+                {!status.scopesIncludeAnalytics && (
+                  <button
+                    type="button"
+                    onClick={handleConnect}
+                    className="text-[11px] text-primary hover:underline font-medium"
+                  >
+                    Reconnect to add
+                  </button>
+                )}
+              </div>
+            </>
           ) : (
             <div className="flex items-center gap-1.5 mt-0.5">
               <XCircle className="h-3 w-3 text-muted-foreground shrink-0" />

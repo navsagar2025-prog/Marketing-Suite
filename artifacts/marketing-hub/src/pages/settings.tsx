@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send, Copy, Check, ExternalLink } from "lucide-react";
 import { ByokCard } from "@/components/ByokCard";
 import { SessionsCard } from "@/components/SessionsCard";
 import { CouponManagementCard } from "@/components/CouponManagementCard";
@@ -323,6 +323,155 @@ function WebhooksCard() {
   );
 }
 
+function GoogleSetupGuide({ websites }: { websites: Website[] }) {
+  const [open, setOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
+
+  const firstWebsite = websites[0];
+  const { data: status } = useGetGoogleIntegrationStatus(firstWebsite?.id ?? 0, {
+    query: {
+      queryKey: getGetGoogleIntegrationStatusQueryKey(firstWebsite?.id ?? 0),
+      enabled: !!firstWebsite,
+    },
+  });
+
+  if (!firstWebsite || status?.configured) return null;
+
+  const redirectUri = `${window.location.origin}/api/integrations/google/callback`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(redirectUri).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="border rounded-md overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/40 transition-colors"
+        onClick={() => setOpen(o => !o)}
+        type="button"
+      >
+        <div className="flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+          <span className="text-sm font-medium">Google OAuth setup required</span>
+        </div>
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+      </button>
+
+      {open && (
+        <div className="border-t px-3 py-3 space-y-4 bg-muted/20">
+          {/* Step 1 */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">1</span>
+              <p className="text-sm font-medium">Create a Google Cloud project and enable APIs</p>
+            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              If you don't already have a project, create one first:
+            </p>
+            <div className="ml-7">
+              <a
+                href="https://console.cloud.google.com/projectcreate"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
+              >
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                Create a new Google Cloud project
+              </a>
+            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              Then enable both of these APIs inside your project:
+            </p>
+            <div className="ml-7 space-y-1">
+              <a
+                href="https://console.cloud.google.com/apis/library/searchconsole.googleapis.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
+              >
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                Google Search Console API
+              </a>
+              <a
+                href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
+              >
+                <ExternalLink className="h-3 w-3 shrink-0" />
+                Google Analytics Data API
+              </a>
+            </div>
+          </div>
+
+          {/* Step 2 */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">2</span>
+              <p className="text-sm font-medium">Create OAuth 2.0 credentials</p>
+            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              Go to{" "}
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary hover:underline"
+              >
+                APIs & Services → Credentials
+              </a>
+              {" "}and create an <strong>OAuth 2.0 Client ID</strong> (type: Web application).
+              Add the following as an authorized redirect URI:
+            </p>
+            <div className="ml-7 flex items-center gap-2">
+              <code className="flex-1 rounded bg-muted px-2.5 py-1.5 text-xs font-mono break-all">{redirectUri}</code>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 shrink-0"
+                onClick={handleCopy}
+                type="button"
+                title="Copy redirect URI"
+              >
+                {copied
+                  ? <Check className="h-3.5 w-3.5 text-green-500" />
+                  : <Copy className="h-3.5 w-3.5" />
+                }
+              </Button>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">3</span>
+              <p className="text-sm font-medium">Add credentials as secrets</p>
+            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> from the OAuth client you created. Open the <strong>Secrets panel</strong> (the lock icon in the left sidebar of your Replit workspace) and add these two secrets:
+            </p>
+            <div className="ml-7 rounded bg-muted px-2.5 py-2 font-mono text-xs space-y-0.5">
+              <div><span className="text-primary">GOOGLE_CLIENT_ID</span>=your-client-id.apps.googleusercontent.com</div>
+              <div><span className="text-primary">GOOGLE_CLIENT_SECRET</span>=your-client-secret</div>
+            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              Optionally, if your production domain differs from your Replit dev domain, also set:
+            </p>
+            <div className="ml-7 rounded bg-muted px-2.5 py-2 font-mono text-xs">
+              <span className="text-primary">GOOGLE_REDIRECT_URI</span>=https://your-production-domain/api/integrations/google/callback
+            </div>
+            <p className="text-xs text-muted-foreground ml-7">
+              After saving the secrets, restart the API server. The Connect Google button will appear for each website below.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GscWebsiteRow({ website }: { website: Website }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -413,10 +562,12 @@ function GscWebsiteRow({ website }: { website: Website }) {
                 Disconnect
               </Button>
             </>
-          ) : (
+          ) : status?.configured ? (
             <Button size="sm" className="text-xs h-7 px-2" onClick={handleConnect} disabled={isLoading}>
               Connect Google (GSC + GA4)
             </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Setup required ↑</span>
           )}
         </div>
       </div>
@@ -2201,6 +2352,11 @@ export default function SettingsPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Step-by-step setup guide — only shown when OAuth is not yet configured */}
+            {!websitesLoading && websites && websites.length > 0 && (
+              <GoogleSetupGuide websites={websites} />
+            )}
+
             {/* Website connection list */}
             {websitesLoading ? (
               <div className="space-y-2">
@@ -2216,19 +2372,6 @@ export default function SettingsPage() {
                 ))}
               </div>
             )}
-
-            {/* Setup instructions */}
-            <div className="border-t pt-3 space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">Required environment variables for OAuth:</p>
-              <div className="rounded-md bg-muted/60 px-3 py-2 space-y-1 font-mono text-xs">
-                <div><span className="text-primary">GOOGLE_CLIENT_ID</span>=your-client-id.apps.googleusercontent.com</div>
-                <div><span className="text-primary">GOOGLE_CLIENT_SECRET</span>=your-client-secret</div>
-                <div><span className="text-primary">GOOGLE_REDIRECT_URI</span>=https://your-domain/api/integrations/google/callback</div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Create an OAuth 2.0 client ID at <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer" className="text-primary underline">console.cloud.google.com</a>. Enable both the <strong>Google Search Console API</strong> and the <strong>Google Analytics Data API</strong>, then add the callback URI to your OAuth client. No service account or JSON key file is required.
-              </p>
-            </div>
           </CardContent>
         </Card>
       )}

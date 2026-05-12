@@ -91,7 +91,7 @@ async function getValidAccessToken(tokenRow: typeof oauthTokensTable.$inferSelec
  * (which cannot attach Authorization headers).
  */
 router.get("/integrations/google/auth", async (req, res): Promise<void> => {
-  if (!GOOGLE_CLIENT_ID) {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     res.status(503).json({ error: "Google OAuth is not configured. Ask your admin to set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.", configured: false });
     return;
   }
@@ -132,7 +132,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     email: token?.googleEmail ?? null,
     propertyUrl: token?.gscPropertyUrl ?? null,
     ga4PropertyId: token?.ga4PropertyId ?? null,
-    configured: !!GOOGLE_CLIENT_ID,
+    configured: !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET),
   });
 });
 

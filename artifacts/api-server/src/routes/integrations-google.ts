@@ -249,6 +249,7 @@ async function fetchGscAnalytics(
   );
   if (!res.ok) {
     const body2 = await res.text();
+    if (res.status === 401) throw new TokenExpiredError(401);
     throw new Error(`GSC searchAnalytics.query failed (${res.status}): ${body2}`);
   }
   const data = await res.json() as { rows?: Array<{ keys: string[]; clicks: number; impressions: number; ctr: number; position: number }> };
@@ -381,6 +382,15 @@ router.get("/integrations/google/gsc/:websiteId", async (req, res): Promise<void
     res.json(responseData);
   } catch (err) {
     logger.error({ err }, "GSC data fetch error");
+    if (err instanceof TokenExpiredError) {
+      await db.update(oauthTokensTable).set({ tokenExpired: true }).where(and(
+        eq(oauthTokensTable.staffUserId, req.user!.id),
+        eq(oauthTokensTable.websiteId, websiteId),
+        eq(oauthTokensTable.provider, "google"),
+      ));
+      res.status(401).json({ error: "TOKEN_EXPIRED", message: "Your Google session has expired. Please reconnect." });
+      return;
+    }
     res.status(502).json({ error: "Failed to fetch data from Google Search Console. Your connection may have expired — try reconnecting." });
   }
 });
@@ -409,6 +419,7 @@ async function runGa4Report(
   );
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 401) throw new TokenExpiredError(401);
     throw new Error(`GA4 API error (${res.status}): ${text}`);
   }
   return res.json() as Promise<Record<string, unknown>>;
@@ -624,6 +635,15 @@ router.get("/integrations/google/ga4/:websiteId", async (req, res): Promise<void
     res.json(responseData);
   } catch (err) {
     logger.error({ err }, "GA4 data fetch error");
+    if (err instanceof TokenExpiredError) {
+      await db.update(oauthTokensTable).set({ tokenExpired: true }).where(and(
+        eq(oauthTokensTable.staffUserId, req.user!.id),
+        eq(oauthTokensTable.websiteId, websiteId),
+        eq(oauthTokensTable.provider, "google"),
+      ));
+      res.status(401).json({ error: "TOKEN_EXPIRED", message: "Your Google session has expired. Please reconnect." });
+      return;
+    }
     res.status(502).json({ error: "Failed to fetch data from Google Analytics 4. Your connection may have expired or the property ID is incorrect — try reconnecting." });
   }
 });
@@ -681,6 +701,15 @@ router.post("/integrations/google/keywords-sync/:websiteId", async (req, res): P
     res.json({ updated, notFound, total: trackedKeywords.length, date: today });
   } catch (err) {
     logger.error({ err }, "GSC keywords sync error");
+    if (err instanceof TokenExpiredError) {
+      await db.update(oauthTokensTable).set({ tokenExpired: true }).where(and(
+        eq(oauthTokensTable.staffUserId, req.user!.id),
+        eq(oauthTokensTable.websiteId, websiteId),
+        eq(oauthTokensTable.provider, "google"),
+      ));
+      res.status(401).json({ error: "TOKEN_EXPIRED", message: "Your Google session has expired. Please reconnect." });
+      return;
+    }
     res.status(502).json({ error: "Failed to sync from Google Search Console. Your connection may have expired — try reconnecting." });
   }
 });

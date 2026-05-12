@@ -18,7 +18,7 @@ import {
   getGetGscSearchPerformanceQueryKey,
 } from "@workspace/api-client-react";
 import type { GscSearchPerformance, GscProperty } from "@workspace/api-client-react";
-import { TrendingUp, TrendingDown, Minus, ExternalLink, RefreshCw, Loader2, Search, Globe, BarChart2, Unlink, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ExternalLink, RefreshCw, Loader2, Search, Globe, BarChart2, Unlink, Zap, AlertTriangle } from "lucide-react";
 import type { GscQuickWin } from "@workspace/api-client-react";
 
 const TOKEN_KEY = "auth_token";
@@ -350,6 +350,7 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
   const [dateRange, setDateRange] = useState<DateRange>("28days");
   const [showPropertySelector, setShowPropertySelector] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   async function handleRefresh() {
     setIsRefreshing(true);
@@ -380,6 +381,15 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
   );
 
   const disconnectMutation = useDisconnectGoogleIntegration();
+
+  // Invalidate the status query whenever the perf fetch detects a TOKEN_EXPIRED error
+  // so the expired banner also appears via status.expired on re-render.
+  const gscApiError = (perfError as { data?: { error?: string } } | null)?.data?.error ?? null;
+  useEffect(() => {
+    if (gscApiError === "TOKEN_EXPIRED") {
+      qc.invalidateQueries({ queryKey: getGetGoogleIntegrationStatusQueryKey(websiteId) });
+    }
+  }, [gscApiError, qc, websiteId]);
 
   // Handle URL params from OAuth callback
   useEffect(() => {
@@ -415,6 +425,17 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
       return;
     }
     window.location.href = authUrl;
+  };
+
+  const handleReconnect = async () => {
+    setIsReconnecting(true);
+    try {
+      const authUrl = await fetchGoogleAuthUrl(websiteId);
+      if (authUrl) window.location.href = authUrl;
+      else toast({ title: "Failed to initiate reconnect", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setIsReconnecting(false);
+    }
   };
 
   const handleDisconnect = () => {
@@ -475,6 +496,35 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
           )}
         </div>
       </div>
+
+      {/* Expired token banner — shown when Google token has expired or been revoked */}
+      {status?.connected && (status?.expired || (perfError as { data?: { error?: string } } | null)?.data?.error === "TOKEN_EXPIRED") && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/40 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-red-900 dark:text-red-100">
+              Google session expired — reconnect to restore Search Console data
+            </p>
+            <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
+              Your Google access token has expired or been revoked. Reconnect to resume data syncing.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-red-300 text-red-800 hover:bg-red-100 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/60 text-xs"
+            onClick={handleReconnect}
+            disabled={isReconnecting}
+            data-testid="button-gsc-reconnect-expired"
+          >
+            {isReconnecting ? (
+              <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Connecting…</>
+            ) : (
+              "Reconnect Google"
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* Not connected state */}
       {!status?.connected && (

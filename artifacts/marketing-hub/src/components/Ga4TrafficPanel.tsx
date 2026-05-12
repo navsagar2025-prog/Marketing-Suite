@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings, RefreshCw, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,9 +122,13 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
     }
   };
 
+  type ErrorWithData = { data?: { error?: string } };
+  const ga4ApiError = (error as ErrorWithData | null)?.data?.error ?? null;
   const ga4ErrorCode = error
-    ? ((error as { response?: { data?: { error?: string } } }).response?.data?.error === "GA4_PROPERTY_NOT_SET"
+    ? (ga4ApiError === "GA4_PROPERTY_NOT_SET"
         ? "not_configured"
+        : ga4ApiError === "TOKEN_EXPIRED"
+        ? "token_expired"
         : "api_error")
     : null;
 
@@ -133,10 +137,49 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
     googleStatus?.connected === true &&
     googleStatus?.scopesIncludeAnalytics === false;
 
+  const tokenExpired =
+    (!statusLoading && googleStatus?.connected === true && googleStatus?.expired === true) ||
+    ga4ErrorCode === "token_expired";
+
+  useEffect(() => {
+    if (ga4ErrorCode === "token_expired") {
+      queryClient.invalidateQueries({ queryKey: statusQueryKey });
+    }
+  }, [ga4ErrorCode, queryClient, statusQueryKey]);
+
   return (
     <div className="space-y-4">
+      {/* Reconnect banner — shown when Google token is expired or revoked */}
+      {tokenExpired && (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/40 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-red-900 dark:text-red-100">
+              Google session expired — reconnect to restore GA4 data
+            </p>
+            <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
+              Your Google access token has expired or been revoked. Reconnect to resume data syncing.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 border-red-300 text-red-800 hover:bg-red-100 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/60 text-xs"
+            onClick={handleReconnect}
+            disabled={isConnecting}
+            data-testid="button-ga4-reconnect-expired"
+          >
+            {isConnecting ? (
+              <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Connecting…</>
+            ) : (
+              "Reconnect Google"
+            )}
+          </Button>
+        </div>
+      )}
+
       {/* Reconnect banner — shown when Google is connected but missing analytics.readonly scope */}
-      {needsReconnect && (
+      {!tokenExpired && needsReconnect && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">

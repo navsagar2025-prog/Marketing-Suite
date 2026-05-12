@@ -18,7 +18,7 @@ import {
   getGetGscSearchPerformanceQueryKey,
 } from "@workspace/api-client-react";
 import type { GscSearchPerformance, GscProperty } from "@workspace/api-client-react";
-import { TrendingUp, TrendingDown, Minus, ExternalLink, RefreshCw, Loader2, Search, Globe, BarChart2, Unlink, Zap, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ExternalLink, RefreshCw, Loader2, Search, Globe, BarChart2, Unlink, Zap, AlertTriangle, X } from "lucide-react";
 import type { GscQuickWin } from "@workspace/api-client-react";
 
 const TOKEN_KEY = "auth_token";
@@ -351,6 +351,17 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
   const [showPropertySelector, setShowPropertySelector] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const sessionKey = `gsc-expired-dismissed-${websiteId}`;
+  const [expiredBannerDismissed, setExpiredBannerDismissed] = useState(
+    () => sessionStorage.getItem(sessionKey) === "1"
+  );
+  useEffect(() => {
+    setExpiredBannerDismissed(sessionStorage.getItem(sessionKey) === "1");
+  }, [sessionKey]);
+  const dismissExpiredBanner = () => {
+    sessionStorage.setItem(sessionKey, "1");
+    setExpiredBannerDismissed(true);
+  };
 
   async function handleRefresh() {
     setIsRefreshing(true);
@@ -498,31 +509,35 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
       </div>
 
       {/* Expired token banner — shown when Google token has expired or been revoked */}
-      {status?.connected && (status?.expired || (perfError as { data?: { error?: string } } | null)?.data?.error === "TOKEN_EXPIRED") && (
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/40 px-4 py-3">
-          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+      {!expiredBannerDismissed && status?.connected && (status?.expired || (perfError as { data?: { error?: string } } | null)?.data?.error === "TOKEN_EXPIRED") && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-red-900 dark:text-red-100">
-              Google session expired — reconnect to restore Search Console data
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Google access expired — Search Console data may be stale
             </p>
-            <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
-              Your Google access token has expired or been revoked. Reconnect to resume data syncing.
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+              Your Google access token has expired or been revoked.{" "}
+              <button
+                onClick={handleReconnect}
+                disabled={isReconnecting}
+                className="underline font-medium hover:no-underline disabled:opacity-60"
+                data-testid="button-gsc-reconnect-expired"
+              >
+                {isReconnecting ? "Connecting…" : "Reconnect now"}
+              </button>
+              {" "}or go to{" "}
+              <a href="/settings#google" className="underline font-medium hover:no-underline">Settings → Google</a>.
             </p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="shrink-0 border-red-300 text-red-800 hover:bg-red-100 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/60 text-xs"
-            onClick={handleReconnect}
-            disabled={isReconnecting}
-            data-testid="button-gsc-reconnect-expired"
+          <button
+            onClick={dismissExpiredBanner}
+            aria-label="Dismiss"
+            className="shrink-0 text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200 mt-0.5"
+            data-testid="button-gsc-expired-dismiss"
           >
-            {isReconnecting ? (
-              <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Connecting…</>
-            ) : (
-              "Reconnect Google"
-            )}
-          </Button>
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

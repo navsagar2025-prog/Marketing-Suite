@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings, RefreshCw, AlertTriangle } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings, RefreshCw, AlertTriangle, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -75,6 +75,17 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const queryClient = useQueryClient();
+  const ga4SessionKey = `ga4-expired-dismissed-${websiteId}`;
+  const [expiredBannerDismissed, setExpiredBannerDismissed] = useState(
+    () => sessionStorage.getItem(ga4SessionKey) === "1"
+  );
+  useEffect(() => {
+    setExpiredBannerDismissed(sessionStorage.getItem(ga4SessionKey) === "1");
+  }, [ga4SessionKey]);
+  const dismissExpiredBanner = () => {
+    sessionStorage.setItem(ga4SessionKey, "1");
+    setExpiredBannerDismissed(true);
+  };
 
   const statusQueryKey = getGetGoogleIntegrationStatusQueryKey(websiteId);
   const { data: googleStatus, isLoading: statusLoading } = useGetGoogleIntegrationStatus(
@@ -150,31 +161,35 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
   return (
     <div className="space-y-4">
       {/* Reconnect banner — shown when Google token is expired or revoked */}
-      {tokenExpired && (
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/40 px-4 py-3">
-          <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+      {!expiredBannerDismissed && tokenExpired && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-red-900 dark:text-red-100">
-              Google session expired — reconnect to restore GA4 data
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Google access expired — GA4 data may be stale
             </p>
-            <p className="text-xs text-red-700 dark:text-red-300 mt-0.5">
-              Your Google access token has expired or been revoked. Reconnect to resume data syncing.
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+              Your Google access token has expired or been revoked.{" "}
+              <button
+                onClick={handleReconnect}
+                disabled={isConnecting}
+                className="underline font-medium hover:no-underline disabled:opacity-60"
+                data-testid="button-ga4-reconnect-expired"
+              >
+                {isConnecting ? "Connecting…" : "Reconnect now"}
+              </button>
+              {" "}or go to{" "}
+              <a href="/settings#google" className="underline font-medium hover:no-underline">Settings → Google</a>.
             </p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="shrink-0 border-red-300 text-red-800 hover:bg-red-100 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/60 text-xs"
-            onClick={handleReconnect}
-            disabled={isConnecting}
-            data-testid="button-ga4-reconnect-expired"
+          <button
+            onClick={dismissExpiredBanner}
+            aria-label="Dismiss"
+            className="shrink-0 text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-200 mt-0.5"
+            data-testid="button-ga4-expired-dismiss"
           >
-            {isConnecting ? (
-              <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Connecting…</>
-            ) : (
-              "Reconnect Google"
-            )}
-          </Button>
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

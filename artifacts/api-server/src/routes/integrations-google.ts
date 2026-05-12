@@ -142,6 +142,16 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
   let missingScopesCount = 0;
 
   if (token) {
+    // Lazy backfill: copy scopes → grantedScopes for rows created before the
+    // grantedScopes column was added (Task #22). This ensures existing users
+    // get accurate missingScopesCount without needing to reconnect.
+    if (token.grantedScopes === null && token.scopes) {
+      await db.update(oauthTokensTable)
+        .set({ grantedScopes: token.scopes })
+        .where(eq(oauthTokensTable.id, token.id));
+      token.grantedScopes = token.scopes;
+    }
+
     const grantedScopeStr = token.grantedScopes ?? token.scopes ?? "";
     const grantedSet = new Set(grantedScopeStr.split(/\s+/).filter(Boolean));
     scopesIncludeAnalytics = grantedSet.has("https://www.googleapis.com/auth/analytics.readonly");

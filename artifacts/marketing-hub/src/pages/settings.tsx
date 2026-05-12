@@ -337,7 +337,7 @@ function GoogleSetupGuide({ websites }: { websites: Website[] }) {
 
   if (!firstWebsite || status?.configured) return null;
 
-  const redirectUri = `${window.location.origin}/api/integrations/google/callback`;
+  const redirectUri = status?.redirectUri ?? `${window.location.origin}/api/integrations/google/callback`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(redirectUri).catch(() => {});

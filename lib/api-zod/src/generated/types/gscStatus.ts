@@ -13,4 +13,5 @@ export interface GscStatus {
   ga4PropertyId: string | null;
   configured: boolean;
   scopesIncludeAnalytics: boolean;
+  redirectUri: string;
 }

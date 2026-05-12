@@ -596,6 +596,7 @@ export const GetGoogleIntegrationStatusResponse = zod.object({
   propertyUrl: zod.string().nullable(),
   ga4PropertyId: zod.string().nullable(),
   configured: zod.boolean(),
+  redirectUri: zod.string(),
 });
 
 /**

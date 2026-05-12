@@ -138,6 +138,7 @@ router.get("/integrations/google/status/:websiteId", async (req, res): Promise<v
     ga4PropertyId: token?.ga4PropertyId ?? null,
     configured: !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET),
     scopesIncludeAnalytics,
+    redirectUri: getRedirectUri(),
   });
 });
 

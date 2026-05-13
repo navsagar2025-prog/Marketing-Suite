@@ -27,8 +27,7 @@ import {
 } from "@workspace/api-client-react";
 import type { MediaAsset } from "@workspace/api-client-react";
 import { AiMediaDialog } from "@/components/AiMediaDialog";
-
-const apiBase = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api`;
+import { apiFetch } from "@/lib/catalog-api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type SocialAccount = {
@@ -52,11 +51,7 @@ type PlatformStatus = {
 function useSocialAccounts() {
   return useQuery<SocialAccount[]>({
     queryKey: ["social-accounts"],
-    queryFn: async () => {
-      const res = await fetch(`${apiBase}/integrations/social/accounts`);
-      if (!res.ok) throw new Error("Failed to load social accounts");
-      return res.json();
-    },
+    queryFn: () => apiFetch<SocialAccount[]>("/integrations/social/accounts"),
     staleTime: 30_000,
   });
 }
@@ -64,11 +59,7 @@ function useSocialAccounts() {
 function useSocialStatus() {
   return useQuery<Record<string, PlatformStatus>>({
     queryKey: ["social-status"],
-    queryFn: async () => {
-      const res = await fetch(`${apiBase}/integrations/social/status`);
-      if (!res.ok) throw new Error("Failed to load social status");
-      return res.json();
-    },
+    queryFn: () => apiFetch<Record<string, PlatformStatus>>("/integrations/social/status"),
     staleTime: 60_000,
   });
 }
@@ -117,12 +108,26 @@ function ConnectedAccountsPanel() {
   const { data: statusMap = {} } = useSocialStatus();
 
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState<string | null>(null);
+
+  const anyUnconfigured = PLATFORMS.some(p => !(statusMap[p.value]?.configured ?? false));
+
+  const handleConnect = async (platform: string) => {
+    setConnecting(platform);
+    try {
+      const { url } = await apiFetch<{ url: string }>(`/integrations/social/${platform}/connect?json=1`);
+      window.location.href = url;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to start OAuth";
+      toast({ title: "Cannot connect", description: msg, variant: "destructive" });
+      setConnecting(null);
+    }
+  };
 
   const handleDisconnect = async (platform: string) => {
     setDisconnecting(platform);
     try {
-      const res = await fetch(`${apiBase}/integrations/social/${platform}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await apiFetch(`/integrations/social/${platform}`, { method: "DELETE" });
       queryClient.invalidateQueries({ queryKey: ["social-accounts"] });
       toast({ title: `${platform} account disconnected` });
     } catch {
@@ -134,14 +139,27 @@ function ConnectedAccountsPanel() {
 
   return (
     <Card>
-      <CardContent className="pt-4 pb-3">
-        <div className="flex items-center gap-2 mb-3">
+      <CardContent className="pt-4 pb-3 space-y-3">
+        <div className="flex items-center gap-2">
           <Link2 className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">Connected Accounts</span>
           <span className="text-xs text-muted-foreground ml-1">
             — connect once, publish directly from each post
           </span>
         </div>
+
+        {anyUnconfigured && !accountsLoading && (
+          <div className="flex items-start gap-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+            <ExternalLink className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Some platforms need developer app credentials before you can connect.{" "}
+              <a href="/settings?tab=integrations" className="font-medium underline underline-offset-2">
+                Open Settings → Integrations
+              </a>{" "}
+              for the step-by-step setup guide.
+            </span>
+          </div>
+        )}
 
         {accountsLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -189,8 +207,14 @@ function ConnectedAccountsPanel() {
                   ) : configured ? (
                     <>
                       <p className="text-xs text-muted-foreground leading-tight">Not connected</p>
-                      <Button variant="outline" size="sm" className="h-6 px-2 text-xs w-full" asChild>
-                        <a href={`${apiBase}/integrations/social/${value}/connect`}>Connect</a>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 px-2 text-xs w-full"
+                        disabled={connecting === value}
+                        onClick={() => handleConnect(value)}
+                      >
+                        {connecting === value ? <Loader2 className="h-3 w-3 animate-spin" /> : "Connect"}
                       </Button>
                     </>
                   ) : (
@@ -199,7 +223,7 @@ function ConnectedAccountsPanel() {
                         Credentials not set up
                       </p>
                       <Button variant="ghost" size="sm" className="h-6 px-2 text-xs w-full" asChild>
-                        <a href={ps?.devDocsUrl ?? "#"} target="_blank" rel="noopener noreferrer">
+                        <a href="/settings?tab=integrations">
                           Setup guide <ExternalLink className="h-2.5 w-2.5 ml-1" />
                         </a>
                       </Button>
@@ -222,12 +246,7 @@ function PublishButton({ postId, platform, status }: { postId: number; platform:
   const { data: accounts = [] } = useSocialAccounts();
 
   const publishMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`${apiBase}/social-posts/${postId}/publish`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Publish failed");
-      return data;
-    },
+    mutationFn: () => apiFetch(`/social-posts/${postId}/publish`, { method: "POST" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: getListSocialPostsQueryKey() });
       toast({ title: "Post published successfully" });

@@ -640,7 +640,12 @@ protectedSocialRouter.get(
     if (codeVerifier) statePayload.codeVerifier = codeVerifier;
     params.set("state", signState(statePayload));
 
-    res.redirect(`${config.authUrl}?${params.toString()}`);
+    const fullUrl = `${config.authUrl}?${params.toString()}`;
+    if (req.query.json === "1") {
+      res.json({ url: fullUrl });
+    } else {
+      res.redirect(fullUrl);
+    }
   }
 );
 

@@ -16,6 +16,7 @@ import type { Website } from "@workspace/api-client-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { ALL_MODULES, MODULE_LABELS } from "@workspace/api-zod";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/catalog-api";
 
 const PLAN_COLORS: Record<string, string> = {
   starter: "bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700",
@@ -674,8 +675,6 @@ const SOCIAL_PLATFORMS = [
   { value: "youtube", label: "YouTube", Icon: Youtube },
 ];
 
-const socialApiBase = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api`;
-
 type SocialAccountRow = {
   id: number;
   platform: string;
@@ -686,36 +685,93 @@ type SocialAccountRow = {
 
 type SocialPlatformStatus = { configured: boolean; signupUrl: string; devDocsUrl: string };
 
+const SOCIAL_SETUP_GUIDES = [
+  {
+    platforms: ["facebook", "instagram"],
+    label: "Facebook & Instagram",
+    docsUrl: "https://developers.facebook.com/apps/",
+    envVars: ["FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET"],
+    steps: [
+      "Go to developers.facebook.com/apps → Create app (select Business type)",
+      "Add the Facebook Login product; set the callback URL as the OAuth redirect URI",
+      "For Instagram: also add the Instagram Graph API product (same credentials)",
+      "Copy App ID → FACEBOOK_APP_ID, and App Secret → FACEBOOK_APP_SECRET in Replit Secrets",
+    ],
+  },
+  {
+    platforms: ["twitter"],
+    label: "Twitter / X",
+    docsUrl: "https://developer.twitter.com/en/portal/dashboard",
+    envVars: ["TWITTER_CLIENT_ID", "TWITTER_CLIENT_SECRET"],
+    steps: [
+      "Go to developer.twitter.com → Create a new Project and App",
+      "Under User authentication settings, enable OAuth 2.0 with Read and Write permissions",
+      "Add the callback URL to the Callback URI / Redirect URL field",
+      "Copy Client ID → TWITTER_CLIENT_ID, Client Secret → TWITTER_CLIENT_SECRET in Replit Secrets",
+    ],
+  },
+  {
+    platforms: ["linkedin"],
+    label: "LinkedIn",
+    docsUrl: "https://www.linkedin.com/developers/apps/new",
+    envVars: ["LINKEDIN_CLIENT_ID", "LINKEDIN_CLIENT_SECRET"],
+    steps: [
+      "Go to linkedin.com/developers/apps → Create app",
+      "Open the Auth tab → add the callback URL to Authorized redirect URLs",
+      "Under Products, request access to Share on LinkedIn and Sign In with LinkedIn",
+      "Copy Client ID → LINKEDIN_CLIENT_ID, Client Secret → LINKEDIN_CLIENT_SECRET in Replit Secrets",
+    ],
+  },
+  {
+    platforms: ["youtube"],
+    label: "YouTube (Google)",
+    docsUrl: "https://console.developers.google.com/",
+    envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    steps: [
+      "Go to console.developers.google.com → Create project → Enable YouTube Data API v3",
+      "Credentials → Create OAuth 2.0 Client ID (choose Web application type)",
+      "Add the callback URL to Authorized redirect URIs",
+      "Copy Client ID → GOOGLE_CLIENT_ID, Client Secret → GOOGLE_CLIENT_SECRET in Replit Secrets",
+    ],
+  },
+];
+
 function SocialAccountsCard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const { data: accounts = [], isLoading: accountsLoading } = useQuery<SocialAccountRow[]>({
     queryKey: ["social-accounts"],
-    queryFn: async () => {
-      const res = await fetch(`${socialApiBase}/integrations/social/accounts`);
-      if (!res.ok) throw new Error("Failed to load social accounts");
-      return res.json();
-    },
+    queryFn: () => apiFetch<SocialAccountRow[]>("/integrations/social/accounts"),
     staleTime: 30_000,
   });
 
   const { data: statusMap = {} } = useQuery<Record<string, SocialPlatformStatus>>({
     queryKey: ["social-status"],
-    queryFn: async () => {
-      const res = await fetch(`${socialApiBase}/integrations/social/status`);
-      if (!res.ok) throw new Error("Failed to load social status");
-      return res.json();
-    },
+    queryFn: () => apiFetch<Record<string, SocialPlatformStatus>>("/integrations/social/status"),
     staleTime: 60_000,
   });
+
+  const handleConnect = async (platform: string) => {
+    setConnecting(platform);
+    try {
+      const { url } = await apiFetch<{ url: string }>(`/integrations/social/${platform}/connect?json=1`);
+      window.location.href = url;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to start OAuth";
+      toast({ title: "Cannot connect", description: msg, variant: "destructive" });
+      setConnecting(null);
+    }
+  };
 
   const handleDisconnect = async (platform: string) => {
     setDisconnecting(platform);
     try {
-      const res = await fetch(`${socialApiBase}/integrations/social/${platform}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await apiFetch(`/integrations/social/${platform}`, { method: "DELETE" });
       queryClient.invalidateQueries({ queryKey: ["social-accounts"] });
       toast({ title: `${platform} account disconnected` });
     } catch {
@@ -723,6 +779,15 @@ function SocialAccountsCard() {
     } finally {
       setDisconnecting(null);
     }
+  };
+
+  const callbackUrl = (platform: string) =>
+    `${window.location.origin}/api/integrations/social/${platform}/callback`;
+
+  const copyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -735,13 +800,13 @@ function SocialAccountsCard() {
           <div>
             <CardTitle className="text-base">Social Media Accounts</CardTitle>
             <CardDescription className="mt-0.5">
-              Connect your social accounts via OAuth to enable direct publishing from the Social Media page.
-              Each platform requires a free developer app — see the setup guides below.
+              Connect your social accounts via OAuth to publish directly from the Social Media page.
+              Each platform needs a free developer app — expand the setup guide below for instructions.
             </CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         {accountsLoading ? (
           <div className="space-y-2">
             {SOCIAL_PLATFORMS.map(p => <div key={p.value} className="h-12 rounded-md bg-muted animate-pulse" />)}
@@ -764,13 +829,10 @@ function SocialAccountsCard() {
                           {account.platformPageName ?? account.platformUsername ?? "Connected"}
                         </p>
                       ) : configured ? (
-                        <p className="text-xs text-muted-foreground">Not connected</p>
+                        <p className="text-xs text-muted-foreground">Not connected — ready to authorise</p>
                       ) : (
                         <p className="text-xs text-amber-600 dark:text-amber-500">
-                          Credentials not configured —{" "}
-                          <a href={ps?.devDocsUrl ?? "#"} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-                            setup guide
-                          </a>
+                          Credentials not configured — see setup guide below
                         </p>
                       )}
                     </div>
@@ -792,16 +854,24 @@ function SocialAccountsCard() {
                         </Button>
                       </>
                     ) : configured ? (
-                      <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                        <a href={`${socialApiBase}/integrations/social/${value}/connect`}>
-                          Connect
-                        </a>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        disabled={connecting === value}
+                        onClick={() => handleConnect(value)}
+                      >
+                        {connecting === value ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Connect
                       </Button>
                     ) : (
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-                        <a href={ps?.signupUrl ?? "#"} target="_blank" rel="noopener noreferrer">
-                          Create app <ExternalLink className="h-3 w-3 ml-1" />
-                        </a>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-amber-600"
+                        onClick={() => setGuideOpen(true)}
+                      >
+                        Setup guide <ChevronDown className="h-3 w-3 ml-1" />
                       </Button>
                     )}
                   </div>
@@ -810,15 +880,81 @@ function SocialAccountsCard() {
             })}
           </div>
         )}
-        <p className="text-xs text-muted-foreground pt-1">
-          Required environment variables:{" "}
-          <code className="bg-muted px-1 rounded text-xs">TWITTER_CLIENT_ID/SECRET</code>{", "}
-          <code className="bg-muted px-1 rounded text-xs">LINKEDIN_CLIENT_ID/SECRET</code>{", "}
-          <code className="bg-muted px-1 rounded text-xs">FACEBOOK_APP_ID/SECRET</code>{" "}
-          (Instagram uses the same){". "}
-          YouTube uses your existing{" "}
-          <code className="bg-muted px-1 rounded text-xs">GOOGLE_CLIENT_ID/SECRET</code>.
-        </p>
+
+        {/* ── Developer App Setup Guide ── */}
+        <div className="rounded-lg border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setGuideOpen(g => !g)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+          >
+            <span className="flex items-center gap-2">
+              Developer App Setup Guide
+              <Badge variant="outline" className="text-xs font-normal">Required before connecting</Badge>
+            </span>
+            {guideOpen ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+          </button>
+
+          {guideOpen && (
+            <div className="p-4 space-y-6 border-t text-sm">
+              <p className="text-xs text-muted-foreground">
+                For each platform, create a free developer app and register the callback URL shown below as an
+                allowed redirect URI. Then save the credentials as Replit Secrets so the server can use them.
+              </p>
+
+              {SOCIAL_SETUP_GUIDES.map(guide => (
+                <div key={guide.platforms[0]} className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold">{guide.label}</p>
+                    <a
+                      href={guide.docsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary flex items-center gap-1 hover:underline shrink-0"
+                    >
+                      Open developer portal <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+
+                  {guide.platforms.map(platform => (
+                    <div key={platform} className="space-y-1">
+                      <p className="text-xs text-muted-foreground font-medium capitalize">{platform} callback URL</p>
+                      <div className="flex items-center gap-2 rounded-md bg-muted/60 border px-3 py-2">
+                        <code className="text-xs break-all flex-1 select-all">{callbackUrl(platform)}</code>
+                        <button
+                          type="button"
+                          onClick={() => copyText(callbackUrl(platform), `${platform}-url`)}
+                          className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                          title="Copy"
+                        >
+                          {copied === `${platform}-url`
+                            ? <Check className="h-3.5 w-3.5 text-green-500" />
+                            : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground pl-0.5">
+                    {guide.steps.map((step, i) => <li key={i}>{step}</li>)}
+                  </ol>
+
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="text-xs text-muted-foreground">Secrets to set:</span>
+                    {guide.envVars.map(ev => (
+                      <code key={ev} className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{ev}</code>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <p className="text-xs text-muted-foreground border-t pt-3">
+                After adding secrets, restart the API server workflow so the new environment variables take effect.
+                The platform status above will update automatically.
+              </p>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

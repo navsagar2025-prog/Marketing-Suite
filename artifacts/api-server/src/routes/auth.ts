@@ -5,6 +5,7 @@ import { randomBytes, createHash, randomUUID } from "crypto";
 import { db, staffUsersTable, passwordResetTokensTable, loginAttemptsTable, sessionsTable } from "@workspace/db";
 import { signToken, requireAuth } from "../lib/auth.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
+import { passwordResetHtml } from "../lib/email-html.js";
 import { logger } from "../lib/logger.js";
 import { loginRateLimit } from "../middleware/login-rate-limit.js";
 import { emitSecurityEvent, clientIp, clientUa } from "../lib/security-events.js";
@@ -174,6 +175,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
           to: [normalizedEmail],
           subject: "SEO Command — Password reset request",
           body,
+          html: passwordResetHtml(user.username, resetLink),
         });
       }
     } catch {

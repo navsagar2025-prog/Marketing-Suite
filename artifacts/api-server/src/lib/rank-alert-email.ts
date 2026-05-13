@@ -6,6 +6,7 @@
 import { db, staffUsersTable, keywordsTable, keywordRankHistoryTable, websitesTable } from "@workspace/db";
 import { eq, and, gte, inArray } from "drizzle-orm";
 import { getEmailProviderConfig, sendEmails } from "./email-sender.js";
+import { rankAlertDigestHtml } from "./email-html.js";
 import { logger } from "./logger.js";
 import { appSettingsTable } from "@workspace/db/schema";
 import { sendWebhookNotification } from "./notification-webhooks.js";
@@ -123,6 +124,7 @@ You're receiving this because rank alert emails are enabled in Settings → Noti
     to: [notifyEmail],
     subject: `SEO Command: ${rising.length} up, ${dropped.length} down today`,
     body,
+    html: rankAlertDigestHtml(rising, dropped),
   });
 
   logger.info({ sent: result.sent, rising: rising.length, dropped: dropped.length }, "Rank alert digest sent");

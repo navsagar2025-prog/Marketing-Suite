@@ -14,6 +14,7 @@ import {
   DeleteCampaignParams,
 } from "@workspace/api-zod";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
+import { wrappedBodyHtml } from "../lib/email-html.js";
 
 const router: IRouter = Router();
 
@@ -144,7 +145,14 @@ router.post("/campaigns/:id/send", async (req, res): Promise<void> => {
     res.status(422).json({ error: "No leads with valid email addresses match the selected filters." }); return;
   }
 
-  const { sent } = await sendEmails(emailConfig, { to, subject: subject.trim(), body: body.trim(), campaignId: id });
+  const trimmedBody = body.trim();
+  const { sent } = await sendEmails(emailConfig, {
+    to,
+    subject: subject.trim(),
+    body: trimmedBody,
+    html: wrappedBodyHtml(subject.trim(), trimmedBody),
+    campaignId: id,
+  });
 
   await db.update(campaignsTable).set({
     status: "active",

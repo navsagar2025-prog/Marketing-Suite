@@ -3,6 +3,7 @@ import { eq, and, or, lte, gte, inArray, isNull } from "drizzle-orm";
 import { db, sequencesTable, sequenceEnrollmentsTable, leadsTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import { getEmailProviderConfig, sendEmails } from "../lib/email-sender.js";
+import { wrappedBodyHtml } from "../lib/email-html.js";
 import { requireAdmin } from "../lib/auth.js";
 import { CreateSequenceBody, UpdateSequenceBody } from "@workspace/api-zod";
 
@@ -225,10 +226,12 @@ export async function runSequenceEngine(): Promise<{ enrolled: number; sent: num
         if (!lead?.email) continue;
 
         try {
+          const resolvedBody = step.body.replace(/\{\{name\}\}/g, lead.name ?? "");
           const { sent: s } = await sendEmails(emailConfig, {
             to: [lead.email],
             subject: step.subject,
-            body: step.body.replace(/\{\{name\}\}/g, lead.name ?? ""),
+            body: resolvedBody,
+            html: wrappedBodyHtml(step.subject, resolvedBody),
           });
           sent += s;
 

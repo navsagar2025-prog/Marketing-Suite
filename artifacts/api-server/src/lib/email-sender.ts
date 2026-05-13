@@ -30,6 +30,7 @@ export interface SendEmailOptions {
   to: string[];
   subject: string;
   body: string;
+  html?: string;
   campaignId?: number;
 }
 
@@ -127,7 +128,7 @@ export async function getEmailProviderConfig(): Promise<EmailProviderConfig | nu
 }
 
 export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOptions): Promise<{ sent: number }> {
-  const { to, subject, body, campaignId } = opts;
+  const { to, subject, body, html, campaignId } = opts;
   if (to.length === 0) return { sent: 0 };
 
   const campaignIdStr = campaignId != null ? String(campaignId) : undefined;
@@ -147,6 +148,7 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
         to: recipient,
         subject,
         text: body,
+        html: html ?? undefined,
         headers: campaignIdStr ? { "X-Campaign-Id": campaignIdStr } : undefined,
       });
     }
@@ -154,11 +156,13 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
   }
 
   if (config.provider === "sendgrid") {
+    const content: Array<{ type: string; value: string }> = [{ type: "text/plain", value: body }];
+    if (html) content.push({ type: "text/html", value: html });
     const payload: Record<string, unknown> = {
       personalizations: to.map(email => ({ to: [{ email }] })),
       from: { email: config.fromAddress, name: config.fromName },
       subject,
-      content: [{ type: "text/plain", value: body }],
+      content,
     };
     if (campaignIdStr) {
       payload.custom_args = { campaign_id: campaignIdStr };
@@ -187,6 +191,7 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
       form.set("to", recipient);
       form.set("subject", subject);
       form.set("text", body);
+      if (html) form.set("html", html);
       if (campaignIdStr) {
         form.set("v:campaign_id", campaignIdStr);
       }
@@ -216,6 +221,7 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
         subject,
         text: body,
       };
+      if (html) payload.html = html;
       if (campaignIdStr) {
         payload.tags = [{ name: "campaign_id", value: campaignIdStr }];
       }
@@ -280,6 +286,7 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
           key: apiKey,
           message: {
             text: body,
+            html: html ?? undefined,
             subject,
             from_email: config.fromAddress,
             from_name: config.fromName,
@@ -301,9 +308,11 @@ export async function sendEmails(config: EmailProviderConfig, opts: SendEmailOpt
 }
 
 export async function testEmailConnection(config: EmailProviderConfig, testTo: string): Promise<void> {
+  const { testConnectionHtml } = await import("./email-html.js");
   await sendEmails(config, {
     to: [testTo],
     subject: "SEO Command — Email connection test",
-    body: "This is a test email to confirm your email provider is connected correctly.",
+    body: "Your SEO Command email provider is connected and working correctly.",
+    html: testConnectionHtml(),
   });
 }

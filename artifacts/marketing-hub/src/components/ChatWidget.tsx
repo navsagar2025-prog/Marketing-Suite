@@ -75,7 +75,7 @@ export function ChatWidget() {
         onClick={() => setOpen((v) => !v)}
         data-testid="button-chat-widget-toggle"
         className={cn(
-          "fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all hover:scale-105",
+          "fixed bottom-5 right-20 z-50 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center transition-all hover:scale-105",
           open && "scale-90"
         )}
         aria-label={open ? "Close chat" : "Open chat"}
@@ -85,7 +85,7 @@ export function ChatWidget() {
 
       {open && (
         <div
-          className="fixed bottom-24 right-5 z-50 w-[min(380px,calc(100vw-2.5rem))] h-[min(560px,calc(100vh-8rem))] rounded-xl border bg-background shadow-2xl flex flex-col overflow-hidden"
+          className="fixed bottom-24 right-20 z-50 w-[min(380px,calc(100vw-2.5rem))] h-[min(560px,calc(100vh-8rem))] rounded-xl border bg-background shadow-2xl flex flex-col overflow-hidden"
           data-testid="chat-widget-panel"
         >
           <div className="border-b p-3 flex items-center gap-2 bg-muted/30">

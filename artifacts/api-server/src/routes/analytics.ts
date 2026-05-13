@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, count, sql, gte, and, lte } from "drizzle-orm";
-import { db, websitesTable, keywordsTable, socialPostsTable, campaignsTable, backlinksTable, leadsTable } from "@workspace/db";
+import { eq, count, sql, gte, and, lte, desc } from "drizzle-orm";
+import { db, websitesTable, keywordsTable, socialPostsTable, campaignsTable, backlinksTable, leadsTable, pageViewsTable } from "@workspace/db";
 import {
   GetWebsiteAnalyticsParams,
   GetAnalyticsSummaryResponse,
@@ -135,6 +135,109 @@ router.get("/analytics/leads-funnel", async (_req, res): Promise<void> => {
     lost: lost?.count ?? 0,
     totalValue: totalValueResult[0]?.total != null ? parseFloat(String(totalValueResult[0].total)) : null,
   }));
+});
+
+// Traffic trend: daily page views + unique visitors over a date range
+router.get("/analytics/traffic-trend", async (req, res): Promise<void> => {
+  const daysRaw = Number(req.query.days);
+  const days = daysRaw > 0 && daysRaw <= 365 ? daysRaw : 30;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      date: sql<string>`date_trunc('day', ${pageViewsTable.createdAt})::date::text`,
+      views: sql<number>`count(*)::int`,
+      visitors: sql<number>`count(distinct ${pageViewsTable.visitorId})::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, cutoff), eq(pageViewsTable.confirmed, true)))
+    .groupBy(sql`date_trunc('day', ${pageViewsTable.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${pageViewsTable.createdAt})`);
+
+  // Fill in missing days with 0
+  const byDate = new Map(rows.map(r => [r.date, r]));
+  const filled: { date: string; views: number; visitors: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const key = d.toISOString().split("T")[0];
+    const row = byDate.get(key);
+    filled.push({ date: key, views: row?.views ?? 0, visitors: row?.visitors ?? 0 });
+  }
+
+  res.json({ days, trend: filled });
+});
+
+// Traffic sources: parse referrers into channels
+router.get("/analytics/traffic-sources", async (req, res): Promise<void> => {
+  const daysRaw = Number(req.query.days);
+  const days = daysRaw > 0 && daysRaw <= 365 ? daysRaw : 30;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      referrer: pageViewsTable.referrer,
+      views: sql<number>`count(*)::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, cutoff), eq(pageViewsTable.confirmed, true)))
+    .groupBy(pageViewsTable.referrer)
+    .orderBy(desc(sql`count(*)`))
+    .limit(200);
+
+  const SOCIAL = /facebook|twitter|x\.com|instagram|linkedin|youtube|tiktok|pinterest|reddit|snapchat/i;
+  const SEARCH = /google|bing|yahoo|duckduckgo|baidu|yandex|ecosia|brave/i;
+
+  const channels: Record<string, number> = {
+    Organic: 0,
+    Direct: 0,
+    Social: 0,
+    Referral: 0,
+    Email: 0,
+  };
+
+  for (const row of rows) {
+    const ref = row.referrer;
+    const n = row.views;
+    if (!ref) {
+      channels["Direct"] += n;
+    } else if (SEARCH.test(ref)) {
+      channels["Organic"] += n;
+    } else if (SOCIAL.test(ref)) {
+      channels["Social"] += n;
+    } else if (/mail\.|email|newsletter/i.test(ref)) {
+      channels["Email"] += n;
+    } else {
+      channels["Referral"] += n;
+    }
+  }
+
+  const sources = Object.entries(channels)
+    .map(([channel, views]) => ({ channel, views }))
+    .filter(s => s.views > 0)
+    .sort((a, b) => b.views - a.views);
+
+  res.json({ days, sources });
+});
+
+// Top pages for analytics (non-admin, uses same confirmed data)
+router.get("/analytics/top-pages", async (req, res): Promise<void> => {
+  const daysRaw = Number(req.query.days);
+  const days = daysRaw > 0 && daysRaw <= 365 ? daysRaw : 30;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      path: pageViewsTable.path,
+      views: sql<number>`count(*)::int`,
+      visitors: sql<number>`count(distinct ${pageViewsTable.visitorId})::int`,
+    })
+    .from(pageViewsTable)
+    .where(and(gte(pageViewsTable.createdAt, cutoff), eq(pageViewsTable.confirmed, true)))
+    .groupBy(pageViewsTable.path)
+    .orderBy(desc(sql`count(*)`))
+    .limit(10);
+
+  res.json({ days, pages: rows });
 });
 
 export default router;

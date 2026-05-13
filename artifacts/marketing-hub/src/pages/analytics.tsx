@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Target, Globe, Users, Wifi, Download, Calendar } from "lucide-react";
+import {
+  TrendingUp, Target, Globe, Users, Wifi, Download, Calendar,
+  Eye, ArrowUpRight, ArrowDownRight, Minus, MousePointerClick,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import {
   useGetLeadsFunnel,
@@ -17,31 +20,36 @@ import {
 import { Ga4TrafficPanel } from "@/components/Ga4TrafficPanel";
 
 const COLORS = [
-  "hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))", "hsl(var(--chart-5))"
+  "#0ea5e9", "#6366f1", "#10b981", "#f59e0b", "#ef4444",
 ];
+const CHANNEL_COLORS: Record<string, string> = {
+  Organic: "#10b981",
+  Direct: "#0ea5e9",
+  Social: "#6366f1",
+  Referral: "#f59e0b",
+  Email: "#ec4899",
+};
 
 type DateRange = "7d" | "30d" | "90d" | "1y" | "all";
 
-const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "90d", label: "Last 90 days" },
-  { value: "1y", label: "Last year" },
-  { value: "all", label: "All time" },
+const DATE_RANGE_OPTIONS: { value: DateRange; label: string; days: number }[] = [
+  { value: "7d", label: "7d", days: 7 },
+  { value: "30d", label: "30d", days: 30 },
+  { value: "90d", label: "90d", days: 90 },
+  { value: "1y", label: "1y", days: 365 },
+  { value: "all", label: "All", days: 365 },
 ];
 
-function getDateRangeParams(range: DateRange): { from?: string; to?: string } {
-  if (range === "all") return {};
+function getDateRangeParams(range: DateRange): { from?: string; to?: string; days: number } {
+  const opt = DATE_RANGE_OPTIONS.find(o => o.value === range) ?? DATE_RANGE_OPTIONS[1];
+  if (range === "all") return { days: 365 };
   const to = new Date();
   const from = new Date();
-  if (range === "7d") from.setDate(from.getDate() - 7);
-  else if (range === "30d") from.setDate(from.getDate() - 30);
-  else if (range === "90d") from.setDate(from.getDate() - 90);
-  else if (range === "1y") from.setFullYear(from.getFullYear() - 1);
+  from.setDate(from.getDate() - opt.days);
   return {
     from: from.toISOString().split("T")[0],
     to: to.toISOString().split("T")[0],
+    days: opt.days,
   };
 }
 
@@ -59,11 +67,41 @@ function downloadCsv(data: Record<string, unknown>[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function formatDate(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  if (days <= 7) return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  if (days <= 90) return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function TrendBadge({ current, previous }: { current: number; previous: number }) {
+  if (previous === 0 && current === 0) return <span className="text-xs text-muted-foreground">—</span>;
+  if (previous === 0) return <span className="text-xs text-emerald-500 flex items-center gap-0.5"><ArrowUpRight className="h-3 w-3" />New</span>;
+  const pct = ((current - previous) / previous) * 100;
+  if (Math.abs(pct) < 1) return <span className="text-xs text-muted-foreground flex items-center gap-0.5"><Minus className="h-3 w-3" />0%</span>;
+  const up = pct > 0;
+  return (
+    <span className={`text-xs flex items-center gap-0.5 ${up ? "text-emerald-500" : "text-red-500"}`}>
+      {up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+      {Math.abs(pct).toFixed(0)}%
+    </span>
+  );
+}
+
+function apiGet(path: string, token: string | null) {
+  const base = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
+  return fetch(`${base}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  }).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); });
+}
+
 export default function Analytics() {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
   const [selectedWebsiteId, setSelectedWebsiteId] = useState<number | null>(null);
 
-  const { from: drFrom, to: drTo } = getDateRangeParams(dateRange);
+  const { from: drFrom, to: drTo, days } = getDateRangeParams(dateRange);
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ["analytics-summary", drFrom, drTo],
     queryFn: async ({ signal }) => {
@@ -71,7 +109,6 @@ export default function Analytics() {
       const params = new URLSearchParams();
       if (drFrom) params.set("from", drFrom);
       if (drTo) params.set("to", drTo);
-      const token = localStorage.getItem("auth_token");
       const res = await fetch(`${base}/api/analytics/summary?${params}`, {
         signal,
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -85,9 +122,43 @@ export default function Analytics() {
       }>;
     },
   });
+
+  const { data: trafficTrend, isLoading: trendLoading } = useQuery({
+    queryKey: ["analytics-traffic-trend", days],
+    queryFn: () => apiGet(`/api/analytics/traffic-trend?days=${days}`, token) as Promise<{
+      days: number; trend: { date: string; views: number; visitors: number }[];
+    }>,
+  });
+
+  const { data: trafficSources, isLoading: sourcesLoading } = useQuery({
+    queryKey: ["analytics-traffic-sources", days],
+    queryFn: () => apiGet(`/api/analytics/traffic-sources?days=${days}`, token) as Promise<{
+      days: number; sources: { channel: string; views: number }[];
+    }>,
+  });
+
+  const { data: topPages, isLoading: topPagesLoading } = useQuery({
+    queryKey: ["analytics-top-pages", days],
+    queryFn: () => apiGet(`/api/analytics/top-pages?days=${days}`, token) as Promise<{
+      days: number; pages: { path: string; views: number; visitors: number }[];
+    }>,
+  });
+
   const { data: funnel, isLoading: funnelLoading } = useGetLeadsFunnel();
   const { data: campaigns, isLoading: campaignsLoading } = useGetCampaignAnalytics();
   const { data: websites } = useListWebsites();
+
+  // Traffic totals + trend comparison (first half vs second half of period)
+  const trend = trafficTrend?.trend ?? [];
+  const half = Math.floor(trend.length / 2);
+  const firstHalf = trend.slice(0, half);
+  const secondHalf = trend.slice(half);
+  const totalViews = trend.reduce((s, d) => s + d.views, 0);
+  const totalVisitors = trend.reduce((s, d) => s + (d.visitors ?? 0), 0);
+  const prevViews = firstHalf.reduce((s, d) => s + d.views, 0);
+  const curViews = secondHalf.reduce((s, d) => s + d.views, 0);
+  const prevVisitors = firstHalf.reduce((s, d) => s + (d.visitors ?? 0), 0);
+  const curVisitors = secondHalf.reduce((s, d) => s + (d.visitors ?? 0), 0);
 
   const funnelData = funnel
     ? [
@@ -103,6 +174,20 @@ export default function Analytics() {
     .filter(w => w.seoScore !== null && w.seoScore !== undefined)
     .map(w => ({ name: w.name, score: w.seoScore ?? 0 }))
     .sort((a, b) => b.score - a.score);
+
+  const totalSourceViews = (trafficSources?.sources ?? []).reduce((s, d) => s + d.views, 0);
+
+  const chartTrendData = trend.map(d => ({
+    ...d,
+    label: formatDate(d.date, days),
+  }));
+
+  // Sparse labels for large ranges
+  const tickFormatter = (_: string, index: number) => {
+    if (days <= 7) return chartTrendData[index]?.label ?? "";
+    if (days <= 30) return index % 5 === 0 ? (chartTrendData[index]?.label ?? "") : "";
+    return index % 15 === 0 ? (chartTrendData[index]?.label ?? "") : "";
+  };
 
   const summaryCards = [
     { label: "Total Websites", value: summary?.totalWebsites ?? 0, icon: Globe },
@@ -129,7 +214,7 @@ export default function Analytics() {
               <button
                 key={opt.value}
                 onClick={() => setDateRange(opt.value)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                   dateRange === opt.value
                     ? "bg-background shadow-sm text-foreground"
                     : "text-muted-foreground hover:text-foreground"
@@ -146,14 +231,10 @@ export default function Analytics() {
             onClick={() => {
               if (campaigns?.length) {
                 downloadCsv(campaigns.map(c => ({
-                  Campaign: c.name,
-                  Type: c.type,
-                  Status: c.status,
-                  Impressions: c.impressions ?? 0,
-                  Clicks: c.clicks ?? 0,
+                  Campaign: c.name, Type: c.type, Status: c.status,
+                  Impressions: c.impressions ?? 0, Clicks: c.clicks ?? 0,
                   "CTR (%)": c.ctr != null ? c.ctr.toFixed(2) : "",
-                  Conversions: c.conversions ?? 0,
-                  Leads: c.leads ?? 0,
+                  Conversions: c.conversions ?? 0, Leads: c.leads ?? 0,
                   Spend: c.spend ?? "",
                 })), "campaign-analytics.csv");
               }
@@ -165,31 +246,268 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Summary stats — 8 cards */}
+      {/* Traffic KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {summaryLoading ? (
-          [...Array(8)].map((_, i) => <Skeleton key={i} className="h-20" />)
-        ) : (
-          summaryCards.map(({ label, value, icon: Icon, sub }) => (
-            <Card key={label} data-testid={`card-analytics-${label.toLowerCase().replace(/\s/g, "-")}`}>
-              <CardContent className="pt-4 pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
-                    <p className="text-2xl font-bold font-display mt-1">{value}</p>
-                    {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
-                  </div>
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Icon className="h-4 w-4 text-primary" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Page Views</p>
+                <p className="text-2xl font-bold font-display mt-1">
+                  {trendLoading ? <Skeleton className="h-7 w-16 inline-block" /> : totalViews.toLocaleString()}
+                </p>
+                {!trendLoading && <TrendBadge current={curViews} previous={prevViews} />}
+              </div>
+              <div className="p-2 rounded-lg bg-primary/10"><Eye className="h-4 w-4 text-primary" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Unique Visitors</p>
+                <p className="text-2xl font-bold font-display mt-1">
+                  {trendLoading ? <Skeleton className="h-7 w-16 inline-block" /> : totalVisitors.toLocaleString()}
+                </p>
+                {!trendLoading && <TrendBadge current={curVisitors} previous={prevVisitors} />}
+              </div>
+              <div className="p-2 rounded-lg bg-primary/10"><Users className="h-4 w-4 text-primary" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Top Channel</p>
+                <p className="text-2xl font-bold font-display mt-1">
+                  {sourcesLoading ? <Skeleton className="h-7 w-16 inline-block" /> : (trafficSources?.sources[0]?.channel ?? "—")}
+                </p>
+                {!sourcesLoading && trafficSources?.sources[0] && (
+                  <p className="text-xs text-muted-foreground">
+                    {totalSourceViews > 0
+                      ? `${((trafficSources.sources[0].views / totalSourceViews) * 100).toFixed(0)}% of traffic`
+                      : "No data yet"}
+                  </p>
+                )}
+              </div>
+              <div className="p-2 rounded-lg bg-primary/10"><MousePointerClick className="h-4 w-4 text-primary" /></div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Avg SEO Score</p>
+                <p className="text-2xl font-bold font-display mt-1">
+                  {summaryLoading ? <Skeleton className="h-7 w-16 inline-block" /> : (summary?.avgSeoScore != null ? Math.round(summary.avgSeoScore) : "—")}
+                </p>
+                <p className="text-xs text-muted-foreground">{summary?.totalWebsites ?? 0} sites tracked</p>
+              </div>
+              <div className="p-2 rounded-lg bg-primary/10"><Target className="h-4 w-4 text-primary" /></div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Charts row */}
+      {/* Traffic trend chart */}
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Site Traffic Over Time</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Page views and unique visitors tracked by the built-in pixel</p>
+          </div>
+          {totalViews > 0 && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => downloadCsv(
+              (trafficTrend?.trend ?? []).map(d => ({ Date: d.date, "Page Views": d.views, "Unique Visitors": d.visitors })),
+              "traffic-trend.csv"
+            )}>
+              <Download className="h-3 w-3" /> CSV
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {trendLoading ? (
+            <Skeleton className="h-52 w-full" />
+          ) : totalViews === 0 ? (
+            <div className="h-52 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Eye className="h-8 w-8 opacity-30" />
+              <p>No tracked page views yet in this period</p>
+              <p className="text-xs">The built-in tracking pixel records visits automatically</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={210}>
+              <AreaChart data={chartTrendData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gViews" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.18} />
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gVisitors" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(_, i) => tickFormatter("", i)}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={36} />
+                <Tooltip
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                  labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ""}
+                />
+                <Area type="monotone" dataKey="views" name="Page Views" stroke="#0ea5e9" strokeWidth={2} fill="url(#gViews)" dot={false} />
+                <Area type="monotone" dataKey="visitors" name="Unique Visitors" stroke="#6366f1" strokeWidth={2} fill="url(#gVisitors)" dot={false} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Traffic sources + Top pages */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Traffic sources */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Traffic Sources</CardTitle>
+            <p className="text-xs text-muted-foreground">Where your visitors are coming from</p>
+          </CardHeader>
+          <CardContent>
+            {sourcesLoading ? (
+              <Skeleton className="h-48 w-full" />
+            ) : totalSourceViews === 0 ? (
+              <div className="h-48 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Globe className="h-8 w-8 opacity-30" />
+                <p>No traffic source data yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <ResponsiveContainer width="100%" height={160}>
+                  <PieChart>
+                    <Pie
+                      data={trafficSources?.sources}
+                      dataKey="views"
+                      nameKey="channel"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={70}
+                      innerRadius={38}
+                    >
+                      {(trafficSources?.sources ?? []).map((s) => (
+                        <Cell key={s.channel} fill={CHANNEL_COLORS[s.channel] ?? COLORS[0]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
+                      formatter={(v: number) => [v.toLocaleString(), "views"]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-1.5">
+                  {(trafficSources?.sources ?? []).map(s => {
+                    const pct = totalSourceViews > 0 ? (s.views / totalSourceViews) * 100 : 0;
+                    return (
+                      <div key={s.channel} className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: CHANNEL_COLORS[s.channel] ?? COLORS[0] }} />
+                        <span className="text-xs font-medium flex-1">{s.channel}</span>
+                        <span className="text-xs text-muted-foreground">{s.views.toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground w-10 text-right">{pct.toFixed(0)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Pages */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Top Pages</CardTitle>
+            <p className="text-xs text-muted-foreground">Most-visited pages in the selected period</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            {topPagesLoading ? (
+              <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}</div>
+            ) : (topPages?.pages ?? []).length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+                <Eye className="h-8 w-8 opacity-30" />
+                <p className="text-sm">No page view data yet</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/30">
+                      <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Page</th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Views</th>
+                      <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">Visitors</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(topPages?.pages ?? []).map((p, i) => {
+                      const maxViews = topPages?.pages[0]?.views ?? 1;
+                      const pct = (p.views / maxViews) * 100;
+                      return (
+                        <tr key={i} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="px-4 py-2.5">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-mono text-xs truncate max-w-[180px]">{p.path}</span>
+                              <div className="h-1 rounded-full bg-muted overflow-hidden">
+                                <div className="h-full rounded-full bg-primary/60" style={{ width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono text-xs">{p.views.toLocaleString()}</td>
+                          <td className="px-4 py-2.5 text-right font-mono text-xs text-muted-foreground">{p.visitors.toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Summary stats — 8 cards */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Portfolio Summary</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {summaryLoading ? (
+            [...Array(8)].map((_, i) => <Skeleton key={i} className="h-20" />)
+          ) : (
+            summaryCards.map(({ label, value, icon: Icon, sub }) => (
+              <Card key={label} data-testid={`card-analytics-${label.toLowerCase().replace(/\s/g, "-")}`}>
+                <CardContent className="pt-4 pb-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                      <p className="text-2xl font-bold font-display mt-1">{value}</p>
+                      {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+                    </div>
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Charts row — SEO scores + Lead funnel */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-2">
@@ -211,7 +529,7 @@ export default function Analytics() {
                   <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 6, fontSize: 12 }} />
                   <Bar dataKey="score" name="SEO Score" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]}>
                     {websiteSeoData.map((d, i) => (
-                      <Cell key={i} fill={d.score >= 70 ? "hsl(var(--chart-3))" : d.score >= 40 ? "hsl(var(--chart-4))" : "hsl(var(--destructive))"} />
+                      <Cell key={i} fill={d.score >= 70 ? "#10b981" : d.score >= 40 ? "#f59e0b" : "#ef4444"} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -222,14 +540,13 @@ export default function Analytics() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Lead Status Distribution</CardTitle>
+            <CardTitle className="text-base">Lead Pipeline</CardTitle>
           </CardHeader>
           <CardContent>
             {funnelLoading ? <Skeleton className="h-48 w-full" /> : funnelData.length === 0 ? (
               <div className="h-48 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Users className="h-8 w-8 opacity-30" />
                 <p>No lead data for this period</p>
-                <p className="text-xs">Leads captured in this window will appear here</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
@@ -256,15 +573,10 @@ export default function Analytics() {
               className="h-7 text-xs gap-1"
               onClick={() => {
                 downloadCsv((campaigns ?? []).map(c => ({
-                  Campaign: c.name,
-                  Type: c.type,
-                  Status: c.status,
-                  Impressions: c.impressions ?? 0,
-                  Clicks: c.clicks ?? 0,
+                  Campaign: c.name, Type: c.type, Status: c.status,
+                  Impressions: c.impressions ?? 0, Clicks: c.clicks ?? 0,
                   "CTR (%)": c.ctr != null ? c.ctr.toFixed(2) : "",
-                  Conversions: c.conversions ?? 0,
-                  Leads: c.leads ?? 0,
-                  Spend: c.spend ?? "",
+                  Conversions: c.conversions ?? 0, Leads: c.leads ?? 0, Spend: c.spend ?? "",
                 })), "campaigns.csv");
               }}
             >
@@ -327,19 +639,17 @@ export default function Analytics() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Traffic (Google Analytics 4)
           </h2>
-          <div className="flex items-center gap-2">
-            <select
-              value={selectedWebsiteId ?? ""}
-              onChange={e => setSelectedWebsiteId(e.target.value ? parseInt(e.target.value) : null)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-              data-testid="select-ga4-website"
-            >
-              <option value="">Select a website…</option>
-              {(websites ?? []).map(w => (
-                <option key={w.id} value={w.id}>{w.name || w.url}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedWebsiteId ?? ""}
+            onChange={e => setSelectedWebsiteId(e.target.value ? parseInt(e.target.value) : null)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            data-testid="select-ga4-website"
+          >
+            <option value="">Select a website…</option>
+            {(websites ?? []).map(w => (
+              <option key={w.id} value={w.id}>{w.name || w.url}</option>
+            ))}
+          </select>
         </div>
 
         {!selectedWebsiteId ? (

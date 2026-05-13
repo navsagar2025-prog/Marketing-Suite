@@ -23,3 +23,9 @@ id = "5G0LyzM_wg6FscjeLPKpg"
 uri = "file://production-package-prebuilt.zip"
 type = "unspecified"
 title = "Pre-Built Package (no server build needed) — 2.4 MB"
+
+[[outputs]]
+id = "NlR76B5yag5h3gJRldKUs"
+uri = "file://seo-command-production.zip"
+type = "unspecified"
+title = "SEO Command — Production Package (5.8 MB)"

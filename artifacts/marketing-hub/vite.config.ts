@@ -59,6 +59,83 @@ export default defineConfig(async ({ command }) => {
     build: {
       outDir: path.resolve(import.meta.dirname, "dist/public"),
       emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+
+            // Charting + data-vis (recharts, d3)
+            if (
+              id.includes("/recharts/") ||
+              id.includes("/d3-shape/") ||
+              id.includes("/d3-color/") ||
+              id.includes("/d3-interpolate/") ||
+              id.includes("/d3-scale/") ||
+              id.includes("/d3-time/") ||
+              id.includes("/d3-format/") ||
+              id.includes("/d3-array/") ||
+              id.includes("/victory-vendor/")
+            ) {
+              return "vendor-charts";
+            }
+
+            // Maps (react-simple-maps + d3-geo + topojson)
+            if (
+              id.includes("/react-simple-maps/") ||
+              id.includes("/d3-geo/") ||
+              id.includes("/topojson")
+            ) {
+              return "vendor-maps";
+            }
+
+            // Animation
+            if (id.includes("/framer-motion/")) {
+              return "vendor-motion";
+            }
+
+            // Drag-and-drop
+            if (id.includes("/@dnd-kit/")) {
+              return "vendor-dnd";
+            }
+
+            // Icons
+            if (id.includes("/lucide-react/") || id.includes("/react-icons/")) {
+              return "vendor-icons";
+            }
+
+            // Radix UI primitives
+            if (id.includes("/@radix-ui/")) {
+              return "vendor-radix";
+            }
+
+            // Forms
+            if (
+              id.includes("/react-hook-form/") ||
+              id.includes("/@hookform/") ||
+              id.includes("/zod/")
+            ) {
+              return "vendor-forms";
+            }
+
+            // TanStack Query
+            if (id.includes("/@tanstack/")) {
+              return "vendor-query";
+            }
+
+            // React core
+            if (
+              id.includes("/react-dom/") ||
+              id.includes("/react/") ||
+              id.includes("/scheduler/")
+            ) {
+              return "vendor-react";
+            }
+
+            // Everything else from node_modules
+            return "vendor-misc";
+          },
+        },
+      },
     },
     server: {
       port,

@@ -121,6 +121,20 @@ See `.env.example` for a fully annotated template with generation hints and call
 
 ## Local Development
 
+### Quickest path — one-command setup
+
+```bash
+git clone https://github.com/your-org/seo-marketing-hub.git
+cd seo-marketing-hub
+bash scripts/setup.sh
+```
+
+The script checks that Node.js 20+ and pnpm are installed, copies `.env.example` → `.env` if no `.env` file exists, and runs `pnpm install`. It then attempts to push the database schema — **you must set a real `DATABASE_URL` in `.env` for this step to succeed**. If the database URL is still a placeholder, the script skips the migration and prints the exact command to run once your database is ready. Once setup finishes, start the two services (steps 4 and 5 below).
+
+---
+
+### Manual setup (step by step)
+
 ### 1. Clone and install dependencies
 
 ```bash
@@ -131,7 +145,11 @@ pnpm install
 
 ### 2. Configure environment
 
-Copy the example above into a `.env` file at the project root and fill in your values. At a minimum you need `DATABASE_URL`, `SESSION_SECRET`, `APP_URL`, and `PORT` to start the API server. The frontend additionally requires `BASE_PATH`.
+Copy `.env.example` to `.env` at the project root and fill in your values. At a minimum you need `DATABASE_URL`, `SESSION_SECRET`, `APP_URL`, and `PORT` to start the API server. The frontend additionally requires `BASE_PATH`.
+
+```bash
+cp .env.example .env
+```
 
 ### 3. Set up the database
 

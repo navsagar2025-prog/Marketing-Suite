@@ -102,6 +102,34 @@ describe("collectEnvErrors — database URL", () => {
     });
     assert.equal(errors.length, 0);
   });
+
+  it("rejects a DATABASE_URL with an invalid scheme", () => {
+    const { errors } = collectEnvErrors({ ...BASE_ENV, DATABASE_URL: "mysql://localhost/test" });
+    assert.ok(
+      errors.some((e) => e.includes("DATABASE_URL") && e.includes("format")),
+      "Expected a format error for a non-postgres URL"
+    );
+  });
+
+  it("rejects a DATABASE_URL that is clearly not a connection string", () => {
+    const { errors } = collectEnvErrors({ ...BASE_ENV, DATABASE_URL: "notaurl" });
+    assert.ok(
+      errors.some((e) => e.includes("format")),
+      "Expected a format error for a non-URL value"
+    );
+  });
+
+  it("accepts postgres:// scheme (short form)", () => {
+    const env = { ...BASE_ENV, DATABASE_URL: "postgres://user:pass@localhost:5432/db" };
+    const { errors } = collectEnvErrors(env);
+    assert.ok(!errors.some((e) => e.includes("format")), "postgres:// should be accepted");
+  });
+
+  it("accepts postgresql:// scheme (long form)", () => {
+    const env = { ...BASE_ENV, DATABASE_URL: "postgresql://user:pass@localhost:5432/db" };
+    const { errors } = collectEnvErrors(env);
+    assert.ok(!errors.some((e) => e.includes("format")), "postgresql:// should be accepted");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

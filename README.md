@@ -94,12 +94,12 @@ Create a `.env` file in the project root (or set these as secrets in your hostin
 | Variable | Description |
 |---|---|
 | `APP_URL` | Full public URL of the app (e.g. `https://seo.yourdomain.com`) — used in OAuth callbacks and email links |
-| `NODE_ENV` | Set to `production` in deployed environments |
 
 #### Optional — unlocks specific features
 
 | Variable(s) | Feature |
 |---|---|
+| `NODE_ENV` | Set to `production` in deployed environments (defaults to `development`) |
 | `AI_API_KEY` | OpenAI-compatible key for AI content generation |
 | `AI_INTEGRATIONS_OPENAI_API_KEY` + `AI_INTEGRATIONS_OPENAI_BASE_URL` | Replit-managed AI proxy (takes precedence over `AI_API_KEY`) |
 | `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + `GOOGLE_REDIRECT_URI` | Google Search Console & GA4 integrations |

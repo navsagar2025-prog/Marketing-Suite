@@ -99,6 +99,11 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     description: "Public URL — required for OAuth callbacks and email links",
   },
   {
+    feature: "NODE_ENV",
+    vars: ["NODE_ENV"],
+    description: 'Set to "production" in deployed environments',
+  },
+  {
     feature: "AI (direct key)",
     vars: ["AI_API_KEY"],
     description: "OpenAI-compatible key for AI content generation",
@@ -192,13 +197,17 @@ export function collectEnvErrors(
     }
   }
 
-  // ── Database: at least one connection string must be present ───────────────
-  const hasDb =
-    !!(env["DATABASE_URL"]?.trim()) || !!(env["SUPABASE_DATABASE_URL"]?.trim());
-  if (!hasDb) {
+  // ── Database: at least one connection string must be present and valid ────
+  const dbUrl = (env["DATABASE_URL"] ?? env["SUPABASE_DATABASE_URL"] ?? "").trim();
+  if (!dbUrl) {
     errors.push(
       "  ✗ DATABASE_URL or SUPABASE_DATABASE_URL is not set\n" +
         "    One of these must be provided so the server can connect to PostgreSQL"
+    );
+  } else if (!/^postgre(?:s|sql):\/\//i.test(dbUrl)) {
+    errors.push(
+      `  ✗ DATABASE_URL / SUPABASE_DATABASE_URL has an invalid format\n` +
+        `    Expected a connection string starting with postgres:// or postgresql://, got "${dbUrl.slice(0, 40)}${dbUrl.length > 40 ? "…" : ""}"`
     );
   }
 

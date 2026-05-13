@@ -1,0 +1,33 @@
+############################################################################
+# Ingress — requires an ingress controller (nginx-ingress, Traefik, etc.)
+# and cert-manager for TLS.  Adjust host and secretName before applying.
+############################################################################
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: seocommand-ingress
+  namespace: seocommand
+  annotations:
+    # nginx-ingress (comment out if using Traefik)
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # cert-manager TLS (remove if handling TLS externally)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx   # change to "traefik" if using Traefik
+  tls:
+    - hosts:
+        - seo.yourdomain.com   # ← change to your domain
+      secretName: seocommand-tls
+  rules:
+    - host: seo.yourdomain.com   # ← change to your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: seocommand-app
+                port:
+                  number: 80

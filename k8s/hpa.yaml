@@ -1,0 +1,29 @@
+############################################################################
+# Horizontal Pod Autoscaler — requires metrics-server installed in the cluster.
+# Scales the app between 1–5 replicas based on CPU usage.
+############################################################################
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: seocommand-app
+  namespace: seocommand
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: seocommand-app
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

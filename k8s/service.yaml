@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: seocommand-app
+  namespace: seocommand
+  labels:
+    app: seocommand-app
+spec:
+  selector:
+    app: seocommand-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP

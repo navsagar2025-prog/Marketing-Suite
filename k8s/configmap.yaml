@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seocommand-config
+  namespace: seocommand
+data:
+  NODE_ENV: "production"
+  PORT: "8080"
+  # Set to your public domain, e.g. https://seo.yourdomain.com
+  APP_URL: ""
+  PGHOST: "seocommand-postgres"
+  PGPORT: "5432"
+  PGUSER: "seocommand"
+  PGDATABASE: "seocommand"
+  AI_INTEGRATIONS_OPENAI_BASE_URL: "https://api.openai.com/v1"

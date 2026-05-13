@@ -1,0 +1,79 @@
+############################################################################
+# Bundled PostgreSQL — skip this file entirely when using an external DB
+# (Supabase, RDS, Cloud SQL, etc.).  In that case set SUPABASE_DATABASE_URL
+# in secret.yaml and remove the postgres dependency from the app Deployment.
+############################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: seocommand-postgres
+  namespace: seocommand
+  labels:
+    app: seocommand-postgres
+spec:
+  clusterIP: None          # headless — stable DNS for StatefulSet
+  selector:
+    app: seocommand-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: seocommand-postgres
+  namespace: seocommand
+spec:
+  serviceName: seocommand-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seocommand-postgres
+  template:
+    metadata:
+      labels:
+        app: seocommand-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: seocommand
+            - name: POSTGRES_USER
+              value: seocommand
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: DB_PASSWORD
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "seocommand", "-d", "seocommand"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "seocommand", "-d", "seocommand"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1"
+              memory: "512Mi"
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

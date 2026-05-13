@@ -1,0 +1,199 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seocommand-app
+  namespace: seocommand
+  labels:
+    app: seocommand-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seocommand-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: seocommand-app
+    spec:
+      # ── Init container: wait for postgres (remove when using external DB) ──
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              # Skip wait if using external DB
+              if [ -n "$SUPABASE_DATABASE_URL" ]; then
+                echo "External DB detected, skipping wait."; exit 0
+              fi
+              echo "Waiting for postgres..."
+              until nc -z seocommand-postgres 5432; do sleep 2; done
+              echo "Postgres ready."
+          env:
+            - name: SUPABASE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: SUPABASE_DATABASE_URL
+                  optional: true
+
+      containers:
+        - name: app
+          image: seocommand:latest      # replace with your registry image
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80         # nginx
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "1Gi"
+          envFrom:
+            - configMapRef:
+                name: seocommand-config
+          env:
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: SESSION_SECRET
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: ADMIN_PASSWORD
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: DATABASE_URL
+            - name: SUPABASE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: SUPABASE_DATABASE_URL
+                  optional: true
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: DB_PASSWORD
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: OPENAI_API_KEY
+                  optional: true
+            - name: AI_INTEGRATIONS_OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: OPENAI_API_KEY
+                  optional: true
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: GOOGLE_CLIENT_ID
+                  optional: true
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: GOOGLE_CLIENT_SECRET
+                  optional: true
+            - name: GOOGLE_REDIRECT_URI
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: GOOGLE_REDIRECT_URI
+                  optional: true
+            - name: GOOGLE_PAGESPEED_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: GOOGLE_PAGESPEED_API_KEY
+                  optional: true
+            - name: TWITTER_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: TWITTER_CLIENT_ID
+                  optional: true
+            - name: TWITTER_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: TWITTER_CLIENT_SECRET
+                  optional: true
+            - name: LINKEDIN_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: LINKEDIN_CLIENT_ID
+                  optional: true
+            - name: LINKEDIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: LINKEDIN_CLIENT_SECRET
+                  optional: true
+            - name: FACEBOOK_APP_ID
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: FACEBOOK_APP_ID
+                  optional: true
+            - name: FACEBOOK_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: FACEBOOK_APP_SECRET
+                  optional: true
+            - name: EMAIL_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: EMAIL_ENCRYPTION_KEY
+                  optional: true
+            - name: FAL_AI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: FAL_AI_API_KEY
+                  optional: true
+            - name: FAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: seocommand-secrets
+                  key: FAL_AI_API_KEY
+                  optional: true
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: seocommand-uploads

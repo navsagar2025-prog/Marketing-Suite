@@ -398,7 +398,7 @@ export default function Websites() {
               <p className="text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
                 Connect a website to start tracking keywords, auditing performance, and monitoring your SEO health score.
               </p>
-              <Button size="sm" className="mt-4" onClick={() => setDialogOpen(true)} data-testid="empty-cta-add-website">
+              <Button size="sm" className="mt-4" onClick={() => setOpen(true)} data-testid="empty-cta-add-website">
                 <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Website
               </Button>
             </>

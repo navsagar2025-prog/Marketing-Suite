@@ -131,8 +131,8 @@ export default defineConfig(async ({ command }) => {
               return "vendor-react";
             }
 
-            // Everything else from node_modules
-            return "vendor-misc";
+            // Let Rollup decide placement for all other node_modules
+            return undefined;
           },
         },
       },

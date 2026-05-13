@@ -1586,6 +1586,7 @@ export const ListBacklinksQueryParams = zod.object({
 export const ListBacklinksResponseItem = zod.object({
   id: zod.number(),
   websiteId: zod.number(),
+  outreachContactId: zod.number().nullish(),
   prospectUrl: zod.string(),
   prospectDomain: zod.string(),
   contactEmail: zod.string().nullish(),
@@ -1599,6 +1600,7 @@ export const ListBacklinksResponseItem = zod.object({
     .string()
     .describe("guest_post | directory | resource | social | forum | other"),
   notes: zod.string().nullish(),
+  outreachContact: zod.object({ id: zod.number(), name: zod.string(), status: zod.string(), email: zod.string().nullish() }).nullish(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -1633,11 +1635,13 @@ export const UpdateBacklinkBody = zod.object({
   domainAuthority: zod.number().nullish(),
   type: zod.string().optional(),
   notes: zod.string().nullish(),
+  outreachContactId: zod.number().nullish(),
 });
 
 export const UpdateBacklinkResponse = zod.object({
   id: zod.number(),
   websiteId: zod.number(),
+  outreachContactId: zod.number().nullish(),
   prospectUrl: zod.string(),
   prospectDomain: zod.string(),
   contactEmail: zod.string().nullish(),

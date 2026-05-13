@@ -2,10 +2,12 @@ import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { websitesTable } from "./websites";
+import { outreachContactsTable } from "./outreach-contacts";
 
 export const backlinksTable = pgTable("backlinks", {
   id: serial("id").primaryKey(),
   websiteId: integer("website_id").notNull().references(() => websitesTable.id, { onDelete: "cascade" }),
+  outreachContactId: integer("outreach_contact_id").references(() => outreachContactsTable.id, { onDelete: "set null" }),
   prospectUrl: text("prospect_url").notNull(),
   prospectDomain: text("prospect_domain").notNull(),
   contactEmail: text("contact_email"),

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -351,6 +351,11 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
   const [showPropertySelector, setShowPropertySelector] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const gscReconnectKey = `gsc-reconnect-pending-${websiteId}`;
+  type ReconnectState = 'idle' | 'pending' | 'failed';
+  const [reconnectState, setReconnectState] = useState<ReconnectState>(
+    () => sessionStorage.getItem(gscReconnectKey) === "1" ? 'pending' : 'idle'
+  );
   const sessionKey = `gsc-expired-dismissed-${websiteId}`;
   const [expiredBannerDismissed, setExpiredBannerDismissed] = useState(
     () => sessionStorage.getItem(sessionKey) === "1"
@@ -402,12 +407,50 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
     }
   }, [gscApiError, qc, websiteId]);
 
+  // When reconnectState === 'pending': wait for status to settle, then force a fresh fetch.
+  // Only clear to 'idle' on success; set 'failed' on error so retry affordance is shown.
+  const postReconnectRefetchStarted = useRef(false);
+  useEffect(() => {
+    if (reconnectState !== 'pending') return;
+    if (statusLoading) return;
+    if (postReconnectRefetchStarted.current) return;
+    if (!status?.connected || !status?.propertyUrl) {
+      setReconnectState('idle');
+      return;
+    }
+
+    postReconnectRefetchStarted.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        await getGscSearchPerformance(websiteId, { dateRange, refresh: true });
+        if (!cancelled) {
+          await qc.invalidateQueries({ queryKey: getGetGscSearchPerformanceQueryKey(websiteId) });
+          sessionStorage.removeItem(gscReconnectKey);
+          setReconnectState('idle'); // success: dismiss indicator
+        }
+      } catch {
+        if (!cancelled) {
+          sessionStorage.removeItem(gscReconnectKey);
+          setReconnectState('failed'); // failure: show retry affordance
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      postReconnectRefetchStarted.current = false; // reset so re-run can happen if deps change
+    };
+  }, [reconnectState, statusLoading, status, websiteId, dateRange, qc]);
+
   // Handle URL params from OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("gsc") === "connected") {
       toast({ title: "Google Search Console connected successfully" });
       qc.invalidateQueries({ queryKey: getGetGoogleIntegrationStatusQueryKey(websiteId) });
+      sessionStorage.setItem(gscReconnectKey, "1");
+      postReconnectRefetchStarted.current = false;
+      setReconnectState('pending');
       // Remove the param from the URL
       params.delete("gsc");
       const newUrl = window.location.pathname + (params.toString() ? `?${params}` : "");
@@ -442,8 +485,13 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
     setIsReconnecting(true);
     try {
       const authUrl = await fetchGoogleAuthUrl(websiteId);
-      if (authUrl) window.location.href = authUrl;
-      else toast({ title: "Failed to initiate reconnect", description: "Please try again.", variant: "destructive" });
+      if (authUrl) {
+        sessionStorage.setItem(gscReconnectKey, "1");
+        postReconnectRefetchStarted.current = false;
+        window.location.href = authUrl;
+      } else {
+        toast({ title: "Failed to initiate reconnect", description: "Please try again.", variant: "destructive" });
+      }
     } finally {
       setIsReconnecting(false);
     }
@@ -508,8 +556,40 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
         </div>
       </div>
 
+      {/* Refreshing indicator — shown after reconnect until fresh data loads */}
+      {reconnectState === 'pending' && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 px-4 py-3" data-testid="banner-gsc-refreshing">
+          <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 animate-spin" />
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+            Refreshing Search Console data…
+          </p>
+        </div>
+      )}
+
+      {/* Refresh failed — shown when the post-reconnect forced fetch failed */}
+      {reconnectState === 'failed' && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3" data-testid="banner-gsc-refresh-failed">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Could not load fresh Search Console data
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+              The connection succeeded, but fetching data failed.{" "}
+              <button
+                onClick={() => { postReconnectRefetchStarted.current = false; setReconnectState('pending'); }}
+                className="underline font-medium hover:no-underline"
+                data-testid="button-gsc-refresh-retry"
+              >
+                Try again
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Missing Search Console scope banner */}
-      {status?.connected && !status.expired && status.scopesIncludeSearchConsole === false && (
+      {reconnectState === 'idle' && status?.connected && !status.expired && status.scopesIncludeSearchConsole === false && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
@@ -533,7 +613,7 @@ export default function SearchPerformanceTab({ websiteId }: { websiteId: number 
       )}
 
       {/* Expired token banner — shown when Google token has expired or been revoked */}
-      {!expiredBannerDismissed && status?.connected && (status?.expired || (perfError as { data?: { error?: string } } | null)?.data?.error === "TOKEN_EXPIRED") && (
+      {reconnectState === 'idle' && !expiredBannerDismissed && status?.connected && (status?.expired || (perfError as { data?: { error?: string } } | null)?.data?.error === "TOKEN_EXPIRED") && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">

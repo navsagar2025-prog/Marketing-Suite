@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { BarChart3, TrendingUp, Users, Clock, MousePointerClick, Settings, RefreshCw, AlertTriangle, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,8 +76,13 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
   const [isConnecting, setIsConnecting] = useState(false);
   const queryClient = useQueryClient();
   const ga4SessionKey = `ga4-expired-dismissed-${websiteId}`;
+  const ga4ReconnectKey = `ga4-reconnect-pending-${websiteId}`;
   const [expiredBannerDismissed, setExpiredBannerDismissed] = useState(
     () => sessionStorage.getItem(ga4SessionKey) === "1"
+  );
+  type ReconnectState = 'idle' | 'pending' | 'failed';
+  const [reconnectState, setReconnectState] = useState<ReconnectState>(
+    () => sessionStorage.getItem(ga4ReconnectKey) === "1" ? 'pending' : 'idle'
   );
   useEffect(() => {
     setExpiredBannerDismissed(sessionStorage.getItem(ga4SessionKey) === "1");
@@ -127,7 +132,11 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
     setIsConnecting(true);
     try {
       const authUrl = await fetchGoogleAuthUrl(websiteId);
-      if (authUrl) window.location.href = authUrl;
+      if (authUrl) {
+        sessionStorage.setItem(ga4ReconnectKey, "1");
+        reconnectRefetchStarted.current = false;
+        window.location.href = authUrl;
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -158,10 +167,81 @@ export function Ga4TrafficPanel({ websiteId }: { websiteId: number }) {
     }
   }, [ga4ErrorCode, queryClient, statusQueryKey]);
 
+  const reconnectRefetchStarted = useRef(false);
+  useEffect(() => {
+    if (reconnectState !== 'pending') return;
+    if (statusLoading) return;
+    if (reconnectRefetchStarted.current) return;
+
+    if (tokenExpired) {
+      // Reconnect didn't fix the token — revert to expired banner
+      sessionStorage.removeItem(ga4ReconnectKey);
+      setReconnectState('idle');
+      return;
+    }
+
+    reconnectRefetchStarted.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const fresh = await getGa4Report(websiteId, {
+          dateRange,
+          refresh: "true" as GetGa4ReportRefresh,
+        });
+        if (!cancelled) {
+          queryClient.setQueryData(queryKey, fresh);
+          sessionStorage.removeItem(ga4ReconnectKey);
+          setReconnectState('idle'); // success: dismiss indicator
+        }
+      } catch {
+        if (!cancelled) {
+          sessionStorage.removeItem(ga4ReconnectKey);
+          setReconnectState('failed'); // failure: show retry affordance
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      reconnectRefetchStarted.current = false; // reset so re-run can happen if deps change
+    };
+  }, [reconnectState, statusLoading, tokenExpired, websiteId, dateRange, queryKey, queryClient, ga4ReconnectKey]);
+
   return (
     <div className="space-y-4">
+      {/* Refreshing indicator — shown after reconnect until fresh data loads */}
+      {reconnectState === 'pending' && (
+        <div className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 px-4 py-3" data-testid="banner-ga4-refreshing">
+          <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 animate-spin" />
+          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+            Refreshing GA4 data…
+          </p>
+        </div>
+      )}
+
+      {/* Refresh failed — shown when the post-reconnect forced fetch failed */}
+      {reconnectState === 'failed' && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3" data-testid="banner-ga4-refresh-failed">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              Could not load fresh GA4 data
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+              The connection succeeded, but fetching data failed.{" "}
+              <button
+                onClick={() => { reconnectRefetchStarted.current = false; setReconnectState('pending'); }}
+                className="underline font-medium hover:no-underline"
+                data-testid="button-ga4-refresh-retry"
+              >
+                Try again
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Reconnect banner — shown when Google token is expired or revoked */}
-      {!expiredBannerDismissed && tokenExpired && (
+      {reconnectState === 'idle' && !expiredBannerDismissed && tokenExpired && (
         <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">

@@ -11,4 +11,10 @@ title = "SEO & Marketing Hub - Full Production (code + database.sql)"
 id = "ypseWCukREK8_s9triO2W"
 uri = "file://production-package.zip"
 type = "unspecified"
-title = "SEO Command — Production Package"
+title = "Source Package (builds inside Docker) — 1.1 MB"
+
+[[outputs]]
+id = "5G0LyzM_wg6FscjeLPKpg"
+uri = "file://production-package-prebuilt.zip"
+type = "unspecified"
+title = "Pre-Built Package (no server build needed) — 2.4 MB"

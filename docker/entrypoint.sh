@@ -1,40 +1,42 @@
-#!/bin/bash
+#!/bin/sh
 # SEO Command — container startup script
+# Compatible with Alpine (sh, not bash).
 # Runs on every container start:
-#   1. Waits for PostgreSQL to accept connections (skipped for external/Supabase DB)
-#   2. Pushes the Drizzle schema (creates/updates tables idempotently)
+#   1. Waits for PostgreSQL (skipped for external/Supabase DB)
+#   2. Pushes the Drizzle schema (idempotent)
 #   3. Starts nginx (serves the static frontend)
-#   4. Starts the Node.js API server (foreground — Docker reads its logs)
-set -euo pipefail
+#   4. Starts the Node.js API server (foreground)
+set -eu
 
-# ── 1. Wait for PostgreSQL (only for bundled/local postgres) ──────────────────
+# ── 1. Wait for PostgreSQL (bundled DB only) ──────────────────────────────────
 if [ -z "${SUPABASE_DATABASE_URL:-}" ]; then
-  PGHOST="${PGHOST:-localhost}"
-  PGPORT="${PGPORT:-5432}"
-  PGUSER="${PGUSER:-postgres}"
-
-  echo "[entrypoint] Waiting for PostgreSQL at ${PGHOST}:${PGPORT}..."
-  until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" >/dev/null 2>&1; do
+  _PG_HOST="${PGHOST:-localhost}"
+  _PG_PORT="${PGPORT:-5432}"
+  _PG_USER="${PGUSER:-postgres}"
+  echo "[entrypoint] Waiting for PostgreSQL at ${_PG_HOST}:${_PG_PORT}..."
+  until pg_isready -h "$_PG_HOST" -p "$_PG_PORT" -U "$_PG_USER" >/dev/null 2>&1; do
     printf '.'
     sleep 1
   done
   echo ""
   echo "[entrypoint] PostgreSQL is ready."
 else
-  echo "[entrypoint] Using external database (SUPABASE_DATABASE_URL is set) — skipping pg_isready."
+  echo "[entrypoint] External DB detected (SUPABASE_DATABASE_URL set) — skipping pg_isready."
 fi
 
-# ── 2. Push Drizzle schema ─────────────────────────────────────────────────────
-# Uses push-force (drizzle-kit push --force) — idempotent, safe to run on every boot.
+# ── 2. Push Drizzle schema ────────────────────────────────────────────────────
+# drizzle-kit is in /schema-runner/node_modules (minimal ~80 MB install).
+# Idempotent: safe to run on every startup.
 echo "[entrypoint] Applying database schema..."
 cd /app
-pnpm --filter @workspace/db run push-force
+node /schema-runner/node_modules/.bin/drizzle-kit push --force \
+  --config ./lib/db/drizzle.config.ts
 echo "[entrypoint] Schema applied."
 
 # ── 3. Start nginx (background) ───────────────────────────────────────────────
 echo "[entrypoint] Starting nginx..."
 nginx
 
-# ── 4. Start the Node.js API server (foreground) ──────────────────────────────
+# ── 4. Start API server (foreground — Docker captures logs) ──────────────────
 echo "[entrypoint] Starting API server on port ${PORT:-8080}..."
-exec node --enable-source-maps /app/artifacts/api-server/dist/index.mjs
+exec node --enable-source-maps /app/dist/index.mjs

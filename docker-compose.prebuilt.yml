@@ -1,0 +1,87 @@
+version: "3.9"
+
+# SEO Command — Pre-Built Docker Compose
+#
+# Uses Dockerfile.prebuilt — no TypeScript/Vite compilation inside Docker.
+# Docker build takes ~60 seconds (only installs 3 migration packages).
+#
+# Quick start:
+#   cp .env.example .env   # fill in SESSION_SECRET, ADMIN_PASSWORD, DB_PASSWORD
+#   docker compose -f docker-compose.prebuilt.yml up -d --build
+
+services:
+
+  # ── PostgreSQL (bundled, default) ──────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       seocommand
+      POSTGRES_USER:     seocommand
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_in_env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U seocommand -d seocommand"]
+      interval: 5s
+      timeout:  5s
+      retries:  12
+
+  # ── Application ────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prebuilt
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT:     "8080"
+
+      DATABASE_URL:          postgres://seocommand:${DB_PASSWORD:-changeme_in_env}@db:5432/seocommand
+      PGHOST:                db
+      PGPORT:                "5432"
+      PGUSER:                seocommand
+      PGPASSWORD:            ${DB_PASSWORD:-changeme_in_env}
+      PGDATABASE:            seocommand
+      SUPABASE_DATABASE_URL: ${SUPABASE_DATABASE_URL:-}
+
+      SESSION_SECRET: ${SESSION_SECRET}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+
+      APP_URL: ${APP_URL:-}
+
+      OPENAI_API_KEY:                  ${OPENAI_API_KEY:-}
+      AI_INTEGRATIONS_OPENAI_API_KEY:  ${OPENAI_API_KEY:-}
+      AI_INTEGRATIONS_OPENAI_BASE_URL: https://api.openai.com/v1
+
+      GOOGLE_CLIENT_ID:         ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET:     ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI:      ${GOOGLE_REDIRECT_URI:-}
+      GOOGLE_PAGESPEED_API_KEY: ${GOOGLE_PAGESPEED_API_KEY:-}
+
+      TWITTER_CLIENT_ID:      ${TWITTER_CLIENT_ID:-}
+      TWITTER_CLIENT_SECRET:  ${TWITTER_CLIENT_SECRET:-}
+      LINKEDIN_CLIENT_ID:     ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      FACEBOOK_APP_ID:        ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET:    ${FACEBOOK_APP_SECRET:-}
+
+      EMAIL_ENCRYPTION_KEY:        ${EMAIL_ENCRYPTION_KEY:-}
+      SENDGRID_WEBHOOK_KEY:        ${SENDGRID_WEBHOOK_KEY:-}
+      MAILGUN_WEBHOOK_SIGNING_KEY: ${MAILGUN_WEBHOOK_SIGNING_KEY:-}
+
+      FAL_AI_API_KEY: ${FAL_AI_API_KEY:-}
+      FAL_KEY:        ${FAL_AI_API_KEY:-}
+
+    ports:
+      - "${HOST_PORT:-80}:80"
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  uploads:

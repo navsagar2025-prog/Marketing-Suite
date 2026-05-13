@@ -1,3 +1,9 @@
+import { validateEnv } from "./lib/env.js";
+
+// Validate all required environment variables before anything else starts.
+// This exits with a descriptive error message if required vars are missing.
+validateEnv();
+
 import app from "./app";
 import { logger } from "./lib/logger";
 import { db, staffUsersTable, leadsTable, leadNotesTable } from "@workspace/db";
@@ -15,19 +21,8 @@ import { runDailyHealthMaintenance } from "./lib/system-health.js";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
 import { getDbSetting } from "./lib/ai-provider";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
-
-const port = Number(rawPort);
-
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
+// PORT is already validated by validateEnv() above.
+const port = Number(process.env["PORT"]);
 
 async function seedAdminUser(): Promise<void> {
   const [existing] = await db

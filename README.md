@@ -77,56 +77,45 @@ An AI-powered marketing command center that gives agencies and solo marketers a 
 
 ### Environment Variables
 
-Create a `.env` file in the project root (or set these as secrets in your hosting environment). **Never commit real secrets.**
+Create a `.env` file in the project root (or set these as secrets in your hosting environment). **Never commit real secrets.** A full annotated template is available in `.env.example`.
 
-```env
-# ── Core ──────────────────────────────────────────────────────────────
-DATABASE_URL=postgresql://user:password@localhost:5432/marketing_hub
-SESSION_SECRET=replace-with-a-long-random-string
-APP_URL=http://localhost:5000
-NODE_ENV=development
+> **Startup validator** — the API server runs an environment check before binding to its port. If a required variable is missing or obviously invalid, it prints a clear error table and exits immediately rather than failing silently at runtime. Optional variables are reported in a feature-status table so you can see at a glance which integrations are active.
 
-# ── Service ports (required — both services throw on startup if missing) ──
-# API server port
-PORT=5000
-# Frontend: port the Vite dev server listens on
-# PORT=5173  ← set this when starting the frontend (use a separate shell or process manager)
-# Base URL path the frontend is served from (use "/" for local development)
-BASE_PATH=/
+#### Required at startup
 
-# ── Google OAuth & APIs ───────────────────────────────────────────────
-GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
-# Must match the Authorized Redirect URI registered in Google Cloud Console:
-GOOGLE_REDIRECT_URI=http://localhost:5000/api/integrations/google/callback
-GOOGLE_PAGESPEED_API_KEY=your-pagespeed-api-key
+| Variable | Description |
+|---|---|
+| `PORT` | TCP port the API server listens on (e.g. `5000`) |
+| `SESSION_SECRET` | ≥ 16-char random string used to sign JWT tokens — `openssl rand -hex 32` |
+| `DATABASE_URL` **or** `SUPABASE_DATABASE_URL` | PostgreSQL connection string |
 
-# ── AI ────────────────────────────────────────────────────────────────
-AI_API_KEY=sk-...                     # OpenAI or compatible key
-# (Replit-managed AI integrations proxy — used automatically when available)
-AI_INTEGRATIONS_OPENAI_API_KEY=your-key
-AI_INTEGRATIONS_OPENAI_BASE_URL=https://openai-proxy.example.com
+#### Strongly recommended
 
-# ── Email ────────────────────────────────────────────────────────────
-EMAIL_ENCRYPTION_KEY=replace-with-32-char-hex-string
-RESEND_WEBHOOK_SECRET=your-resend-webhook-secret
-SENDGRID_WEBHOOK_KEY=your-sendgrid-webhook-key
-MAILGUN_WEBHOOK_SIGNING_KEY=your-mailgun-signing-key
+| Variable | Description |
+|---|---|
+| `APP_URL` | Full public URL of the app (e.g. `https://seo.yourdomain.com`) — used in OAuth callbacks and email links |
+| `NODE_ENV` | Set to `production` in deployed environments |
 
-# ── Social Media ──────────────────────────────────────────────────────
-TWITTER_CLIENT_ID=your-twitter-client-id
-TWITTER_CLIENT_SECRET=your-twitter-client-secret
-LINKEDIN_CLIENT_ID=your-linkedin-client-id
-LINKEDIN_CLIENT_SECRET=your-linkedin-client-secret
-FACEBOOK_APP_ID=your-facebook-app-id
-FACEBOOK_APP_SECRET=your-facebook-app-secret
+#### Optional — unlocks specific features
 
-# ── Billing ───────────────────────────────────────────────────────────
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-RAZORPAY_KEY_ID=rzp_test_...
-RAZORPAY_KEY_SECRET=your-razorpay-key-secret
-```
+| Variable(s) | Feature |
+|---|---|
+| `AI_API_KEY` | OpenAI-compatible key for AI content generation |
+| `AI_INTEGRATIONS_OPENAI_API_KEY` + `AI_INTEGRATIONS_OPENAI_BASE_URL` | Replit-managed AI proxy (takes precedence over `AI_API_KEY`) |
+| `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` + `GOOGLE_REDIRECT_URI` | Google Search Console & GA4 integrations |
+| `GOOGLE_PAGESPEED_API_KEY` | Core Web Vitals / PageSpeed scanning |
+| `TWITTER_CLIENT_ID` + `TWITTER_CLIENT_SECRET` | Twitter/X social publishing |
+| `LINKEDIN_CLIENT_ID` + `LINKEDIN_CLIENT_SECRET` | LinkedIn social publishing |
+| `FACEBOOK_APP_ID` + `FACEBOOK_APP_SECRET` | Facebook social publishing |
+| `EMAIL_ENCRYPTION_KEY` | 32-byte hex key for encrypting stored SMTP credentials (falls back to `SESSION_SECRET`) |
+| `FAL_AI_API_KEY` | fal.ai image generation |
+| `RESEND_WEBHOOK_SECRET` | Resend inbound webhook verification |
+| `SENDGRID_WEBHOOK_KEY` | SendGrid inbound webhook verification |
+| `MAILGUN_WEBHOOK_SIGNING_KEY` | Mailgun inbound webhook verification |
+| `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | Stripe billing (configured via Settings UI) |
+| `RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET` | Razorpay billing (configured via Settings UI) |
+
+See `.env.example` for a fully annotated template with generation hints and callback URL examples.
 
 ---
 

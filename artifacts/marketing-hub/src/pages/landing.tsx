@@ -648,6 +648,44 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Mid-page CTA ── */}
+      <section className="py-14 sm:py-20 border-b bg-primary/5">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium mb-6">
+            <Sparkles className="h-4 w-4" />
+            Trusted by 1,200+ marketers
+          </div>
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
+            Ready to take your SEO to the next level?
+          </h2>
+          <p className="text-muted-foreground max-w-xl mx-auto mb-8 text-base sm:text-lg">
+            Join thousands of agencies and founders who use SEO Command to grow their organic traffic — starting free, no credit card needed.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button size="lg" onClick={() => setLocation("/login")} className="text-base px-8">
+              Start free trial
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => setLocation("/pricing")} className="text-base px-8">
+              View pricing
+            </Button>
+          </div>
+          <div className="flex items-center justify-center gap-6 mt-8 text-sm text-muted-foreground flex-wrap">
+            {[
+              "14-day free trial",
+              "Cancel any time",
+              "No credit card required",
+              "Setup in 2 minutes",
+            ].map(text => (
+              <div key={text} className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span>{text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Highlights / Why us ── */}
       <section className="py-12 sm:py-16 border-b bg-muted/20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">

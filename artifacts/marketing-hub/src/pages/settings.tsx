@@ -672,7 +672,7 @@ export default function SettingsPage() {
   const [, setLocation] = useLocation();
   const isAdmin = user?.role === "admin";
   const hasFullAccess = !isAdmin && permissions === null;
-  const [settingsTab, setSettingsTab] = useState<"plan" | "ai" | "email" | "webhooks" | "admin">("plan");
+  const [settingsTab, setSettingsTab] = useState<"plan" | "ai" | "email" | "webhooks" | "admin" | "integrations" | "security">("plan");
 
   // Fal.ai state
   const [falApiKey, setFalApiKey] = useState("");
@@ -1031,6 +1031,8 @@ export default function SettingsPage() {
     { id: "plan" as const, label: "Plan & Account" },
     { id: "ai" as const, label: "AI" },
     { id: "email" as const, label: "Email" },
+    { id: "integrations" as const, label: "Integrations" },
+    { id: "security" as const, label: "Security" },
     ...(isAdmin ? [{ id: "webhooks" as const, label: "Webhooks" }] : []),
     ...(isAdmin ? [{ id: "admin" as const, label: "Admin" }] : []),
   ];
@@ -2297,7 +2299,7 @@ export default function SettingsPage() {
 
       </div>
 
-      <div className={settingsTab === "plan" ? "space-y-6" : "hidden"}>
+      <div className={settingsTab === "security" ? "space-y-6" : "hidden"}>
       <SessionsCard />
       </div>
 
@@ -2393,53 +2395,56 @@ export default function SettingsPage() {
       )}
       </div>
 
+      <div className={settingsTab === "integrations" ? "space-y-6" : "hidden"}>
+      {/* Google Search Console Integration */}
+      <Card data-testid="card-google-integration">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded bg-muted">
+              <Search className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Google (Search Console + GA4)</CardTitle>
+              <CardDescription className="mt-0.5">
+                Connect each website via OAuth 2.0 to enable Google Search Console data and GA4 Analytics traffic reports.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!isAdmin ? (
+            <p className="text-sm text-muted-foreground">Contact your administrator to configure Google integrations.</p>
+          ) : (
+            <>
+              {!websitesLoading && websites && websites.length > 0 && (
+                <GoogleSetupGuide websites={websites} />
+              )}
+              {websitesLoading ? (
+                <div className="space-y-2">
+                  <div className="h-12 rounded-md bg-muted animate-pulse" />
+                  <div className="h-12 rounded-md bg-muted animate-pulse" />
+                </div>
+              ) : !websites || websites.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No websites found. Add a website first.</p>
+              ) : (
+                <div className="space-y-2">
+                  {websites.map(site => (
+                    <GscWebsiteRow key={site.id} website={site} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+      </div>
+
       <div className={settingsTab === "admin" ? "space-y-6" : "hidden"}>
       {/* Rank Change Notifications (admin only) */}
       {isAdmin && (
         <>
           <NotificationSettingsCard />
         </>
-      )}
-
-      {/* Google Search Console Integration (admin only) */}
-      {isAdmin && (
-        <Card data-testid="card-google-integration">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded bg-muted">
-                <Search className="h-4 w-4" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Google (Search Console + GA4)</CardTitle>
-                <CardDescription className="mt-0.5">
-                  Connect each website via OAuth 2.0 to enable Google Search Console data and GA4 Analytics traffic reports.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Step-by-step setup guide — only shown when OAuth is not yet configured */}
-            {!websitesLoading && websites && websites.length > 0 && (
-              <GoogleSetupGuide websites={websites} />
-            )}
-
-            {/* Website connection list */}
-            {websitesLoading ? (
-              <div className="space-y-2">
-                <div className="h-12 rounded-md bg-muted animate-pulse" />
-                <div className="h-12 rounded-md bg-muted animate-pulse" />
-              </div>
-            ) : !websites || websites.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No websites found. Add a website first.</p>
-            ) : (
-              <div className="space-y-2">
-                {websites.map(site => (
-                  <GscWebsiteRow key={site.id} website={site} />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       )}
       </div>
     </div>

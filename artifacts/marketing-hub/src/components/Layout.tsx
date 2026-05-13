@@ -78,6 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "SEO Tools",
+    collapsible: true,
     items: [
       { path: "/websites", label: "Websites", icon: Globe, permission: "websites" },
       { path: "/keywords", label: "Keywords", icon: Search, permission: "keywords" },
@@ -88,6 +89,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Marketing",
+    collapsible: true,
     items: [
       { path: "/social", label: "Social Media", icon: Share2, permission: "social" },
       { path: "/calendar", label: "Calendar", icon: CalendarDays, permission: "calendar" },
@@ -98,6 +100,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Leads & CRM",
+    collapsible: true,
     items: [
       { path: "/leads", label: "Leads", icon: Users, permission: "leads" },
       { path: "/conversations", label: "Conversations", icon: MessageSquare, permission: "conversations" },
@@ -105,6 +108,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Analytics",
+    collapsible: true,
     items: [
       { path: "/analytics", label: "Analytics", icon: BarChart3, permission: "analytics" },
       { path: "/utm-builder", label: "UTM Builder", icon: Link2, permission: "campaigns" },
@@ -114,6 +118,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "AI & Media",
+    collapsible: true,
     items: [
       { path: "/ai", label: "AI Tools", icon: Sparkles, permission: "ai_tools" },
       { path: "/media", label: "Media Library", icon: ImageIcon, permission: "media" },
@@ -121,6 +126,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Content",
+    collapsible: true,
     items: [
       { path: "/blog", label: "Blog", icon: BookOpen, permission: null },
       { path: "/products", label: "Products", icon: Package, permission: null },
@@ -146,6 +152,7 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Resources",
+    collapsible: true,
     items: [
       { path: "/kb", label: "Knowledge Base", icon: HelpCircle, permission: null },
       { path: "/files", label: "Files", icon: FolderOpen, permission: null },

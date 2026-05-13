@@ -431,6 +431,11 @@ export default function PricingPage() {
                         Or save {fmtPrice(savingsPerYear(plan))}/year on annual
                       </p>
                     )}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-primary bg-primary/10 rounded-full px-2.5 py-0.5">
+                        14-day free trial — no credit card required
+                      </span>
+                    </div>
                   </CardHeader>
                   <CardContent className="flex flex-col flex-1 gap-5">
                     <Button

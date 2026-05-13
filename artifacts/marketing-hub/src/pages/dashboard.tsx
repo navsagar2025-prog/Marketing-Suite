@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link } from "wouter";
 import {
   Globe, Search, Megaphone, Users, Link2, TrendingUp, Target, Calendar,
-  Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2
+  Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2, AlertCircle
 } from "lucide-react";
 import { ProductTour, TourLaunchButton, useTour } from "@/components/ProductTour";
 import { ActiveVisitorsBadge } from "@/components/ActiveVisitorsBadge";
@@ -19,7 +19,35 @@ import {
   useGetLeadsFunnel,
   useGetCampaignAnalytics,
   useListWebsites,
+  useGetGoogleIntegrationStatus,
 } from "@workspace/api-client-react";
+
+function GooglePermissionsBanner({ websiteId }: { websiteId: number }) {
+  const { data: status } = useGetGoogleIntegrationStatus(websiteId, {
+    query: { enabled: !!websiteId },
+  });
+
+  if (!status?.connected || !status.missingScopesCount || status.missingScopesCount <= 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 px-4 py-3" data-testid="banner-google-permissions">
+      <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+          New Google permissions available
+        </p>
+        <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+          Reconnect Google to unlock new features for your connected websites.{" "}
+          <Link href="/settings" className="underline font-medium hover:no-underline">
+            Go to Settings →
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
 
 const STAT_COLORS = [
   { border: "border-l-blue-500", bg: "from-blue-50/60 to-transparent dark:from-blue-950/30", icon: "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" },
@@ -238,6 +266,9 @@ export default function Dashboard() {
       <div data-tour="getting-started">
         <OnboardingDashboardCard />
       </div>
+
+      {/* Google permissions nudge — shown when a connected website has missing scopes */}
+      {websites?.[0]?.id && <GooglePermissionsBanner websiteId={websites[0].id} />}
 
       {/* Stats grid */}
       <div data-tour="stats-grid">

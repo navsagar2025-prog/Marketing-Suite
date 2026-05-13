@@ -10,6 +10,7 @@ import { runSequenceEngine } from "./routes/sequences";
 import { sendRankAlertDigest } from "./lib/rank-alert-email.js";
 import { runDailyPagespeedScan } from "./lib/pagespeed.js";
 import { publishScheduledPosts } from "./routes/admin-blog";
+import { publishScheduledSocialPosts } from "./routes/integrations-social";
 import { runDailyHealthMaintenance } from "./lib/system-health.js";
 import { calculateLeadScore, DEFAULT_SCORING_WEIGHTS, mergeWeights } from "./lib/lead-scoring";
 import { getDbSetting } from "./lib/ai-provider";
@@ -160,6 +161,13 @@ seedAdminUser()
         .catch((err) => logger.error({ err }, "Scheduled blog post publishing failed"));
     });
     logger.info("Scheduled blog post publisher cron scheduled (every 5 minutes)");
+
+    cron.schedule("*/5 * * * *", () => {
+      publishScheduledSocialPosts()
+        .then((r) => { if (r.published > 0 || r.failed > 0) logger.info(r, "Social post auto-publish run"); })
+        .catch((err) => logger.error({ err }, "Social post auto-publish cron failed"));
+    });
+    logger.info("Social post auto-publisher cron scheduled (every 5 minutes)");
 
     cron.schedule("0 4 * * *", () => {
       logger.info("Running daily health snapshot + cleanup");

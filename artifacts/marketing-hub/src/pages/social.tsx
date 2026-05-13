@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Plus, Sparkles, Trash2, Calendar, MessageSquare, ImageIcon } from "lucide-react";
+import { Plus, Sparkles, Trash2, Calendar, MessageSquare, ImageIcon, Send, Link2, ExternalLink, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Camera, Twitter, Briefcase, Youtube } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,52 @@ import {
 import type { MediaAsset } from "@workspace/api-client-react";
 import { AiMediaDialog } from "@/components/AiMediaDialog";
 
+const apiBase = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api`;
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+type SocialAccount = {
+  id: number;
+  platform: string;
+  platformUserId: string | null;
+  platformUsername: string | null;
+  platformPageId: string | null;
+  platformPageName: string | null;
+  tokenExpiry: string | null;
+  createdAt: string;
+};
+
+type PlatformStatus = {
+  configured: boolean;
+  signupUrl: string;
+  devDocsUrl: string;
+};
+
+// ── Hooks ──────────────────────────────────────────────────────────────────────
+function useSocialAccounts() {
+  return useQuery<SocialAccount[]>({
+    queryKey: ["social-accounts"],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/integrations/social/accounts`);
+      if (!res.ok) throw new Error("Failed to load social accounts");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+}
+
+function useSocialStatus() {
+  return useQuery<Record<string, PlatformStatus>>({
+    queryKey: ["social-status"],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/integrations/social/status`);
+      if (!res.ok) throw new Error("Failed to load social status");
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
+
+// ── Platform config ────────────────────────────────────────────────────────────
 const PLATFORMS = [
   { value: "facebook", label: "Facebook", Icon: MessageCircle },
   { value: "instagram", label: "Instagram", Icon: Camera },
@@ -63,6 +109,166 @@ const statusColor = (status: string) => {
   return "secondary";
 };
 
+// ── Connected Accounts Panel ───────────────────────────────────────────────────
+function ConnectedAccountsPanel() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: accounts = [], isLoading: accountsLoading } = useSocialAccounts();
+  const { data: statusMap = {} } = useSocialStatus();
+
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+
+  const handleDisconnect = async (platform: string) => {
+    setDisconnecting(platform);
+    try {
+      const res = await fetch(`${apiBase}/integrations/social/${platform}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      queryClient.invalidateQueries({ queryKey: ["social-accounts"] });
+      toast({ title: `${platform} account disconnected` });
+    } catch {
+      toast({ title: "Failed to disconnect", variant: "destructive" });
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="pt-4 pb-3">
+        <div className="flex items-center gap-2 mb-3">
+          <Link2 className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold">Connected Accounts</span>
+          <span className="text-xs text-muted-foreground ml-1">
+            — connect once, publish directly from each post
+          </span>
+        </div>
+
+        {accountsLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {PLATFORMS.map(p => <Skeleton key={p.value} className="h-16 rounded-lg" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {PLATFORMS.map(({ value, label, Icon }) => {
+              const account = accounts.find(a => a.platform === value);
+              const ps = statusMap[value];
+              const configured = ps?.configured ?? false;
+
+              return (
+                <div
+                  key={value}
+                  className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/20"
+                >
+                  <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-medium">{label}</span>
+                    {account && (
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 ml-auto" />
+                    )}
+                  </div>
+
+                  {account ? (
+                    <>
+                      <p className="text-xs text-muted-foreground truncate leading-tight">
+                        {account.platformPageName ?? account.platformUsername ?? "Connected"}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs w-full"
+                        disabled={disconnecting === value}
+                        onClick={() => handleDisconnect(value)}
+                      >
+                        {disconnecting === value ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Disconnect"
+                        )}
+                      </Button>
+                    </>
+                  ) : configured ? (
+                    <>
+                      <p className="text-xs text-muted-foreground leading-tight">Not connected</p>
+                      <Button variant="outline" size="sm" className="h-6 px-2 text-xs w-full" asChild>
+                        <a href={`${apiBase}/integrations/social/${value}/connect`}>Connect</a>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-amber-600 dark:text-amber-500 leading-tight">
+                        Credentials not set up
+                      </p>
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs w-full" asChild>
+                        <a href={ps?.devDocsUrl ?? "#"} target="_blank" rel="noopener noreferrer">
+                          Setup guide <ExternalLink className="h-2.5 w-2.5 ml-1" />
+                        </a>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Publish Button ─────────────────────────────────────────────────────────────
+function PublishButton({ postId, platform, status }: { postId: number; platform: string; status: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: accounts = [] } = useSocialAccounts();
+
+  const publishMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${apiBase}/social-posts/${postId}/publish`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Publish failed");
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListSocialPostsQueryKey() });
+      toast({ title: "Post published successfully" });
+    },
+    onError: (err: Error) => {
+      queryClient.invalidateQueries({ queryKey: getListSocialPostsQueryKey() });
+      toast({ title: "Publish failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (status === "published") return null;
+  if (platform === "youtube") {
+    return (
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs opacity-60" disabled title="YouTube requires manual upload">
+        <Send className="h-3 w-3 mr-1" /> Manual
+      </Button>
+    );
+  }
+
+  const hasAccount = accounts.some(a => a.platform === platform);
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-7 px-2 text-xs"
+      disabled={publishMutation.isPending || !hasAccount}
+      title={!hasAccount ? `Connect your ${platform} account to publish` : undefined}
+      onClick={() => publishMutation.mutate()}
+    >
+      {publishMutation.isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+      ) : (
+        <Send className="h-3 w-3 mr-1" />
+      )}
+      Publish
+    </Button>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 export default function Social() {
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -260,6 +466,9 @@ export default function Social() {
         </div>
       </div>
 
+      {/* Connected accounts */}
+      <ConnectedAccountsPanel />
+
       {/* Platform tabs */}
       <Tabs value={activePlatform} onValueChange={setActivePlatform}>
         <TabsList>
@@ -294,10 +503,23 @@ export default function Social() {
                                 {new Date(post.scheduledAt).toLocaleDateString()} {new Date(post.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                               </p>
                             )}
+                            {"publishError" in post && post.publishError && (
+                              <p className="text-xs text-destructive mt-1 flex items-start gap-1">
+                                <XCircle className="h-3 w-3 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2">{post.publishError as string}</span>
+                              </p>
+                            )}
+                            {"platformPostId" in post && post.platformPostId && (
+                              <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Published · ID: {post.platformPostId as string}
+                              </p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Badge variant={statusColor(post.status) as "default" | "outline" | "secondary"} className="text-xs">{post.status}</Badge>
+                          <PublishButton postId={post.id} platform={post.platform} status={post.status} />
                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" data-testid={`button-delete-post-${post.id}`} onClick={() => handleDelete(post.id)} disabled={deleteMutation.isPending}>
                             <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
                           </Button>

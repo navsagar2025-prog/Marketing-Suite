@@ -14,6 +14,8 @@ export const socialPostsTable = pgTable("social_posts", {
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   mediaUrl: text("media_url"),
+  platformPostId: text("platform_post_id"),
+  publishError: text("publish_error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

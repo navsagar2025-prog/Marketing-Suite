@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
-import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send, Copy, Check, ExternalLink, BarChart3 } from "lucide-react";
+import { Settings, Key, CheckCircle, AlertCircle, Save, Brain, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Gauge, RotateCcw, Mail, Target, CreditCard, Activity, XCircle, ShieldCheck, ShieldOff, Lock, Zap, ArrowUpRight, Search, Bell, Tag, Webhook, Send, Copy, Check, ExternalLink, BarChart3, Link2, MessageCircle, Camera, Twitter, Briefcase, Youtube, CheckCircle2, Loader2 } from "lucide-react";
 import { ByokCard } from "@/components/ByokCard";
 import { SessionsCard } from "@/components/SessionsCard";
 import { CouponManagementCard } from "@/components/CouponManagementCard";
@@ -662,6 +662,165 @@ function GscWebsiteRow({ website }: { website: Website }) {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Social Accounts Card (used in Integrations tab) ───────────────────────────
+const SOCIAL_PLATFORMS = [
+  { value: "facebook", label: "Facebook", Icon: MessageCircle },
+  { value: "instagram", label: "Instagram", Icon: Camera },
+  { value: "twitter", label: "Twitter/X", Icon: Twitter },
+  { value: "linkedin", label: "LinkedIn", Icon: Briefcase },
+  { value: "youtube", label: "YouTube", Icon: Youtube },
+];
+
+const socialApiBase = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api`;
+
+type SocialAccountRow = {
+  id: number;
+  platform: string;
+  platformUsername: string | null;
+  platformPageName: string | null;
+  createdAt: string;
+};
+
+type SocialPlatformStatus = { configured: boolean; signupUrl: string; devDocsUrl: string };
+
+function SocialAccountsCard() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery<SocialAccountRow[]>({
+    queryKey: ["social-accounts"],
+    queryFn: async () => {
+      const res = await fetch(`${socialApiBase}/integrations/social/accounts`);
+      if (!res.ok) throw new Error("Failed to load social accounts");
+      return res.json();
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: statusMap = {} } = useQuery<Record<string, SocialPlatformStatus>>({
+    queryKey: ["social-status"],
+    queryFn: async () => {
+      const res = await fetch(`${socialApiBase}/integrations/social/status`);
+      if (!res.ok) throw new Error("Failed to load social status");
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const handleDisconnect = async (platform: string) => {
+    setDisconnecting(platform);
+    try {
+      const res = await fetch(`${socialApiBase}/integrations/social/${platform}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      queryClient.invalidateQueries({ queryKey: ["social-accounts"] });
+      toast({ title: `${platform} account disconnected` });
+    } catch {
+      toast({ title: "Failed to disconnect", variant: "destructive" });
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
+  return (
+    <Card data-testid="card-social-integration">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded bg-muted">
+            <Link2 className="h-4 w-4" />
+          </div>
+          <div>
+            <CardTitle className="text-base">Social Media Accounts</CardTitle>
+            <CardDescription className="mt-0.5">
+              Connect your social accounts via OAuth to enable direct publishing from the Social Media page.
+              Each platform requires a free developer app — see the setup guides below.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {accountsLoading ? (
+          <div className="space-y-2">
+            {SOCIAL_PLATFORMS.map(p => <div key={p.value} className="h-12 rounded-md bg-muted animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {SOCIAL_PLATFORMS.map(({ value, label, Icon }) => {
+              const account = accounts.find(a => a.platform === value);
+              const ps = statusMap[value];
+              const configured = ps?.configured ?? false;
+
+              return (
+                <div key={value} className="flex items-center justify-between gap-3 p-3 rounded-lg border">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{label}</p>
+                      {account ? (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {account.platformPageName ?? account.platformUsername ?? "Connected"}
+                        </p>
+                      ) : configured ? (
+                        <p className="text-xs text-muted-foreground">Not connected</p>
+                      ) : (
+                        <p className="text-xs text-amber-600 dark:text-amber-500">
+                          Credentials not configured —{" "}
+                          <a href={ps?.devDocsUrl ?? "#"} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                            setup guide
+                          </a>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {account ? (
+                      <>
+                        <Badge variant="default" className="text-xs gap-1">
+                          <CheckCircle2 className="h-3 w-3" /> Connected
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          disabled={disconnecting === value}
+                          onClick={() => handleDisconnect(value)}
+                        >
+                          {disconnecting === value ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
+                        </Button>
+                      </>
+                    ) : configured ? (
+                      <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
+                        <a href={`${socialApiBase}/integrations/social/${value}/connect`}>
+                          Connect
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
+                        <a href={ps?.signupUrl ?? "#"} target="_blank" rel="noopener noreferrer">
+                          Create app <ExternalLink className="h-3 w-3 ml-1" />
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground pt-1">
+          Required environment variables:{" "}
+          <code className="bg-muted px-1 rounded text-xs">TWITTER_CLIENT_ID/SECRET</code>{", "}
+          <code className="bg-muted px-1 rounded text-xs">LINKEDIN_CLIENT_ID/SECRET</code>{", "}
+          <code className="bg-muted px-1 rounded text-xs">FACEBOOK_APP_ID/SECRET</code>{" "}
+          (Instagram uses the same){". "}
+          YouTube uses your existing{" "}
+          <code className="bg-muted px-1 rounded text-xs">GOOGLE_CLIENT_ID/SECRET</code>.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2396,6 +2555,8 @@ export default function SettingsPage() {
       </div>
 
       <div className={settingsTab === "integrations" ? "space-y-6" : "hidden"}>
+      {/* Social Media Accounts */}
+      <SocialAccountsCard />
       {/* Google Search Console Integration */}
       <Card data-testid="card-google-integration">
         <CardHeader>

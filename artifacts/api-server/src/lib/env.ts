@@ -2,9 +2,12 @@
  * Environment variable validation — runs synchronously at server startup.
  *
  * Design:
- *  - Required vars: missing/obviously-invalid values throw before the server binds.
- *  - Feature-group vars: missing values are logged as warnings but do NOT block startup.
- *  - A feature-status table is printed so operators can immediately see what is active.
+ *  - Required vars: missing/obviously-invalid values cause process.exit(1) with a
+ *    clear, formatted error block before any other module initializes.
+ *  - Feature-group vars: missing values are reported in the startup table but do
+ *    NOT block startup.
+ *  - collectEnvErrors() is a pure function (no side-effects) so it can be unit-tested.
+ *  - validateEnv() calls collectEnvErrors() then either exits or prints the table.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,17 +24,39 @@ interface RequiredVar {
 interface FeatureGroup {
   /** Short name shown in the startup table */
   feature: string;
-  /** All vars must be present for the feature to be active */
+  /** Var names to check */
   vars: string[];
   /** Human-readable description of what is unlocked */
   description: string;
+  /**
+   * "all" (default) — ALL vars must be set for the feature to be active;
+   *                    partial means some but not all are set.
+   * "any"           — ANY one var being set marks the feature as active.
+   */
+  mode?: "all" | "any";
+}
+
+export interface FeatureRow {
+  feature: string;
+  status: "enabled" | "partial" | "not-set";
+  missingVars: string[];
+  description: string;
+}
+
+export interface EnvValidationResult {
+  /** Human-readable error lines — empty means all required vars are present */
+  errors: string[];
+  /** Per-feature status for the startup table */
+  features: FeatureRow[];
+  /** True when at least one AI key is configured */
+  aiEnabled: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Required variable definitions
 // ─────────────────────────────────────────────────────────────────────────────
 
-const REQUIRED: RequiredVar[] = [
+export const REQUIRED: RequiredVar[] = [
   {
     name: "PORT",
     description: "TCP port the API server listens on",
@@ -48,7 +73,7 @@ const REQUIRED: RequiredVar[] = [
     validate: (v) => {
       if (v.length < 16)
         return `must be at least 16 characters (${v.length} given) — generate one with: openssl rand -hex 32`;
-      const placeholders = ["change_me", "replace", "secret", "password", "12345", "example"];
+      const placeholders = ["change_me", "replace_me", "12345", "example", "placeholder"];
       const lower = v.toLowerCase();
       if (placeholders.some((p) => lower.includes(p)))
         return `looks like a placeholder value — set a real random secret`;
@@ -61,11 +86,12 @@ const REQUIRED: RequiredVar[] = [
 // Optional feature groups
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FEATURE_GROUPS: FeatureGroup[] = [
+export const FEATURE_GROUPS: FeatureGroup[] = [
   {
     feature: "Database",
-    vars: ["DATABASE_URL"],
-    description: "Primary PostgreSQL connection (checked by @workspace/db on boot)",
+    vars: ["DATABASE_URL", "SUPABASE_DATABASE_URL"],
+    description: "PostgreSQL connection — set DATABASE_URL or SUPABASE_DATABASE_URL",
+    mode: "any",
   },
   {
     feature: "App URL",
@@ -79,8 +105,8 @@ const FEATURE_GROUPS: FeatureGroup[] = [
   },
   {
     feature: "AI (Replit proxy)",
-    vars: ["AI_INTEGRATIONS_OPENAI_API_KEY"],
-    description: "Replit-managed AI proxy — takes precedence over AI_API_KEY",
+    vars: ["AI_INTEGRATIONS_OPENAI_API_KEY", "AI_INTEGRATIONS_OPENAI_BASE_URL"],
+    description: "Replit-managed AI proxy (both KEY and BASE_URL required)",
   },
   {
     feature: "Image generation",
@@ -132,36 +158,43 @@ const FEATURE_GROUPS: FeatureGroup[] = [
     vars: ["MAILGUN_WEBHOOK_SIGNING_KEY"],
     description: "Webhook signature verification for Mailgun email events",
   },
+  {
+    feature: "Stripe billing",
+    vars: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+    description: "Stripe payments (also configurable via Settings UI)",
+  },
+  {
+    feature: "Razorpay billing",
+    vars: ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"],
+    description: "Razorpay payments (also configurable via Settings UI)",
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Validation runner
+// Pure validation — no side-effects; safe to call in tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function validateEnv(): void {
+export function collectEnvErrors(
+  env: Record<string, string | undefined> = process.env
+): EnvValidationResult {
   const errors: string[] = [];
 
   // ── Required vars ──────────────────────────────────────────────────────────
   for (const spec of REQUIRED) {
-    const value = process.env[spec.name];
+    const value = env[spec.name];
     if (!value?.trim()) {
-      errors.push(
-        `  ✗ ${spec.name} is not set\n    ${spec.description}`
-      );
+      errors.push(`  ✗ ${spec.name} is not set\n    ${spec.description}`);
       continue;
     }
     if (spec.validate) {
       const msg = spec.validate(value);
-      if (msg) {
-        errors.push(`  ✗ ${spec.name}: ${msg}\n    ${spec.description}`);
-      }
+      if (msg) errors.push(`  ✗ ${spec.name}: ${msg}\n    ${spec.description}`);
     }
   }
 
-  // ── Database: at least one connection string must exist ────────────────────
+  // ── Database: at least one connection string must be present ───────────────
   const hasDb =
-    !!(process.env["DATABASE_URL"]?.trim()) ||
-    !!(process.env["SUPABASE_DATABASE_URL"]?.trim());
+    !!(env["DATABASE_URL"]?.trim()) || !!(env["SUPABASE_DATABASE_URL"]?.trim());
   if (!hasDb) {
     errors.push(
       "  ✗ DATABASE_URL or SUPABASE_DATABASE_URL is not set\n" +
@@ -169,7 +202,45 @@ export function validateEnv(): void {
     );
   }
 
-  // ── Throw early if anything is missing ────────────────────────────────────
+  // ── Feature group status ───────────────────────────────────────────────────
+  const features: FeatureRow[] = FEATURE_GROUPS.map((group) => {
+    const missing = group.vars.filter((v) => !env[v]?.trim());
+    const set = group.vars.length - missing.length;
+
+    if (group.mode === "any") {
+      return {
+        feature: group.feature,
+        status: set > 0 ? "enabled" : "not-set",
+        missingVars: set > 0 ? [] : group.vars,
+        description: group.description,
+      } satisfies FeatureRow;
+    }
+
+    if (missing.length === 0) {
+      return { feature: group.feature, status: "enabled", missingVars: [], description: group.description };
+    } else if (set > 0) {
+      return { feature: group.feature, status: "partial", missingVars: missing, description: group.description };
+    } else {
+      return { feature: group.feature, status: "not-set", missingVars: group.vars, description: group.description };
+    }
+  });
+
+  // AI is enabled when AI_API_KEY is set OR both proxy vars are set
+  const aiEnabled =
+    !!(env["AI_API_KEY"]?.trim()) ||
+    (!!(env["AI_INTEGRATIONS_OPENAI_API_KEY"]?.trim()) &&
+      !!(env["AI_INTEGRATIONS_OPENAI_BASE_URL"]?.trim()));
+
+  return { errors, features, aiEnabled };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Side-effecting runner — exits on error, prints table on success
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function validateEnv(env: Record<string, string | undefined> = process.env): void {
+  const { errors, features, aiEnabled } = collectEnvErrors(env);
+
   if (errors.length > 0) {
     const lines = [
       "",
@@ -182,50 +253,34 @@ export function validateEnv(): void {
       "  See .env.example for a full list of variables and their descriptions.",
       "",
     ];
-    // Use process.stderr directly — logger may not be configured yet
     process.stderr.write(lines.join("\n") + "\n");
     process.exit(1);
   }
 
-  // ── Feature status table ───────────────────────────────────────────────────
-  const rows: { feature: string; status: string; note: string }[] = [];
+  const statusLabel: Record<FeatureRow["status"], string> = {
+    enabled: "✓ enabled",
+    partial: "⚠ partial",
+    "not-set": "○ not set",
+  };
 
-  for (const group of FEATURE_GROUPS) {
-    const missing = group.vars.filter((v) => !process.env[v]?.trim());
-    if (missing.length === 0) {
-      rows.push({ feature: group.feature, status: "✓ enabled", note: "" });
-    } else if (missing.length < group.vars.length) {
-      // Partially configured — more likely a mistake than intentional
-      rows.push({
-        feature: group.feature,
-        status: "⚠ partial",
-        note: `missing: ${missing.join(", ")}`,
-      });
-    } else {
-      rows.push({
-        feature: group.feature,
-        status: "○ not set",
-        note: group.description,
-      });
-    }
-  }
-
-  // Special-case: AI is considered "enabled" if either key is set
-  const aiEnabled =
-    !!(process.env["AI_API_KEY"]?.trim()) ||
-    !!(process.env["AI_INTEGRATIONS_OPENAI_API_KEY"]?.trim()) ||
-    !!(process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"]?.trim());
+  const rows = features.map((f) => ({
+    feature: f.feature,
+    status: statusLabel[f.status],
+    note:
+      f.status === "partial"
+        ? `missing: ${f.missingVars.join(", ")}`
+        : f.status === "not-set"
+          ? f.description
+          : "",
+  }));
 
   const featureWidth = Math.max(...rows.map((r) => r.feature.length), 20);
   const statusWidth = 12;
 
-  const header =
-    `  ${"Feature".padEnd(featureWidth)}  ${"Status".padEnd(statusWidth)}  Note`;
+  const header = `  ${"Feature".padEnd(featureWidth)}  ${"Status".padEnd(statusWidth)}  Note`;
   const separator = `  ${"─".repeat(featureWidth)}  ${"─".repeat(statusWidth)}  ${"─".repeat(30)}`;
-
   const tableRows = rows.map(
-    (r) =>
-      `  ${r.feature.padEnd(featureWidth)}  ${r.status.padEnd(statusWidth)}  ${r.note}`
+    (r) => `  ${r.feature.padEnd(featureWidth)}  ${r.status.padEnd(statusWidth)}  ${r.note}`
   );
 
   const lines = [

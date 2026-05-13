@@ -267,8 +267,10 @@ export default function Dashboard() {
         <OnboardingDashboardCard />
       </div>
 
-      {/* Google permissions nudge — shown when a connected website has missing scopes */}
-      {websites?.[0]?.id && <GooglePermissionsBanner websiteId={websites[0].id} />}
+      {/* Google permissions nudge — shown for any connected website with missing scopes */}
+      {(websites ?? []).map(site => (
+        <GooglePermissionsBanner key={site.id} websiteId={site.id} />
+      ))}
 
       {/* Stats grid */}
       <div data-tour="stats-grid">

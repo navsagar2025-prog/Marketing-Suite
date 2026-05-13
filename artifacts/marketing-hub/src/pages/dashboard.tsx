@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Globe, Search, Megaphone, Users, Link2, TrendingUp, Target, Calendar,
-  Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2, AlertCircle
+  Sparkles, BarChart3, Zap, Plus, ArrowRight, Share2, AlertCircle, RefreshCw, AlertTriangle
 } from "lucide-react";
 import { ProductTour, TourLaunchButton, useTour } from "@/components/ProductTour";
 import { ActiveVisitorsBadge } from "@/components/ActiveVisitorsBadge";
@@ -20,6 +21,9 @@ import {
   useGetCampaignAnalytics,
   useListWebsites,
   useGetGoogleIntegrationStatus,
+  getGa4Report,
+  getGetAnalyticsSummaryQueryKey,
+  type GetGa4ReportRefresh,
 } from "@workspace/api-client-react";
 
 function GooglePermissionsBanner({ websiteId }: { websiteId: number }) {
@@ -45,6 +49,93 @@ function GooglePermissionsBanner({ websiteId }: { websiteId: number }) {
           </Link>
         </p>
       </div>
+    </div>
+  );
+}
+
+type DashboardReconnectState = 'pending' | 'failed' | 'done';
+
+function DashboardGa4RefreshingBanner() {
+  const queryClient = useQueryClient();
+
+  const [pendingIds] = useState<number[]>(() => {
+    const ids: number[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith("ga4-reconnect-pending-")) {
+        const id = parseInt(key.replace("ga4-reconnect-pending-", ""), 10);
+        if (!isNaN(id)) ids.push(id);
+      }
+    }
+    return ids;
+  });
+
+  const [bannerState, setBannerState] = useState<DashboardReconnectState>(
+    () => (pendingIds.length > 0 ? 'pending' : 'done')
+  );
+
+  useEffect(() => {
+    if (bannerState !== 'pending') return;
+    if (pendingIds.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.allSettled(
+        pendingIds.map(id =>
+          getGa4Report(id, { dateRange: "30d", refresh: "true" as GetGa4ReportRefresh })
+        )
+      );
+      if (cancelled) return;
+
+      if (results.some(r => r.status === 'rejected')) {
+        setBannerState('failed');
+      } else {
+        pendingIds.forEach(id => sessionStorage.removeItem(`ga4-reconnect-pending-${id}`));
+        await queryClient.refetchQueries({ queryKey: getGetAnalyticsSummaryQueryKey() });
+        if (!cancelled) setBannerState('done');
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [bannerState, pendingIds, queryClient]);
+
+  if (bannerState === 'done') return null;
+
+  if (bannerState === 'failed') {
+    return (
+      <div
+        className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 px-4 py-3"
+        data-testid="banner-dashboard-ga4-refresh-failed"
+      >
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+            Could not load fresh GA4 data
+          </p>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+            The connection succeeded, but fetching data failed.{" "}
+            <button
+              onClick={() => setBannerState('pending')}
+              className="underline font-medium hover:no-underline"
+              data-testid="button-dashboard-ga4-refresh-retry"
+            >
+              Try again
+            </button>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40 px-4 py-3"
+      data-testid="banner-dashboard-ga4-refreshing"
+    >
+      <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 animate-spin" />
+      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+        Refreshing data…
+      </p>
     </div>
   );
 }
@@ -266,6 +357,9 @@ export default function Dashboard() {
       <div data-tour="getting-started">
         <OnboardingDashboardCard />
       </div>
+
+      {/* Refreshing indicator — shown after Google reconnect until fresh GA4 data loads */}
+      <DashboardGa4RefreshingBanner />
 
       {/* Google permissions nudge — shown for any connected website with missing scopes */}
       {(websites ?? []).map(site => (
